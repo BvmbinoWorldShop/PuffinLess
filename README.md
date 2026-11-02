@@ -1,88 +1,106 @@
-# Puff Less — Premium Quitting Companion & Wealth Vault 🌿💎
+# PuffinLess — Elite Habit Tracker, Addiction Recovery & Wealth Vault 🌿💎
 
-> A translucent-morphic mobile app designed to help smokers track their habits, reclaim their physical vitality, compound their savings, and conquer cravings with science-backed neuro-tools.
+> A state-of-the-art translucent-morphic Progressive Web App (PWA) designed to help smokers and vapers master their neurochemistry, track multi-substance consumption (Cigarettes, Puffs / Vapes, Cannabis), compound their financial savings, and permanently overcome cravings.
 
 ---
 
 ## ✨ Features Overview
 
-### 1. 💎 Translucent Morphic Luxury Design
-- **Frosted Glassmorphism**: Deep obsidian-emerald backdrop (`radial-gradient`), layered glass surfaces (`backdrop-blur-xl`), metallic bevels, and subtle rim highlights.
-- **Cross-Platform Responsive**: Native mobile layout with an integrated **Mobile Device Preview Frame** (simulating dynamic island, status bar, and curved chassis) or responsive full-screen desktop view.
-- **Haptic & Meditative Audio**: Built-in Web Audio API sound generator providing subtle tactile click sounds, celebratory milestone chimes, and calming inhale/exhale meditation tones.
+### 1. 🇫🇷 & 🇺🇸 100% Instant Bilingual Experience
+- **One-Tap Language Toggle**: Prominently situated at the top right header right next to the CRAVING button.
+- **Deep Translation Across 100% of Content**:
+  - 30 Motivational & Philosophical Quotes
+  - 23 Peer-Reviewed Clinical Studies (Lancet, BMJ, JAMA, Nature)
+  - 17 Curated Recovery Resources, Books & 24/7 Crisis Helplines
+  - 9 Myth vs. Fact breakdowns
+  - Complete Nicotine & Cannabis withdrawal recovery timelines
+  - 11 Psychology & Neurobiology Masterclasses
+  - Level ladders (Débutant, Intermédiaire, Expert) and tier badges
 
-### 2. 🚀 3-Step Guided Onboarding
-- **Step 1: Introduction**: High-aesthetic morphic showcase detailing cellular healing, the wealth vault, 3-minute SOS crave defense, and prestige trophies.
-- **Step 2: Habit Baseline**: Configure cigarettes smoked per day, cost per pack, currency symbol, quit date, and primary motivators with instant 1-year wealth forecast.
-- **Step 3: Interactive Quitting Arsenal**: Hands-on tutorial on navigating the emergency tools and rewards system with celebration confetti.
+### 2. 🧠 Obsidian Intelligence Core
+- **Adaptive Recovery Engine**: Continuously synthesizes user clean-time streaks, cravings resisted, and multi-substance intake.
+- **Personalized Daily Coaching**: Dynamic headline, status chips, and contextual advice tailored to current recovery stage and emotional state.
+- **Substance Science & Cellular Breakdown**: Rigorous pharmacokinetic impact models for Cigarettes (Tar, Carbon Monoxide), Puffs (Freebase/Salt Nicotine, Formaldehyde), and Cannabis (THC down-regulation, REM suppression).
 
-### 3. ⏱️ Real-Time Smoke-Free Tracker & Cellular Healing
-- **Digital Clean Breath Clock**: Days, hours, minutes, and seconds elapsed since quitting or tapering.
-- **Avoided Cigarettes & Regained Life**: Medical computation (+11 minutes of biological life reclaimed per cigarette avoided).
-- **WHO & CDC Regeneration Milestones**:
-  - `20 Minutes`: Pulse & vascular blood pressure normalization
-  - `8 Hours`: 50% Carbon monoxide clearance & oxygen saturation
-  - `24 Hours`: Cardiac infarction risk reduction & debris expulsion
-  - `48 Hours`: Nerve ending regrowth, enhanced taste & smell
-  - `72 Hours`: Bronchial muscle relaxation & increased lung capacity
-  - `2 Weeks`: Peripheral circulation & physical stamina surge
-  - `1 Month`: Cilia reactivation in airways & immunity boost
-  - `3 Months`: +10% Lung capacity gain & wheeze reduction
-  - `1 Year`: Coronary artery disease excess risk cut by 50%
+### 3. 🚬 Multi-Substance & Situational Trigger Tracking
+- **Granular Logging**: Add single or custom counts of **Cigarettes**, **Puffs / Vapes**, or **Cannabis joints / bowls**.
+- **Context & Motivations**: Record exact situational triggers (Stress, Habit / Routine, After Meal, Social / Party, Boredom, Alcohol pairing).
+- **Auto Clean-Breath Reset**: Logging a slip automatically resets the Clean Breath timer and calculates life regained/lost.
 
-### 4. 💰 Wealth Vault & Dream Wishlist Goals
-- **Compound Forecasts**: Visual projections across 1 week, 1 month, 6 months, 1 year, and 5 years.
-- **Interactive Wishlists**: Assign goals (Apple Watch Ultra, Weekend Alpine Retreat, Michelin Dining, Headphones) that automatically fill with progress bars funded by unburned cigarette money.
-- **Goal Completion**: Confetti celebration when a dream goal reaches 100% funding.
+### 4. 💰 Money & Financial Impact Vault
+- **Detailed Spending Breakdown**: Track expenditures on packs, vapes, papers, lighters, herbs, and accessories.
+- **Comparative Wealth Projections**: 1 week, 1 month, 6 months, 1 year, and 5 years compounding.
+- **Interactive Dream Goals**: Automatically allocates unspent smoke money towards funding personal rewards (Apple Watch Ultra, Alpine Retreat, etc.).
 
-### 5. 🧘 Neuro-Breathing Studio & Wellness Center
-- **3 Guided Breathing Modes**:
-  - **4-7-8 Tranquility**: Inhale 4s, Hold 7s, Exhale 8s (activates parasympathetic brake).
-  - **Box Breathing 4-4-4-4**: Inhale 4s, Hold 4s, Exhale 4s, Pause 4s (Navy SEAL composure protocol).
-  - **Resonant 5.5s Flow**: Heart Rate Variability (HRV) optimization.
-- **Daily Mindset Sparks**: Curated quote deck with bookmarking and one-click share/copy.
-- **Science of Recovery Articles**: In-depth medical breakdowns on dopamine reset, the 3-minute craving bell curve, and alveolar repair.
+### 5. 🛌 Sleep Quality, Energy Ratings & Weekly Trends
+- Daily rating for sleep (1-10) and energy levels (1-10).
+- 7-day trend chart with multi-substance bar comparisons demonstrating how smoking directly suppresses sleep quality and stamina.
 
-### 6. 🚨 SOS Crave Interceptor (Emergency Button)
-- Available at all times via the glowing top-right header button.
-- **Immediate 3-Minute Neutralizer**: 4-7-8 breathing circle with audio cues.
-- **5-4-3-2-1 Sensory Grounding**: Breaks obsessive loop by engaging physical senses.
-- **Reality Check**: Real-time reminder of money saved and timer preservation.
-- **"I Resisted This Craving!"**: Logs victory to craving history with +50 XP and celebration confetti.
-
-### 7. 🏆 Prestige Trophy Hall & VIP Discounts
-- **Trophy System**: Bronze, Silver, Gold, Platinum, and Diamond tiers for time, money, and craving milestones.
-- **VIP Partner Perks**: Exclusive discount codes (smart wearable rebates, gym memberships, mindfulness subscriptions) unlocked automatically as milestones are achieved.
-
-### 8. 💬 The Smoke-Free Tribe (Community Forum)
-- Filter posts by `#Milestone`, `#SOS Help`, `#Advice`, `#Wins`.
-- Author cards showing current smoke-free day count.
-- Interactive support hearts and custom post publishing.
+### 6. 📱 PWA Ready (Progressive Web App)
+- **Installable on iOS & Android**:
+  - **iOS Safari**: Tap **Share** -> **Add to Home Screen**
+  - **Android Chrome**: Tap the install banner or **Menu** -> **Install App**
+- **Offline & Cache-Optimized**: Custom Service Worker (`sw.js`) and Web App Manifest (`manifest.json`) with standard 192x192 & 512x512 icons and vector maskable icons.
+- **Ultra-fast Loading**: Pre-cached shell with Stale-While-Revalidate asset updates.
 
 ---
 
-## 🛠️ Quick Start
+## 🚀 How to Deploy
+
+### Option 1: 1-Click Deployment to Vercel (Recommended)
+1. Push this repository to your GitHub account:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/PuffinLess.git
+   git branch -M main
+   git push -u origin main
+   ```
+2. Open [Vercel New Project](https://vercel.com/new).
+3. Import the `PuffinLess` repository.
+4. Click **Deploy**. Vercel will automatically detect `vite` and the pre-configured `vercel.json` and deploy in less than 30 seconds!
+
+Or deploy directly with the Vercel CLI:
+```bash
+npx vercel
+```
+
+### Option 2: Automatic Deployment to GitHub Pages
+A fully automated GitHub Actions workflow is included at `.github/workflows/deploy.yml`:
+1. Push your repository to GitHub:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/PuffinLess.git
+   git branch -M main
+   git push -u origin main
+   ```
+2. In your GitHub repository, go to **Settings** -> **Pages**.
+3. Under **Build and deployment > Source**, select **GitHub Actions**.
+4. The workflow will automatically build and publish your app at:
+   `https://YOUR_USERNAME.github.io/PuffinLess/`
+
+---
+
+## 🛠️ Local Development
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 npm install
 
-# 2. Start the development server
+# Start development server
 npm run dev
 
-# 3. Build for production
+# Run lint audit
+npm run lint
+
+# Compile production build
 npm run build
 ```
 
 ---
 
-## 📱 Packaging for iOS and Android (Capacitor)
-
-To compile this project into native iOS (.ipa) and Android (.apk / .aab) apps:
+## 📱 Native App Packaging (Capacitor for iOS & Android)
 
 ```bash
 npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
-npx cap init "Puff Less" "com.puffinless.app" --web-dir "dist"
+npx cap init "PuffinLess" "com.puffinless.app" --web-dir "dist"
 npm run build
 npx cap add ios
 npx cap add android
