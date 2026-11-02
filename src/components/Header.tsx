@@ -1,17 +1,17 @@
 import React from 'react';
-import { Volume2, VolumeX, Zap, User, Smartphone, Monitor, Sun, Moon } from 'lucide-react';
+import { Zap, User, Smartphone, Monitor, Sun, Moon } from 'lucide-react';
 import type { UserProfile } from '../types';
-import { PuffinLessLogo } from './PuffinLessLogo';
+import type { LevelTier } from '../core/levels';
+import { Dynamic3DIcon } from './Dynamic3DIcon';
 import { sound } from '../utils/audio';
 import { t } from '../utils/i18n';
 
 interface HeaderProps {
   profile: UserProfile;
   streakLabel: string;
-  levelLabel: string;
+  tier: LevelTier;
   onOpenSos: () => void;
   onOpenProfile: () => void;
-  onToggleSound: () => void;
   onToggleTheme: () => void;
   isMobileDeviceFrame: boolean;
   onToggleDeviceFrame: () => void;
@@ -20,35 +20,56 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   profile,
   streakLabel,
-  levelLabel,
+  tier,
   onOpenSos,
   onOpenProfile,
-  onToggleSound,
   onToggleTheme,
   isMobileDeviceFrame,
   onToggleDeviceFrame,
 }) => {
   const isDark = profile.theme === 'dark';
   const lang = profile.language || 'en';
+  const isFr = lang === 'fr';
+
+  // Level color code: Green = Beginner, Orange = Mid, Red = Expert
+  const tierMeta =
+    tier === 'expert'
+      ? {
+          dot: 'bg-rose-500 shadow-[0_0_10px_#f43f5e]',
+          border: 'border-rose-500/40',
+          tooltip: isFr ? 'Niveau Rouge : Expert' : 'Red Tier: Expert',
+        }
+      : tier === 'intermediate'
+      ? {
+          dot: 'bg-amber-400 shadow-[0_0_10px_#fbbf24]',
+          border: 'border-amber-500/40',
+          tooltip: isFr ? 'Niveau Orange : Intermédiaire' : 'Orange Tier: Mid',
+        }
+      : {
+          dot: 'bg-emerald-400 shadow-[0_0_10px_#34d399]',
+          border: 'border-emerald-500/40',
+          tooltip: isFr ? 'Niveau Vert : Débutant' : 'Green Tier: Beginner',
+        };
 
   return (
     <header className="sticky top-0 z-40 w-full px-3 sm:px-4 pt-3 pb-3 backdrop-blur-xl border-b transition-all duration-300 bg-slate-950/70 border-white/5">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-        {/* Brand */}
+        {/* Brand with 3D Dynamic Habit Icon */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="shadow-lg shadow-emerald-500/20 shrink-0">
-            <PuffinLessLogo size={36} />
+          <div className="shrink-0 drop-shadow-md">
+            <Dynamic3DIcon size={36} />
           </div>
           <div className="min-w-0">
             <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-none bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
               {t('brandName', lang)}
             </h1>
+            {/* Color-coded habit indicator without level text */}
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-400">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="tabular-nums truncate">{streakLabel}</span>
-              <span className="px-1.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-                {levelLabel}
-              </span>
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${tierMeta.dot} animate-pulse shrink-0`}
+                title={tierMeta.tooltip}
+              />
+              <span className="tabular-nums truncate font-medium text-slate-300">{streakLabel}</span>
             </div>
           </div>
         </div>
@@ -71,20 +92,17 @@ export const Header: React.FC<HeaderProps> = ({
             {isMobileDeviceFrame ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
           </button>
 
-          <button
-            onClick={() => { onToggleSound(); sound.playClick(); }}
-            title={profile.soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-            className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl glass-button text-slate-300"
-          >
-            {profile.soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-          </button>
-
+          {/* Profile & Settings Button */}
           <button
             onClick={() => { sound.playClick(); onOpenProfile(); }}
-            className="w-8 h-8 rounded-xl p-0.5 border border-white/20 glass-button overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all ring-1 ring-emerald-400/30"
-            title="Profile, Coach Settings & Language"
+            className={`w-8 h-8 rounded-xl p-0.5 border ${tierMeta.border} glass-button overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all ring-1 ring-white/10`}
+            title="Profile, Coach Settings & Avatar"
           >
-            {profile.avatar ? <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover rounded-lg" /> : <User className="w-4 h-4 text-slate-300" />}
+            {profile.avatar ? (
+              <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover rounded-lg" />
+            ) : (
+              <User className="w-4 h-4 text-slate-300" />
+            )}
           </button>
 
           {/* Craving button */}

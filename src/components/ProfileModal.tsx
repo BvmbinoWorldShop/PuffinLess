@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
-  Flame, Brain, Check, ChevronRight, Activity, Shield
+  Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType } from '../types';
 import { sound } from '../utils/audio';
@@ -14,6 +14,45 @@ interface ProfileModalProps {
   onRerunOnboarding: () => void;
   onResetData: () => void;
 }
+
+const PRESET_AVATARS = [
+  {
+    id: 'male-urban',
+    labelEn: 'Urban Modern (M)',
+    labelFr: 'Urbain Moderne (H)',
+    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'female-zen',
+    labelEn: 'Mindful Chic (F)',
+    labelFr: 'Élégance Zen (F)',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'creative-art',
+    labelEn: 'Creative Arts',
+    labelFr: 'Artiste Créatif',
+    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'male-exec',
+    labelEn: 'Classic Leader (M)',
+    labelFr: 'Leader Classique (H)',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'female-radiant',
+    labelEn: 'Radiant Glow (F)',
+    labelFr: 'Éclat Lumineux (F)',
+    url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'athletic-calm',
+    labelEn: 'Athletic Calm',
+    labelFr: 'Athlète Sérénité',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+  },
+];
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen,
@@ -32,6 +71,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [soundEnabled, setSoundEnabled] = useState(profile.soundEnabled);
 
   // Identity & Life Context
+  const [avatar, setAvatar] = useState(profile.avatar || PRESET_AVATARS[1].url);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [name, setName] = useState(profile.name || '');
   const [age, setAge] = useState<number | ''>(profile.age ?? 28);
   const [gender, setGender] = useState(profile.gender || 'Prefer not to say');
@@ -149,6 +191,49 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     };
   }, [name, primarySubstance, job, religion, monthlyCostEstimate, incomePercent, currency, isFr]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 256;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setAvatar(compressedDataUrl);
+        } else {
+          setAvatar(rawDataUrl);
+        }
+        sound.playClick();
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -156,6 +241,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     const updated: UserProfile = {
       ...profile,
       name: name.trim() || 'Champion',
+      avatar,
       language: lang,
       theme,
       soundEnabled,
@@ -221,14 +307,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         {/* Modal Header */}
         <div className="flex items-center gap-3.5 mb-4 shrink-0">
-          <div className="relative">
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            title={isFr ? 'Changer de photo de profil' : 'Change profile picture'}
+            className="relative cursor-pointer group"
+          >
             <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-lg shadow-emerald-500/20 bg-slate-900">
               <img
-                src={profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'}
+                src={avatar}
                 alt={name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
               />
             </div>
+            <span className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+              <Camera className="w-4 h-4 text-white" />
+            </span>
             <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             </span>
@@ -333,6 +426,64 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     ? 'Ces informations restent 100% privées sur votre appareil. Elles permettent au moteur Obsidian Core de calibrer des conseils psychologiques et financiers adaptés à votre réalité.'
                     : 'This information stays 100% private on your device. It allows the Obsidian Core to personalize psychological and financial coaching to your exact life.'}
                 </span>
+              </div>
+
+              {/* AVATAR SELECTOR & LOCAL PHOTO UPLOAD */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{isFr ? 'Photo de Profil & Style (6 styles)' : 'Profile Photo & Styles (6 styles)'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>{isFr ? 'Importer photo' : 'Upload photo'}</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* 6 Avatar Presets */}
+                <div className="grid grid-cols-6 gap-2 pt-1">
+                  {PRESET_AVATARS.map((p) => {
+                    const isSelected = avatar === p.url;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          setAvatar(p.url);
+                        }}
+                        title={isFr ? p.labelFr : p.labelEn}
+                        className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                          isSelected
+                            ? 'border-emerald-400 ring-2 ring-emerald-400/40 scale-105 shadow-md shadow-emerald-500/30'
+                            : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/30'
+                        }`}
+                      >
+                        <img src={p.url} alt={p.id} className="w-full h-full object-cover" />
+                        {isSelected && (
+                          <span className="absolute bottom-0 inset-x-0 bg-emerald-500/80 py-0.5 flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-white" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 text-center">
+                  {isFr ? 'Choisissez un avatar ou importez votre propre photo depuis votre téléphone.' : 'Select a preset style or upload your own picture from your device.'}
+                </p>
               </div>
 
               <div>

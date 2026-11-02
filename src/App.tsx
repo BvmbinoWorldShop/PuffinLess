@@ -11,7 +11,6 @@ import { RewardsView } from './components/RewardsView';
 import { SosModal } from './components/SosModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProfileModal } from './components/ProfileModal';
-import { TIER_META } from './core/levels';
 import { formatDuration } from './utils/dates';
 import { t } from './utils/i18n';
 
@@ -44,12 +43,12 @@ export function App() {
 
   const content = (
     <div className="min-h-screen flex flex-col relative selection:bg-emerald-500/30">
-      {/* Status bar */}
-      <div className="w-full px-6 pt-2 pb-1 flex items-center justify-between text-xs text-slate-400 font-medium select-none">
+      {/* Status bar (Always visible with dynamic safe-area for iPhone) */}
+      <div className="w-full px-4 sm:px-6 pt-[max(env(safe-area-inset-top),0.5rem)] pb-1 flex items-center justify-between text-xs text-slate-400 font-medium select-none">
         <span className="font-semibold text-slate-200 tabular-nums">{timeStr}</span>
-        <div className="w-24 h-4 rounded-full bg-black/70 border border-white/10 hidden sm:flex items-center justify-center gap-1.5 px-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[9px] text-slate-300 font-bold tracking-wide">PuffinLess</span>
+        <div className="h-5 px-2.5 rounded-full bg-slate-900/90 border border-emerald-500/30 flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]" />
+          <span className="text-[10px] text-emerald-300 font-extrabold tracking-wide">PuffinLess</span>
         </div>
         <div className="flex items-center gap-2 text-slate-300">
           <Signal className="w-3.5 h-3.5" />
@@ -61,10 +60,9 @@ export function App() {
       <Header
         profile={profile}
         streakLabel={`${formatDuration(stats.elapsedSeconds)} ${t('smokeFree', lang)}`}
-        levelLabel={`${TIER_META[stats.level.tier].name} L${stats.level.levelNumber}`}
+        tier={stats.level.tier}
         onOpenSos={() => setIsSosOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
-        onToggleSound={actions.toggleSound}
         onToggleTheme={actions.toggleTheme}
         isMobileDeviceFrame={isMobileFrame}
         onToggleDeviceFrame={() => setIsMobileFrame(!isMobileFrame)}
