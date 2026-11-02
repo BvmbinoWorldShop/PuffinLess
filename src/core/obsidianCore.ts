@@ -332,6 +332,84 @@ export function buildCoreReport(input: {
     });
   }
 
+  // ---- Personalized AI Life Coach Modules ----
+  if (profile.job) {
+    add({
+      id: 'career-coaching',
+      tone: 'tip',
+      priority: 65,
+      title: isFr
+        ? `Coaching Pro (${profile.job}) : Focus & Énergie`
+        : `Career Coaching (${profile.job}): Sustained Focus`,
+      body: isFr
+        ? `Dans votre activité (${profile.job}), les cycles de manque chimique provoquaient des chutes de dopamine et des sautes de concentration. L'arrêt stabilise votre système nerveux et décuple votre endurance mentale.`
+        : `In your profession (${profile.job}), withdrawal loops caused mid-day dopamine crashes and focus dips. Staying clean stabilizes your baseline dopamine and sustained mental stamina.`,
+    });
+  }
+
+  if (profile.monthlyIncome && profile.monthlyIncome > 0) {
+    const monthlyBurn = Math.round(stats.dailyBaselineCost * 30.5);
+    const incomePercent = Math.round((monthlyBurn / profile.monthlyIncome) * 100);
+    if (incomePercent > 0) {
+      add({
+        id: 'income-freedom',
+        tone: 'win',
+        priority: 62,
+        title: isFr
+          ? `Pouvoir d'achat : ${incomePercent}% de vos revenus libérés`
+          : `Financial Freedom: ${incomePercent}% of Your Income Liberated`,
+        body: isFr
+          ? `Vous dépensiez environ ${profile.currency}${monthlyBurn}/mois (${incomePercent}% de votre salaire net de ${profile.currency}${profile.monthlyIncome.toLocaleString()}). En arrêtant, vous récupérez ${profile.currency}${Math.round(monthlyBurn * 12).toLocaleString()} par an pour vos vrais projets.`
+          : `You were spending ~${profile.currency}${monthlyBurn}/month (${incomePercent}% of your ${profile.currency}${profile.monthlyIncome.toLocaleString()} net salary). Quitting frees up ${profile.currency}${Math.round(monthlyBurn * 12).toLocaleString()} every single year.`,
+      });
+    }
+  }
+
+  const primarySub = profile.primarySubstance || (habit.topSubstance ?? 'cigarette');
+  if (primarySub === 'cannabis') {
+    add({
+      id: 'substance-cannabis-coach',
+      tone: 'info',
+      priority: 58,
+      title: isFr ? 'Restauration des Récepteurs CB1 & Sommeil Paradoxal' : 'CB1 Receptor Recovery & REM Sleep',
+      body: isFr
+        ? 'Après l\'arrêt du cannabis, les récepteurs cannabinoïdes CB1 du cerveau se régénèrent en 3 à 4 semaines. Le sommeil paradoxal profond (rêves, consolidation mnésique) redevient naturel et réparateur.'
+        : 'After stopping cannabis, CB1 cannabinoid receptors regenerate over 3 to 4 weeks. Deep REM sleep rebounds, restoring natural dream cycles and sharp daytime recall.',
+    });
+  } else if (primarySub === 'puff_vape') {
+    add({
+      id: 'substance-vape-coach',
+      tone: 'info',
+      priority: 58,
+      title: isFr ? 'Désactivation des Puffs & Vapeurs Chauffées' : 'Dismantling Vape Salt-Nic Loops',
+      body: isFr
+        ? 'Les puffs délivrent des sels de nicotine à absorption fulgurante incitant au micro-puffing continu. En coupant ce flux, vos bronches et alvéoles éliminent les traces d\'aérosols en quelques jours.'
+        : 'Vape puffs deliver ultra-rapid nicotine salts that drive compulsive micro-puffing all day long. Breaking this loop allows airways to expel aerosol traces within days.',
+    });
+  } else if (primarySub === 'cigarette') {
+    add({
+      id: 'substance-cig-coach',
+      tone: 'info',
+      priority: 58,
+      title: isFr ? 'Désoxydation Sanguine & Oxygène Cellulaire' : 'Oxygen Saturation & Arterial Cleansing',
+      body: isFr
+        ? 'Le monoxyde de carbone quitte définitivement votre système cardiovasculaire en 24 à 48 heures. Votre taux d\'oxygène remonte à 100%, allégeant immédiatement la charge cardiaque.'
+        : 'Carbon monoxide fully leaves your vascular system within 24 to 48 hours. Cellular oxygen saturation climbs back to 100%, immediately easing cardiac load.',
+    });
+  }
+
+  if (profile.religion && profile.religion !== 'None' && profile.religion !== 'Secular') {
+    add({
+      id: 'spiritual-mindset',
+      tone: 'win',
+      priority: 52,
+      title: isFr ? `Maîtrise & Clarté (${profile.religion})` : `Inner Sovereignty (${profile.religion})`,
+      body: isFr
+        ? `Votre quête de clarté (${profile.religion}) honore le corps comme un temple. Chaque pulsion refusée réaffirme votre souveraineté sur les dépendances matérielles.`
+        : `Your values (${profile.religion}) honor mental clarity and bodily vitality. Every resisted urge reclaims sovereignty over material compulsions.`,
+    });
+  }
+
   if (stats.moneySaved > 0) {
     add({
       id: 'money',
@@ -368,7 +446,7 @@ export function buildCoreReport(input: {
   return {
     greeting: greetingFor(profile.name, isFr),
     headline,
-    insights: insights.slice(0, 5),
+    insights: insights.slice(0, 7),
     today,
     weekly,
     weeklySummary,

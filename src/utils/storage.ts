@@ -69,6 +69,22 @@ export const DEFAULT_PROFILE: UserProfile = {
   soundEnabled: true,
   theme: 'dark',
   language: 'en',
+  age: 28,
+  gender: 'Prefer not to say',
+  ethnicity: 'Mixed / Global',
+  religion: 'Spiritual',
+  job: 'Technology & Design',
+  monthlyIncome: 3800,
+  primarySubstance: 'cigarette',
+  habits: ['cigarette', 'puff_vape'],
+  smokingHabitByDay: {
+    cigarettes: 15,
+    puffs: 60,
+    cannabis: 0.5,
+    yearsSmoking: 6,
+    peakTriggers: ['Stress', 'After meal', 'Morning coffee'],
+  },
+  customCoachGoal: 'Reclaim my lung capacity, save $4,500/year to invest, and achieve peak cognitive performance.',
 };
 
 export const DEFAULT_PURCHASES: PurchaseExpense[] = [

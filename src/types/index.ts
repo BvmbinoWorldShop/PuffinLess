@@ -90,6 +90,24 @@ export interface UserProfile {
   soundEnabled: boolean;
   theme: AppTheme;
   language: Language;
+
+  // Personalized Life & Coach Context
+  age?: number;
+  gender?: string;
+  ethnicity?: string;
+  religion?: string;
+  job?: string;
+  monthlyIncome?: number;
+  primarySubstance?: SubstanceType;
+  habits?: SubstanceType[];
+  smokingHabitByDay?: {
+    cigarettes?: number;
+    puffs?: number;
+    cannabis?: number;
+    yearsSmoking?: number;
+    peakTriggers?: string[];
+  };
+  customCoachGoal?: string;
 }
 
 export interface CravingEntry {

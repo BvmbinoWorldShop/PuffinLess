@@ -13,7 +13,6 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onToggleSound: () => void;
   onToggleTheme: () => void;
-  onToggleLanguage: () => void;
   isMobileDeviceFrame: boolean;
   onToggleDeviceFrame: () => void;
 }
@@ -26,7 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onToggleSound,
   onToggleTheme,
-  onToggleLanguage,
   isMobileDeviceFrame,
   onToggleDeviceFrame,
 }) => {
@@ -83,8 +81,8 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => { sound.playClick(); onOpenProfile(); }}
-            className="w-8 h-8 rounded-xl p-0.5 border border-white/20 glass-button overflow-hidden flex items-center justify-center"
-            title="Profile & settings"
+            className="w-8 h-8 rounded-xl p-0.5 border border-white/20 glass-button overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all ring-1 ring-emerald-400/30"
+            title="Profile, Coach Settings & Language"
           >
             {profile.avatar ? <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover rounded-lg" /> : <User className="w-4 h-4 text-slate-300" />}
           </button>
@@ -97,28 +95,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="absolute -inset-0.5 rounded-xl bg-rose-500/40 blur-sm -z-10 animate-pulse" />
             <Zap className="w-3.5 h-3.5 fill-white group-hover:rotate-12 transition-transform" />
             <span>{t('cravingButton', lang)}</span>
-          </button>
-
-          {/* French / US Flag Toggle Button (FAR RIGHT NEXT TO CRAVING) */}
-          <button
-            onClick={() => {
-              sound.playClick();
-              onToggleLanguage();
-            }}
-            title={lang === 'en' ? 'Traduire en Français 🇫🇷' : 'Switch to English 🇺🇸'}
-            className="flex items-center justify-center h-8 px-2 rounded-xl glass-button text-xs font-bold gap-1 hover:scale-105 active:scale-95 transition-all border border-white/20 shadow-md"
-          >
-            {lang === 'en' ? (
-              <span className="flex items-center gap-1">
-                <span className="text-base leading-none">🇫🇷</span>
-                <span className="text-[10px] text-slate-200 font-bold hidden min-[400px]:inline">FR</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <span className="text-base leading-none">🇺🇸</span>
-                <span className="text-[10px] text-slate-200 font-bold hidden min-[400px]:inline">EN</span>
-              </span>
-            )}
           </button>
         </div>
       </div>

@@ -66,7 +66,6 @@ export function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onToggleSound={actions.toggleSound}
         onToggleTheme={actions.toggleTheme}
-        onToggleLanguage={actions.toggleLanguage}
         isMobileDeviceFrame={isMobileFrame}
         onToggleDeviceFrame={() => setIsMobileFrame(!isMobileFrame)}
       />
