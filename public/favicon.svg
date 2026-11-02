@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="puffinLessBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
+    <linearGradient id="cleanAura" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#a7f3d0" stop-opacity="0.75" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#puffinLessBg)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5" />
+
+  <!-- Broken Cigarette Stem -->
+  <path d="M16 44 L28 32 C29 31 30.5 31 31.5 32 C32.5 33 32.5 34.5 31.5 35.5 L19.5 47.5 C18.5 48.5 17 48.5 16 47.5 C15 46.5 15 45 16 44 Z" fill="white" fill-opacity="0.95" />
+  <!-- Amber filter band -->
+  <path d="M18 46 L21 43" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Break Sparks -->
+  <circle cx="34" cy="30" r="2.2" fill="#fbbf24" />
+  <circle cx="38" cy="36" r="1.5" fill="#34d399" />
+
+  <!-- Ascending Fresh Leaf / Vital Breath -->
+  <path d="M33 27 C34 19 44 14 49 14 C49 19 46 30 38 31 C35 31.5 32.5 29.5 33 27 Z" fill="url(#cleanAura)" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" />
+  <path d="M36 27 Q41 22 47 16" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.9" />
+</svg>

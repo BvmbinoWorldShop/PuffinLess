@@ -1,0 +1,33 @@
+{
+  "name": "PuffinLess — Quit Smoking & Habit Tracker",
+  "short_name": "PuffinLess",
+  "description": "Elite Biomarker & Addiction Recovery Assistant for Cigarettes, Puffs & Cannabis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#064e3b",
+  "lang": "en",
+  "categories": ["health", "lifestyle", "medical"],
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

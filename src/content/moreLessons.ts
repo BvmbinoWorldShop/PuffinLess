@@ -1,0 +1,148 @@
+import type { PsychologyLesson } from '../types';
+
+export const MORE_LESSONS: PsychologyLesson[] = [
+  {
+    id: 'psy-6',
+    title: 'What to Expect: The Withdrawal Timeline',
+    subtitle: 'Know the storm so it cannot surprise you',
+    duration: '4 min masterclass',
+    category: 'Biology of Craving',
+    iconName: 'Clock',
+    summary: 'Withdrawal is intense but time-limited. Knowing the schedule turns fear into a countdown.',
+    keyInsights: [
+      'Nicotine withdrawal starts within hours, peaks around days 3–7 and mostly fades over 2–4 weeks.',
+      'Cannabis withdrawal usually peaks in the first week and clears within one to three weeks.',
+      'Bad sleep, strange dreams and irritability are signs your brain is recalibrating, not signs you are failing.',
+    ],
+    biologicalDeepDive: [
+      'During regular use your brain adds receptors and lowers its own dopamine signalling to compensate. When you stop, the system needs days to weeks to rebalance.',
+      'Symptoms peak when the substance is fully cleared but the brain has not yet adapted, usually on days 3 to 7.',
+      'After that, what remains is mostly conditioned cues: places, moods and routines linked to using.',
+    ],
+    actionableMicroSteps: [
+      'Open the Library tab and read the timeline for your substance so you know today\'s stage.',
+      'Plan the first week: remove supplies, clear evenings and tell one person.',
+      'Log your sleep and energy daily. You will see the curve turn upward.',
+    ],
+  },
+  {
+    id: 'psy-7',
+    title: 'Map Your Triggers: HALT and If-Then Plans',
+    subtitle: 'Hungry, Angry, Lonely, Tired and what to do instead',
+    duration: '5 min masterclass',
+    category: 'Habit Rewiring',
+    iconName: 'Target',
+    summary: 'Most cravings fire from a small set of triggers. Name them once, plan once and you win repeatedly.',
+    keyInsights: [
+      'HALT: cravings are strongest when you are Hungry, Angry, Lonely or Tired.',
+      'The Craving button logs your trigger each time, so PuffinLess can show your top patterns.',
+      'If-then plans ("If I finish dinner, then I walk for 10 minutes") substantially raise follow-through.',
+    ],
+    biologicalDeepDive: [
+      'Low blood sugar, stress hormones and sleep loss all reduce prefrontal control while strengthening the limbic reward drive.',
+      'Meta-analyses of implementation intentions show a medium-to-large effect on goal attainment because the plan pre-loads the response and removes the need to decide.',
+      'The first 90 seconds of a craving are the most automatic. A planned action fills that gap before the mind starts negotiating.',
+    ],
+    actionableMicroSteps: [
+      'Write your top three triggers from your craving log.',
+      'For each, write one "if-then" replacement and put it in your phone notes.',
+      'Eat regular meals and protect your sleep: they weaken every trigger at once.',
+    ],
+  },
+  {
+    id: 'psy-8',
+    title: 'A Slip Is Not a Relapse',
+    subtitle: 'The abstinence violation effect and how to beat it',
+    duration: '4 min masterclass',
+    category: 'Relapse Recovery',
+    iconName: 'RefreshCcw',
+    summary: 'What you do in the first hour after a slip decides whether it stays a slip.',
+    keyInsights: [
+      'The abstinence violation effect: guilt and "I have ruined it" thinking make people continue using.',
+      'Most successful ex-smokers had several failed attempts first.',
+      'PuffinLess keeps your streak history. A reset never deletes what you have built.',
+    ],
+    biologicalDeepDive: [
+      'Guilt and shame raise stress, which increases craving. The slip becomes a spiral if you interpret it as total failure.',
+      'Self-compassion is linked to faster recovery after a lapse because it keeps the person engaged with their goal.',
+      'Each attempt teaches you something: the time, the trigger, the mood. That information raises the odds of the next attempt.',
+    ],
+    actionableMicroSteps: [
+      'Log the slip honestly. The counter restarts and the Core learns your pattern.',
+      'Ask three questions: when, why, what will I do differently?',
+      'Throw away what is left and drink water. Start the next hour clean.',
+    ],
+  },
+  {
+    id: 'psy-9',
+    title: 'Cannabis, Sleep and the "It Helps Me" Illusion',
+    subtitle: 'Why the nightly joint steals your best sleep',
+    duration: '5 min masterclass',
+    category: 'Substance Guides',
+    iconName: 'Leaf',
+    summary: 'Cannabis can make you drowsy, but regular use erodes the quality of the sleep you get and makes quitting feel like insomnia.',
+    keyInsights: [
+      'Short-term use may speed up falling asleep. Tolerance builds quickly.',
+      'Heavy long-term use is linked to poorer sleep quality and withdrawal insomnia.',
+      'Vivid dreams in week one of quitting mean your dreaming sleep is rebounding.',
+    ],
+    biologicalDeepDive: [
+      'THC acts on cannabinoid receptors that influence the sleep cycle. Regular use blunts the natural system so you need it to sleep.',
+      'After quitting, sleep can be broken for one to three weeks before it normalises, which is why many people relapse in that window.',
+      'Combusted cannabis also delivers tar and carbon monoxide to the lungs, especially when mixed with tobacco.',
+    ],
+    actionableMicroSteps: [
+      'Plan the first two weeks of sleep: fixed bedtime, no screens for an hour, a cool dark room.',
+      'Use 4-7-8 breathing in bed instead of the usual ritual.',
+      'Rate your sleep daily. Watch it dip and then rise above your old baseline.',
+    ],
+  },
+  {
+    id: 'psy-10',
+    title: 'Vaping: Why Puffs Add Up Faster Than You Think',
+    subtitle: 'Nicotine salts, no natural stopping point',
+    duration: '4 min masterclass',
+    category: 'Substance Guides',
+    iconName: 'Wind',
+    summary: 'A cigarette ends after about seven minutes. A vape never ends, so people take far more nicotine without noticing.',
+    keyInsights: [
+      'A disposable can contain nicotine equal to many packs of cigarettes.',
+      'No natural endpoint means mindless puffing all day, which is why logging puffs matters.',
+      'Quitting means stopping nicotine itself, not switching devices.',
+    ],
+    biologicalDeepDive: [
+      'Nicotine salts allow high doses to be inhaled smoothly, which increases dependence.',
+      'Nicotine raises heart rate and blood pressure and stiffens arteries in the short term.',
+      'Because each puff is tiny, the brain tracks the habit by cues and boredom rather than by a clear "I just smoked one".',
+    ],
+    actionableMicroSteps: [
+      'Log your puffs for two days before quitting to see your real number.',
+      'Remove the device from your pockets, desk and car.',
+      'Replace the hand-to-mouth habit with water, gum or a pen during your top three cues.',
+    ],
+  },
+  {
+    id: 'psy-11',
+    title: 'Build a Reward Menu: Replace, Do Not Just Remove',
+    subtitle: 'Give your brain a better deal',
+    duration: '4 min masterclass',
+    category: 'Habit Rewiring',
+    iconName: 'Gift',
+    summary: 'A vacuum feels like loss. A menu of healthy rewards feels like upgrade.',
+    keyInsights: [
+      'Habits stick when the reward is preserved, so you need replacement rewards.',
+      'Small immediate rewards beat distant benefits for the brain\'s reward system.',
+      'Money you save is the most powerful reward menu of all: attach it to a goal.',
+    ],
+    biologicalDeepDive: [
+      'The brain\'s reward circuit favours rewards that arrive quickly and repeatedly, so a daily visible "money saved" counter keeps motivation high.',
+      'Exercise, cold exposure, sunlight and social time all release dopamine and other mood chemicals without the crash.',
+      'Over weeks, your natural reward sensitivity recovers and ordinary pleasures feel better again.',
+    ],
+    actionableMicroSteps: [
+      'List five healthy rewards you can do in under ten minutes.',
+      'Open Money and add a Dream Wishlist goal. Watch it fill daily.',
+      'Reward every level you reach, even a small one.',
+    ],
+  },
+];
