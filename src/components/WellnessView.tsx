@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Wind, Brain, Quote as QuoteIcon, Bookmark, Share2, Play, Pause, RotateCcw, Check, ChevronRight, X, Moon,
   BatteryCharging, Sparkles, Library, FlaskConical, MonitorPlay, ShieldQuestion, CalendarClock, Phone,
@@ -55,7 +55,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
   const timeline = getTimeline(timelineKind, language);
   const quotes = getQuotes(language);
 
-  const TECHNIQUES: Record<Technique, { name: string; inhale: number; hold: number; exhale: number; pause: number; desc: string }> = {
+  const TECHNIQUES: Record<Technique, { name: string; inhale: number; hold: number; exhale: number; pause: number; desc: string }> = useMemo(() => ({
     '4-7-8': {
       name: isFr ? 'Sérénité 4-7-8' : '4-7-8 Tranquility',
       inhale: 4, hold: 7, exhale: 8, pause: 0,
@@ -77,7 +77,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
         ? 'Respiration douce à six respirations par minute, optimisant la variabilité de la fréquence cardiaque.'
         : 'Slow breathing near six breaths a minute supports heart-rate variability.',
     },
-  };
+  }), [isFr]);
 
   useEffect(() => {
     if (!running) return;
@@ -95,7 +95,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [running, phase, technique]);
+  }, [running, phase, technique, TECHNIQUES]);
 
   const startStop = () => {
     if (!running) { sound.playBreathTone(false); setPhase('Inhale'); setSecs(TECHNIQUES[technique].inhale); }

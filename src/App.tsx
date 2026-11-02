@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Wifi, Battery, Signal, Sparkles } from 'lucide-react';
 import { useAppStore } from './state/useAppStore';
 import { Header } from './components/Header';
@@ -26,7 +26,17 @@ export function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileFrame, setIsMobileFrame] = useState(false);
 
-  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const [timeStr, setTimeStr] = useState(() =>
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeStr(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   const goTab = (tab: TabType) => {
     setCurrentTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });

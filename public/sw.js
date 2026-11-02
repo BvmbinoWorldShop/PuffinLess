@@ -37,8 +37,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
-
   // For navigation requests (HTML pages), try network first, fallback to cached index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
