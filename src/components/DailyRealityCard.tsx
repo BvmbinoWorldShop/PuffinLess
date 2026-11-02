@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf } from 'lucide-react';
-import type { UserProfile } from '../types';
+import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus } from 'lucide-react';
+import type { UserProfile, SubstanceType } from '../types';
 import type { DailyReality } from '../core/obsidianCore';
 import { MorphicCard } from './MorphicCard';
 import { sound } from '../utils/audio';
@@ -11,9 +11,10 @@ const DAYS: Record<Period, number> = { day: 1, year: 365, decade: 3650 };
 interface Props {
   profile: UserProfile;
   reality: DailyReality;
+  onOpenLog?: (substance: SubstanceType) => void;
 }
 
-export const DailyRealityCard: React.FC<Props> = ({ profile, reality }) => {
+export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog }) => {
   const isFr = profile.language === 'fr';
   const [period, setPeriod] = useState<Period>('day');
   const d = DAYS[period];
@@ -75,20 +76,62 @@ export const DailyRealityCard: React.FC<Props> = ({ profile, reality }) => {
 
       {/* Counts */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="p-3 rounded-2xl glass-panel">
-          <Cigarette className="w-4 h-4 mx-auto text-amber-400" />
-          <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(cigs).toLocaleString()}</div>
-          <div className="text-[10px] text-slate-400">{isFr ? 'cigarettes' : 'cigarettes'}</div>
+        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
+          <div>
+            <Cigarette className="w-4 h-4 mx-auto text-amber-400" />
+            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(cigs).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-400">{isFr ? 'cigarettes' : 'cigarettes'}</div>
+          </div>
+          {onOpenLog && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onOpenLog('cigarette');
+              }}
+              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-amber-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+            >
+              <Plus className="w-2.5 h-2.5" />
+              {isFr ? 'Ajouter' : 'Log'}
+            </button>
+          )}
         </div>
-        <div className="p-3 rounded-2xl glass-panel">
-          <Wind className="w-4 h-4 mx-auto text-cyan-400" />
-          <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.puffs * d).toLocaleString()}</div>
-          <div className="text-[10px] text-slate-400">{isFr ? 'bouffées de vape' : 'vape puffs'}</div>
+        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
+          <div>
+            <Wind className="w-4 h-4 mx-auto text-cyan-400" />
+            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.puffs * d).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-400">{isFr ? 'bouffées' : 'vape puffs'}</div>
+          </div>
+          {onOpenLog && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onOpenLog('puff_vape');
+              }}
+              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-cyan-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+            >
+              <Plus className="w-2.5 h-2.5" />
+              {isFr ? 'Ajouter' : 'Log'}
+            </button>
+          )}
         </div>
-        <div className="p-3 rounded-2xl glass-panel">
-          <Leaf className="w-4 h-4 mx-auto text-lime-400" />
-          <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.joints * d).toLocaleString()}</div>
-          <div className="text-[10px] text-slate-400">{isFr ? 'joints' : 'joints'}</div>
+        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
+          <div>
+            <Leaf className="w-4 h-4 mx-auto text-lime-400" />
+            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.joints * d).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-400">{isFr ? 'joints' : 'joints'}</div>
+          </div>
+          {onOpenLog && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onOpenLog('cannabis');
+              }}
+              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-lime-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+            >
+              <Plus className="w-2.5 h-2.5" />
+              {isFr ? 'Ajouter' : 'Log'}
+            </button>
+          )}
         </div>
       </div>
 
