@@ -322,6 +322,47 @@
   color: #ffffff !important;
 }
 
+/* AI Coach Obsidian card in Settings - High contrast white text on dark card */
+.coach-ai-card,
+.coach-ai-card *,
+.theme-light .coach-ai-card,
+.theme-light .coach-ai-card * {
+  color: #f8fafc !important;
+}
+.coach-ai-card .text-emerald-400,
+.theme-light .coach-ai-card .text-emerald-400 {
+  color: #34d399 !important;
+}
+.coach-ai-card .text-amber-400,
+.theme-light .coach-ai-card .text-amber-400 {
+  color: #fbbf24 !important;
+}
+.coach-ai-card .text-teal-400,
+.theme-light .coach-ai-card .text-teal-400 {
+  color: #2dd4bf !important;
+}
+.coach-ai-card .text-emerald-300,
+.theme-light .coach-ai-card .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+.coach-ai-card .text-emerald-200,
+.theme-light .coach-ai-card .text-emerald-200 {
+  color: #a7f3d0 !important;
+}
+.theme-light .coach-ai-card {
+  background: #090d16 !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.4) !important;
+}
+.theme-light .coach-ai-card .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.theme-light .coach-ai-card .bg-emerald-950\/60 {
+  background-color: rgba(6, 43, 30, 0.75) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
 /* Smooth page transitions */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(8px); }

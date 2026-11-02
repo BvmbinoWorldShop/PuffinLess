@@ -48,15 +48,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   const isFr = profile.language === 'fr';
   const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'goals'>('overview');
 
-  // Expense modal state
+  // Expense modal state (all forms start blank)
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [itemType, setItemType] = useState<ExpenseItemType>('cigarettes');
   const [expenseTitle, setExpenseTitle] = useState('');
   const [expensePrice, setExpensePrice] = useState('');
-  const [expenseQuantity, setExpenseQuantity] = useState('1');
+  const [expenseQuantity, setExpenseQuantity] = useState('');
   const [expenseNote, setExpenseNote] = useState('');
 
-  // Goal modal state
+  // Goal modal state (blank start)
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newAmount, setNewAmount] = useState('');
@@ -82,14 +82,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
   const handleCreateExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expenseTitle.trim() || !expensePrice) return;
+    const cleanPrice = parseFloat(expensePrice.replace(',', '.')) || 0;
+    if (!expenseTitle.trim() || cleanPrice <= 0) return;
 
     const newExpense: PurchaseExpense = {
       id: 'exp-' + Date.now(),
       itemType,
       title: expenseTitle.trim(),
-      price: Number(expensePrice),
-      quantity: Number(expenseQuantity) || 1,
+      price: cleanPrice,
+      quantity: parseInt(expenseQuantity, 10) || 1,
       timestamp: new Date().toISOString(),
       note: expenseNote.trim(),
     };
@@ -98,19 +99,20 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
     sound.playClick();
     setExpenseTitle('');
     setExpensePrice('');
-    setExpenseQuantity('1');
+    setExpenseQuantity('');
     setExpenseNote('');
     setIsExpenseModalOpen(false);
   };
 
   const handleCreateGoal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newAmount) return;
+    const cleanAmount = parseFloat(newAmount.replace(',', '.')) || 0;
+    if (!newTitle.trim() || cleanAmount <= 0) return;
 
     const goal: SavingsGoal = {
       id: 'goal-' + Date.now(),
       title: newTitle.trim(),
-      targetAmount: Number(newAmount),
+      targetAmount: cleanAmount,
       category: newCategory,
       icon: newCategory === 'travel' ? 'Plane' : newCategory === 'tech' ? 'Smartphone' : 'Gift',
       completed: false,
@@ -619,14 +621,13 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                     {isFr ? 'Prix unitaire' : 'Price'} ({profile.currency})
                   </label>
                   <input
-                    type="number"
-                    step="0.5"
-                    min="0.1"
+                    type="text"
+                    inputMode="decimal"
                     required
                     value={expensePrice}
                     onChange={(e) => setExpensePrice(e.target.value)}
-                    placeholder="12.50"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-sm focus:outline-none focus:border-amber-500/50"
+                    placeholder={isFr ? 'ex: 12.50' : 'e.g. 12.50'}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
 
@@ -637,10 +638,11 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   <input
                     type="number"
                     min="1"
-                    required
+                    step="1"
                     value={expenseQuantity}
                     onChange={(e) => setExpenseQuantity(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-sm focus:outline-none focus:border-amber-500/50"
+                    placeholder="1"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
               </div>
@@ -711,13 +713,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   {isFr ? 'Montant cible' : 'Target Cost'} ({profile.currency})
                 </label>
                 <input
-                  type="number"
-                  step="1"
-                  min="1"
+                  type="text"
+                  inputMode="decimal"
                   required
                   value={newAmount}
                   onChange={(e) => setNewAmount(e.target.value)}
-                  placeholder="399"
+                  placeholder={isFr ? 'ex: 399' : 'e.g. 399'}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>

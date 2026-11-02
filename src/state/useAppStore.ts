@@ -20,7 +20,7 @@ import {
   loadSleepEnergy, saveSleepEnergy,
   loadForumPosts, saveForumPosts,
   loadStreaks, saveStreaks,
-  DEFAULT_PROFILE, DEFAULT_SAVINGS_GOALS, DEFAULT_FORUM_POSTS,
+  DEFAULT_PROFILE, DEFAULT_FORUM_POSTS,
 } from '../utils/storage';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
@@ -198,7 +198,7 @@ export function useAppStore() {
   const resetAll = () => {
     localStorage.clear();
     setProfile({ ...DEFAULT_PROFILE, quitDate: new Date().toISOString() });
-    setGoals(DEFAULT_SAVINGS_GOALS);
+    setGoals([]);
     setPosts(DEFAULT_FORUM_POSTS);
     setExpenses([]);
     setSleepLogs([]);

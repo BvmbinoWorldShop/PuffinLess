@@ -359,7 +359,7 @@ export function loadSavingsGoals(): SavingsGoal[] {
   } catch (e) {
     console.error('Error loading goals', e);
   }
-  return DEFAULT_SAVINGS_GOALS;
+  return [];
 }
 
 export function saveSavingsGoals(goals: SavingsGoal[]): void {

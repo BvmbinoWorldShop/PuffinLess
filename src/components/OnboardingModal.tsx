@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf } from 'lucide-react';
-import type { UserProfile, QuitMode } from '../types';
+import type { UserProfile, QuitMode, Language } from '../types';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
 import confetti from 'canvas-confetti';
@@ -16,6 +16,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   initialProfile,
   onComplete,
 }) => {
+  const [lang, setLang] = useState<Language>(initialProfile.language || 'en');
+  const isFr = lang === 'fr';
+
   const [step, setStep] = useState<number>(1);
   const [name, setName] = useState(initialProfile.name || '');
   const [cigsPerDay, setCigsPerDay] = useState(initialProfile.cigarettesPerDay || 15);
@@ -23,7 +26,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [cannabisGrams, setCannabisGrams] = useState(initialProfile.cannabisGramsPerWeek || 3.5);
   const [pricePerPack, setPricePerPack] = useState(initialProfile.pricePerPack || 12.5);
   const [cigsInPack] = useState(initialProfile.cigarettesInPack || 20);
-  const [currency, setCurrency] = useState(initialProfile.currency || '$');
+  const [currency, setCurrency] = useState(initialProfile.currency || '€');
   const [quitMode] = useState<QuitMode>(initialProfile.quitMode || 'cold_turkey');
   const [quitDateChoice, setQuitDateChoice] = useState<'today' | 'yesterday' | 'few_days_ago'>('few_days_ago');
   const [selectedMotivators, setSelectedMotivators] = useState<string[]>(
@@ -35,12 +38,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   if (!isOpen) return null;
 
   const MOTIVATOR_OPTIONS = [
-    { label: 'Health & Longevity', icon: Heart },
-    { label: 'Financial Freedom', icon: DollarSign },
-    { label: 'Deep Restorative Sleep', icon: Clock },
-    { label: 'Loved Ones & Family', icon: Shield },
-    { label: 'Athletic Stamina', icon: Wind },
-    { label: 'Clean Dopamine Focus', icon: Zap },
+    { labelEn: 'Health & Longevity', labelFr: 'Santé & Longévité', icon: Heart },
+    { labelEn: 'Financial Freedom', labelFr: 'Liberté Financière', icon: DollarSign },
+    { labelEn: 'Deep Restorative Sleep', labelFr: 'Sommeil Réparateur', icon: Clock },
+    { labelEn: 'Loved Ones & Family', labelFr: 'Famille & Proches', icon: Shield },
+    { labelEn: 'Athletic Stamina', labelFr: 'Souffle & Cardio', icon: Wind },
+    { labelEn: 'Clean Dopamine Focus', labelFr: 'Dopamine Saine & Clarté', icon: Zap },
   ];
 
   const handleNextStep = () => {
@@ -58,6 +61,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       const updated: UserProfile = {
         ...initialProfile,
         name: name.trim() || 'Champion',
+        language: lang,
         cigarettesPerDay: Number(cigsPerDay) || 15,
         puffsPerDay: Number(puffsPerDay) || 80,
         cannabisGramsPerWeek: Number(cannabisGrams) || 3.5,
@@ -102,7 +106,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Step Indicator */}
+        {/* Step Indicator & Language Flags Switcher */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             {[1, 2, 3].map((s) => (
@@ -118,9 +122,36 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               />
             ))}
           </div>
-          <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">
-            Step {step} of 3
-          </span>
+
+          <div className="flex items-center gap-2.5">
+            {/* 🇫🇷 / 🇬🇧 Language Toggle */}
+            <div className="flex items-center p-0.5 rounded-xl bg-slate-900/80 border border-white/15 text-xs">
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setLang('fr'); }}
+                className={`px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 transition-all ${
+                  isFr ? 'bg-emerald-500/25 border border-emerald-400 text-emerald-200 shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>🇫🇷</span>
+                <span className="text-[10px]">FR</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setLang('en'); }}
+                className={`px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 transition-all ${
+                  !isFr ? 'bg-emerald-500/25 border border-emerald-400 text-emerald-200 shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>🇬🇧</span>
+                <span className="text-[10px]">EN</span>
+              </button>
+            </div>
+
+            <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">
+              {isFr ? `Étape ${step} sur 3` : `Step ${step} of 3`}
+            </span>
+          </div>
         </div>
 
         {/* STEP 1: Welcome & PuffinLess Showcase */}
@@ -132,10 +163,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
             <div className="text-center space-y-2">
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-emerald-200 bg-clip-text text-transparent">
-                Welcome to PuffinLess
+                {isFr ? 'Bienvenue sur PuffinLess' : 'Welcome to PuffinLess'}
               </h2>
               <p className="text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
-                The ultimate companion to conquer cigarettes, vapes/puffs, and weed. Reclaim deep sleep, clean lungs, and compounded wealth.
+                {isFr
+                  ? 'Votre compagnon ultime pour vaincre la cigarette, la vape et le cannabis. Retrouvez un sommeil profond, des poumons propres et une vraie richesse.'
+                  : 'The ultimate companion to conquer cigarettes, vapes/puffs, and weed. Reclaim deep sleep, clean lungs, and compounded wealth.'}
               </p>
             </div>
 
@@ -145,8 +178,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">Substance Counters</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Track cigarettes, puffs, & weed with live clinical body impact.</p>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Compteurs de Sobriété' : 'Substance Counters'}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isFr ? 'Suivi en direct du temps sans fumer et de la récupération de vos organes.' : 'Track cigarettes, puffs, & weed with live clinical body impact.'}
+                  </p>
                 </div>
               </div>
 
@@ -155,8 +192,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">The Money Vault</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Log papers, lighters, weed, packs, and watch unspent money grow.</p>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Coffre-Fort & Projets' : 'The Money Vault'}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isFr ? 'Mesurez l\'argent économisé et financez vos projets de rêve.' : 'Log papers, lighters, weed, packs, and watch unspent money grow.'}
+                  </p>
                 </div>
               </div>
 
@@ -165,8 +206,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">Sleep & Energy Ratings</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Analyze how clean days dramatically restore your REM sleep & stamina.</p>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Sommeil & Énergie' : 'Sleep & Energy Ratings'}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isFr ? 'Analysez comment chaque journée propre restaure votre énergie vitale.' : 'Analyze how clean days dramatically restore your REM sleep & stamina.'}
+                  </p>
                 </div>
               </div>
 
@@ -175,8 +220,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <Award className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">Psychology Masterclasses</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Learn why dopamine hijacks willpower and how to surf urges.</p>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Masterclasses & Mental' : 'Psychology Masterclasses'}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isFr ? 'Comprenez les circuits de dopamine et apprenez à surfer sur les envies.' : 'Learn why dopamine hijacks willpower and how to surf urges.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -188,44 +237,51 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <div className="space-y-4">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Your Substance Baseline
+                {isFr ? 'Votre Profil de Consommation' : 'Your Substance Baseline'}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Tell us your current smoking/vaping habits so PuffinLess can calculate your exact recovery.
+                {isFr
+                  ? 'Indiquez vos habitudes actuelles pour que PuffinLess calcule précisément vos progrès.'
+                  : 'Tell us your current smoking/vaping habits so PuffinLess can calculate your exact recovery.'}
               </p>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Your Name</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  {isFr ? 'Votre prénom ou pseudo' : 'Your Name'}
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Alex"
+                  placeholder={isFr ? 'ex: Thomas' : 'e.g. Alex'}
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">Currency</label>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    {isFr ? 'Devise' : 'Currency'}
+                  </label>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
                     className="w-full px-2 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
                   >
-                    <option value="$">$ USD</option>
                     <option value="€">€ EUR</option>
+                    <option value="$">$ USD</option>
                     <option value="£">£ GBP</option>
-                    <option value="C$">C$ CAD</option>
-                    <option value="A$">A$ AUD</option>
                     <option value="CHF">CHF</option>
+                    <option value="C$">C$ CAD</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">Cigs / Day</label>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    {isFr ? 'Cigarettes / J' : 'Cigs / Day'}
+                  </label>
                   <input
                     type="number"
                     min="0"
@@ -236,7 +292,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">Pack Price</label>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    {isFr ? 'Prix paquet' : 'Pack Price'}
+                  </label>
                   <input
                     type="number"
                     step="0.5"
@@ -250,7 +308,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">Vape Puffs / Day</label>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    {isFr ? 'Bouffées Vape / J' : 'Vape Puffs / Day'}
+                  </label>
                   <input
                     type="number"
                     min="0"
@@ -261,7 +321,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">Weed (Grams/Wk)</label>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    {isFr ? 'Herbe (g / sem)' : 'Weed (Grams/Wk)'}
+                  </label>
                   <input
                     type="number"
                     step="0.5"
@@ -275,12 +337,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
               {/* Quit Date Selector */}
               <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">When did your smoke-free journey start?</label>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  {isFr ? 'Quand avez-vous fumé pour la dernière fois ?' : 'When did your smoke-free journey start?'}
+                </label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: 'today', label: 'Today' },
-                    { id: 'yesterday', label: 'Yesterday' },
-                    { id: 'few_days_ago', label: '3 Days Ago' },
+                    { id: 'today', labelEn: 'Today', labelFr: "Aujourd'hui" },
+                    { id: 'yesterday', labelEn: 'Yesterday', labelFr: 'Hier' },
+                    { id: 'few_days_ago', labelEn: '3 Days Ago', labelFr: 'Il y a 3 jours' },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -292,7 +356,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                           : 'bg-slate-900/50 border-white/10 text-slate-400 hover:text-white'
                       }`}
                     >
-                      {opt.label}
+                      {isFr ? opt.labelFr : opt.labelEn}
                     </button>
                   ))}
                 </div>
@@ -302,27 +366,30 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <div className="p-3 rounded-2xl glass-panel-gold border border-amber-500/30 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] uppercase tracking-wider text-amber-300 font-bold block">
-                    Estimated 1-Year Wealth Gain
+                    {isFr ? 'Gain Financier Estimé sur 1 An' : 'Estimated 1-Year Wealth Gain'}
                   </span>
                   <p className="text-xl font-extrabold text-amber-200">
                     {currency}{Number(estimatedYearlyCost).toLocaleString()}
                   </p>
                 </div>
                 <div className="text-right text-[10px] text-amber-200/80 max-w-[140px]">
-                  Ready to invest in your goals rather than burning it away.
+                  {isFr ? 'À investir dans vos vrais projets plutôt que de le brûler.' : 'Ready to invest in your goals rather than burning it away.'}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">What matters most to you?</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  {isFr ? 'Quelles sont vos motivations prioritaires ?' : 'What matters most to you?'}
+                </label>
                 <div className="flex flex-wrap gap-1.5">
                   {MOTIVATOR_OPTIONS.map((m) => {
-                    const isSelected = selectedMotivators.includes(m.label);
+                    const label = isFr ? m.labelFr : m.labelEn;
+                    const isSelected = selectedMotivators.includes(m.labelEn) || selectedMotivators.includes(m.labelFr);
                     return (
                       <button
-                        key={m.label}
+                        key={m.labelEn}
                         type="button"
-                        onClick={() => toggleMotivator(m.label)}
+                        onClick={() => toggleMotivator(m.labelEn)}
                         className={`px-3 py-1 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all ${
                           isSelected
                             ? 'bg-emerald-500/25 border-emerald-400/50 text-emerald-200 shadow-sm'
@@ -330,7 +397,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
-                        <span>{m.label}</span>
+                        <span>{label}</span>
                       </button>
                     );
                   })}
@@ -345,10 +412,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <div className="space-y-4">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Your PuffinLess Arsenal is Primed
+                {isFr ? 'Votre Arsenal PuffinLess est Prêt' : 'Your PuffinLess Arsenal is Primed'}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Here is how PuffinLess protects your commitment 24/7.
+                {isFr ? 'Voici les outils conçus pour protéger votre décision 24h/24.' : 'Here is how PuffinLess protects your commitment 24/7.'}
               </p>
             </div>
 
@@ -358,9 +425,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <Wind className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">The SOS Button</h4>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Le Bouton SOS Pulsion' : 'The SOS Button'}
+                  </h4>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    1-tap emergency 4-7-8 breathing & 5-4-3-2-1 sensory grounding to collapse acute craving waves.
+                    {isFr
+                      ? 'Respiration 4-7-8 d\'urgence et ancrage sensoriel en 1 clic pour désamorcer les pulsions vives.'
+                      : '1-tap emergency 4-7-8 breathing & 5-4-3-2-1 sensory grounding to collapse acute craving waves.'}
                   </p>
                 </div>
               </div>
@@ -370,9 +441,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">The Money Center</h4>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Le Centre Financier' : 'The Money Center'}
+                  </h4>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    Log purchases of papers, lighters, weed, and cigarettes to see the 10-year compound loss vs. money saved.
+                    {isFr
+                      ? 'Suivi des dépenses et visualisation de votre richesse préservée sur 10 ans.'
+                      : 'Log purchases of papers, lighters, weed, and cigarettes to see the 10-year compound loss vs. money saved.'}
                   </p>
                 </div>
               </div>
@@ -382,9 +457,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   <Leaf className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white">Psychology & Sleep Trends</h4>
+                  <h4 className="text-xs font-semibold text-white">
+                    {isFr ? 'Neurobiologie & Sommeil' : 'Psychology & Sleep Trends'}
+                  </h4>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    Study the neurochemistry of cravings and see how clean days boost your deep sleep scores.
+                    {isFr
+                      ? 'Découvrez comment vos récepteurs de dopamine se réparent et boostent votre sommeil.'
+                      : 'Study the neurochemistry of cravings and see how clean days boost your deep sleep scores.'}
                   </p>
                 </div>
               </div>
@@ -403,7 +482,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               }}
               className="px-4 py-2 rounded-xl glass-button text-xs font-semibold text-slate-300 hover:text-white"
             >
-              Back
+              {isFr ? 'Retour' : 'Back'}
             </button>
           ) : (
             <div />
@@ -414,7 +493,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             onClick={handleNextStep}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all ml-auto"
           >
-            <span>{step === 3 ? "Start My PuffinLess Journey" : "Continue"}</span>
+            <span>{step === 3 ? (isFr ? 'Démarrer Mon Aventure PuffinLess' : 'Start My PuffinLess Journey') : (isFr ? 'Continuer' : 'Continue')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

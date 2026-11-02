@@ -874,43 +874,43 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {/* SECTION 3: AI COACH BLUEPRINT & PERSONALIZED LIFE INTEGRATION */}
           {activeSection === 'coach' && (
             <div className="space-y-4 animate-fade-in">
-              <div className="p-4 rounded-3xl bg-gradient-to-br from-slate-900/90 via-emerald-950/30 to-slate-900/90 border border-emerald-500/30 shadow-xl space-y-3">
+              <div className="coach-ai-card keep-white p-4 rounded-3xl bg-slate-950 border border-emerald-500/40 shadow-2xl space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40">
                     <Brain className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white tracking-tight">{coachAnalysis.title}</h4>
-                    <span className="text-[11px] text-emerald-400 font-medium">Obsidian Life Adaptation Engine</span>
+                    <span className="text-[11px] text-emerald-400 font-semibold">Obsidian Life Adaptation Engine</span>
                   </div>
                 </div>
 
-                <div className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
-                  <div className="p-3 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+                <div className="space-y-2.5 text-xs text-white leading-relaxed">
+                  <div className="p-3 rounded-2xl bg-black/60 border border-white/10 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                       {isFr ? 'Impact Professionnel & Énergie' : 'Career & Cognitive Stamina'}
                     </span>
-                    <p>{coachAnalysis.careerImpact}</p>
+                    <p className="text-white/90">{coachAnalysis.careerImpact}</p>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+                  <div className="p-3 rounded-2xl bg-black/60 border border-white/10 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
                       {isFr ? 'Libération Financière & Pouvoir d\'Achat' : 'Financial Sovereignty'}
                     </span>
-                    <p>{coachAnalysis.wealthImpact}</p>
+                    <p className="text-white/90">{coachAnalysis.wealthImpact}</p>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+                  <div className="p-3 rounded-2xl bg-black/60 border border-white/10 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">
                       {isFr ? 'Maîtrise de Soi & Alignement Mental' : 'Mindset & Self-Mastery'}
                     </span>
-                    <p>{coachAnalysis.spiritualMindset}</p>
+                    <p className="text-white/90">{coachAnalysis.spiritualMindset}</p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-200">
-                  <span className="font-bold">✨ {isFr ? 'Comment l\'IA vous accompagne au quotidien :' : 'How your coach adapts daily:'}</span>
-                  <p className="mt-1">
+                <div className="p-3 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-[11px] text-emerald-100">
+                  <span className="font-bold text-emerald-300">✨ {isFr ? 'Comment l\'IA vous accompagne au quotidien :' : 'How your coach adapts daily:'}</span>
+                  <p className="mt-1 text-emerald-100/90">
                     {isFr
                       ? 'L\'écran d\'accueil, les alertes d\'heures de pointe, les masterclasses et le calcul de vie retrouvée utilisent directement ces paramètres pour vous offrir une aide chirurgicale.'
                       : 'The home screen, danger hour notifications, masterclasses, and biological recovery meters continuously adjust to these specific inputs.'}

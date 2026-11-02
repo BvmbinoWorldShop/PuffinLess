@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Wifi, Battery, Signal } from 'lucide-react';
 import { useAppStore } from './state/useAppStore';
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
@@ -24,16 +23,28 @@ export function App() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(!profile.isOnboarded);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const [timeStr, setTimeStr] = useState(() =>
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  );
+  // Auto-hide bottom navigation on scroll down, show on scroll up
+  const [showBottomNav, setShowBottomNav] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeStr(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }, 30000);
-    return () => clearInterval(timer);
-  }, []);
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY <= 30) {
+        setShowBottomNav(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY - lastScrollY > 8) {
+        // Scrolling DOWN -> hide bottom bar to free up space
+        setShowBottomNav(false);
+      } else if (currentScrollY < lastScrollY && lastScrollY - currentScrollY > 8) {
+        // Scrolling UP -> reveal bottom bar
+        setShowBottomNav(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
 
   const goTab = (tab: TabType) => {
     setCurrentTab(tab);
@@ -43,28 +54,25 @@ export function App() {
   return (
     <div className="min-h-screen w-full flex justify-center bg-slate-950 sm:bg-slate-950/85 transition-colors">
       <div className="w-full max-w-[480px] min-h-screen flex flex-col relative selection:bg-emerald-500/30 sm:border-x sm:border-white/10 sm:shadow-[0_0_80px_rgba(0,0,0,0.7)] transition-all">
-        {/* Status bar (Always visible with dynamic safe-area for iPhone) */}
-        <div className="w-full px-4 sm:px-6 pt-[max(env(safe-area-inset-top),0.5rem)] pb-1 flex items-center justify-between text-xs text-slate-400 font-medium select-none">
-          <span className="font-semibold text-slate-200 tabular-nums">{timeStr}</span>
-          <div className="h-5 px-2.5 rounded-full bg-slate-900/90 border border-emerald-500/30 flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]" />
-            <span className="text-[10px] text-emerald-300 font-extrabold tracking-wide">PuffinLess</span>
+        {/* Fixed / Sticky Top Bar (Contains centered PuffinLess pill + Header) */}
+        <div className="sticky top-0 z-40 w-full bg-slate-950/90 backdrop-blur-xl border-b border-white/5 transition-colors">
+          {/* Centered PuffinLess pill only - no time, battery or service icons */}
+          <div className="w-full px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-1 flex items-center justify-center select-none">
+            <div className="h-5 px-3 rounded-full bg-slate-900/90 border border-emerald-500/30 flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]" />
+              <span className="text-[10px] text-emerald-300 font-extrabold tracking-wide">PuffinLess</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-slate-300">
-            <Signal className="w-3.5 h-3.5" />
-            <Wifi className="w-3.5 h-3.5" />
-            <Battery className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-        </div>
 
-        <Header
-          profile={profile}
-          streakLabel={`${formatDuration(stats.elapsedSeconds)} ${t('smokeFree', lang)}`}
-          tier={stats.level.tier}
-          onOpenSos={() => setIsSosOpen(true)}
-          onOpenProfile={() => setIsProfileOpen(true)}
-          onToggleTheme={actions.toggleTheme}
-        />
+          <Header
+            profile={profile}
+            streakLabel={`${formatDuration(stats.elapsedSeconds)} ${t('smokeFree', lang)}`}
+            tier={stats.level.tier}
+            onOpenSos={() => setIsSosOpen(true)}
+            onOpenProfile={() => setIsProfileOpen(true)}
+            onToggleTheme={actions.toggleTheme}
+          />
+        </div>
 
         <main className="flex-1 w-full mx-auto px-4 pt-4">
         {currentTab === 'dashboard' && (
@@ -97,7 +105,7 @@ export function App() {
         {currentTab === 'rewards' && <RewardsView stats={stats} currency={profile.currency} language={lang} />}
       </main>
 
-      <Navigation currentTab={currentTab} onSelectTab={goTab} language={lang} />
+      <Navigation currentTab={currentTab} onSelectTab={goTab} language={lang} isVisible={showBottomNav} />
 
       <SosModal
         isOpen={isSosOpen}

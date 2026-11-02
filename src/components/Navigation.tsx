@@ -10,9 +10,10 @@ interface NavigationProps {
   currentTab: TabType;
   onSelectTab: (tab: TabType) => void;
   language?: Language;
+  isVisible?: boolean;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab, language = 'en' }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab, language = 'en', isVisible = true }) => {
   const tabs = [
     { id: 'dashboard' as const, label: t('navTracker', language), icon: LayoutDashboard },
     { id: 'money' as const, label: t('navMoney', language), icon: Coins },
@@ -21,7 +22,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab,
   ];
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 p-3 pb-6 sm:pb-4 pointer-events-none">
+    <div className={`fixed bottom-0 inset-x-0 z-40 p-3 pb-6 sm:pb-4 pointer-events-none transition-all duration-300 transform ${
+      isVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
+    }`}>
       <nav className="max-w-md mx-auto pointer-events-auto rounded-3xl glass-panel-elevated p-2 shadow-2xl shadow-black/80 flex items-center justify-around border border-white/10 backdrop-blur-2xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
