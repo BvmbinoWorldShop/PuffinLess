@@ -90,7 +90,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   };
 
   const handleRecordSlip = (substance: SubstanceType, count: number) => {
-    sound.playClick();
+    sound.playWarning();
     onLogSlip(substance, count, selectedTrigger, craveIntensity);
     setShowSlipConfirm(false);
     onClose();

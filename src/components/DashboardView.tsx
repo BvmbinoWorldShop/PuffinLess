@@ -389,7 +389,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </MorphicCard>
 
       {/* 5. Daily reality */}
-      <DailyRealityCard profile={profile} reality={report.reality} onOpenLog={openLog} />
+      <DailyRealityCard profile={profile} reality={report.reality} onOpenLog={openLog} onLogSubstance={onLogSubstance} />
 
       {/* 6. Sleep & energy check-in + weekly trend */}
       <MorphicCard variant="elevated" className="space-y-4">

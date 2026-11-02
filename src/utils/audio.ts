@@ -1,11 +1,16 @@
 // Lightweight Web Audio API generator for subtle luxury haptic sounds & breathing cues
+// with full Web Haptics (navigator.vibrate) tactile feedback for mobile and desktop
 
 class SoundManager {
   private ctx: AudioContext | null = null;
   private enabled: boolean = true;
+  private lastClickTime: number = 0;
 
   constructor() {
     // AudioContext will be initialized on first user gesture
+    if (typeof window !== 'undefined') {
+      this.attachGlobalInteractions();
+    }
   }
 
   public setEnabled(enabled: boolean) {
@@ -14,6 +19,35 @@ class SoundManager {
 
   public isEnabled(): boolean {
     return this.enabled;
+  }
+
+  // Native Web Haptic Vibration
+  public vibrate(pattern: number | number[] = 12) {
+    if (!this.enabled) return;
+    if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
+      try {
+        navigator.vibrate(pattern);
+      } catch {
+        // Safe catch on restricted environments
+      }
+    }
+  }
+
+  // Pre-configured tactile feedback patterns
+  public hapticTick() {
+    this.vibrate(12); // subtle 12ms tap
+  }
+
+  public hapticSelect() {
+    this.vibrate(18); // distinct 18ms selector tap
+  }
+
+  public hapticSuccess() {
+    this.vibrate([30, 45, 60]); // celebratory triple pulse
+  }
+
+  public hapticWarning() {
+    this.vibrate([45, 50, 45]); // double alert pulse
   }
 
   private initContext() {
@@ -28,8 +62,16 @@ class SoundManager {
     }
   }
 
-  // Soft subtle click for glass buttons
-  public playClick() {
+  // Soft subtle click for glass buttons & inputs
+  public playClick(force: boolean = false) {
+    const now = Date.now();
+    // Debounce to prevent acoustic overlap when global delegation and onClick both fire
+    if (!force && now - this.lastClickTime < 50) return;
+    this.lastClickTime = now;
+
+    // Trigger haptic vibration
+    this.hapticTick();
+
     if (!this.enabled) return;
     try {
       this.initContext();
@@ -54,8 +96,37 @@ class SoundManager {
     }
   }
 
+  // Distinct warning/slip tone when logging an intake
+  public playWarning() {
+    this.hapticWarning();
+    if (!this.enabled) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.18);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch {
+      // AudioContext safe catch
+    }
+  }
+
   // Meditative bowl chime for breathing exercise inhale/exhale
   public playBreathTone(isExhale: boolean = false) {
+    this.vibrate(20);
     if (!this.enabled) return;
     try {
       this.initContext();
@@ -82,8 +153,9 @@ class SoundManager {
     }
   }
 
-  // Rewarding celebration chime when milestones / badges unlock
+  // Rewarding celebration chime when resisting a crave, reaching milestones or badges
   public playCelebration() {
+    this.hapticSuccess();
     if (!this.enabled) return;
     try {
       this.initContext();
@@ -111,6 +183,43 @@ class SoundManager {
     } catch {
       // Audio context catch
     }
+  }
+
+  // Global listener ensuring ANY interactive input/button triggers haptics & audio
+  private attachGlobalInteractions() {
+    if (typeof window === 'undefined') return;
+
+    // Listen to button clicks, toggles, selectors
+    window.addEventListener(
+      'click',
+      (e) => {
+        if (!this.enabled) return;
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const interactive = target.closest(
+          'button, [role="button"], a, input[type="checkbox"], input[type="radio"], input[type="range"], select'
+        );
+        if (interactive) {
+          this.playClick();
+        }
+      },
+      { capture: true, passive: true }
+    );
+
+    // Listen to form input changes (typing, slider drags)
+    window.addEventListener(
+      'input',
+      (e) => {
+        if (!this.enabled) return;
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const isInputField = target.matches('input, textarea, select');
+        if (isInputField) {
+          this.playClick();
+        }
+      },
+      { capture: true, passive: true }
+    );
   }
 }
 

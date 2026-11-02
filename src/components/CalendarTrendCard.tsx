@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
   Calendar as CalendarIcon, BarChart3, ChevronLeft, ChevronRight,
-  Sparkles, AlertTriangle, CheckCircle, Info, Moon, BatteryCharging
+  Sparkles, AlertTriangle, CheckCircle, Info, Moon, BatteryCharging,
+  TrendingDown, TrendingUp, Minus
 } from 'lucide-react';
 import type { SubstanceLog, SleepEnergyEntry, CravingEntry, Language } from '../types';
 import { MorphicCard } from './MorphicCard';
-import { localDateStr } from '../utils/dates';
+import { localDateStr, lastNDates } from '../utils/dates';
 import { sound } from '../utils/audio';
 
 interface CalendarTrendCardProps {
@@ -13,25 +14,28 @@ interface CalendarTrendCardProps {
   sleepLogs: SleepEnergyEntry[];
   cravings?: CravingEntry[];
   language?: Language;
+  lang?: Language;
 }
 
 export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
   substanceLogs,
   sleepLogs,
   cravings = [],
-  language = 'en',
+  language,
+  lang,
 }) => {
-  const isFr = language === 'fr';
-  const [viewMode, setViewMode] = useState<'calendar' | 'weekday'>('calendar');
+  const currentLang = language || lang || 'fr';
+  const isFr = currentLang === 'fr';
+  const [viewMode, setViewMode] = useState<'calendar' | 'daily' | 'weekday'>('calendar');
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr());
 
-  // Month navigation (pure state-based)
+  // Month navigation
   const [activeMonthDate, setActiveMonthDate] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
-  // Aggregate logs by date
+  // Aggregate logs strictly by date from user's actual database inputs
   const dailyData = useMemo(() => {
     const map = new Map<
       string,
@@ -49,7 +53,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
       }
     >();
 
-    // Process substance logs
+    // 1. Process substance logs (STRICT SOURCE OF TRUTH for intake)
     for (const log of substanceLogs) {
       const d = log.timestamp.split('T')[0];
       const curr = map.get(d) || {
@@ -73,7 +77,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
       map.set(d, curr);
     }
 
-    // Merge cravings
+    // 2. Merge cravings (does NOT fabricate or inflate substance units)
     for (const c of cravings) {
       const d = c.timestamp.split('T')[0];
       const curr = map.get(d) || {
@@ -88,17 +92,20 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
       };
       curr.cravingsCount += 1;
       if (c.resisted) curr.resistedCravingsCount += 1;
+      if (c.trigger && !curr.triggers.includes(c.trigger)) {
+        curr.triggers.push(c.trigger);
+      }
       map.set(d, curr);
     }
 
-    // Merge sleep logs
+    // 3. Merge sleep logs (ONLY sleep & energy scores, never overrides substances)
     for (const s of sleepLogs) {
       const curr = map.get(s.date) || {
         date: s.date,
-        cigarette: s.substancesLogged.cigarette,
-        puff_vape: s.substancesLogged.puff_vape,
-        cannabis: s.substancesLogged.cannabis,
-        totalUnits: s.substancesLogged.cigarette + Math.round(s.substancesLogged.puff_vape / 15) + s.substancesLogged.cannabis * 2,
+        cigarette: 0,
+        puff_vape: 0,
+        cannabis: 0,
+        totalUnits: 0,
         triggers: [],
         cravingsCount: 0,
         resistedCravingsCount: 0,
@@ -171,11 +178,13 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
       { nameEn: 'Sun', nameFr: 'Dim', dayIdx: 0 },
     ];
 
+    const todayStr = localDateStr();
     const stats = days.map((d) => {
       let totalUnits = 0;
       let occurrences = 0;
 
       dailyData.forEach((val, dateStr) => {
+        if (dateStr > todayStr) return; // ignore future dates
         const [y, m, dayNum] = dateStr.split('-').map(Number);
         const dt = new Date(y, m - 1, dayNum);
         if (dt.getDay() === d.dayIdx) {
@@ -207,6 +216,42 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
     };
   }, [dailyData, isFr]);
 
+  // 7-day chronological day-by-day comparison from the database
+  const recentDaysComparison = useMemo(() => {
+    const dates = lastNDates(7);
+
+    return dates.map((dStr, idx) => {
+      const data = dailyData.get(dStr) || {
+        date: dStr,
+        cigarette: 0,
+        puff_vape: 0,
+        cannabis: 0,
+        totalUnits: 0,
+        triggers: [],
+        cravingsCount: 0,
+        resistedCravingsCount: 0,
+      };
+
+      const prevDStr = idx > 0 ? dates[idx - 1] : null;
+      const prevData = prevDStr ? dailyData.get(prevDStr) : null;
+      const prevUnits = prevData ? prevData.totalUnits : 0;
+      const delta = idx > 0 ? data.totalUnits - prevUnits : 0;
+
+      const dateObj = new Date(dStr + 'T12:00:00');
+      const dayName = dateObj.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', { weekday: 'short' });
+      const dayFormatted = dateObj.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' });
+
+      return {
+        dateStr: dStr,
+        dayName,
+        dayFormatted,
+        data,
+        isToday: dStr === localDateStr(),
+        delta,
+      };
+    });
+  }, [dailyData, isFr]);
+
   const selectedDayInfo = dailyData.get(selectedDate);
   const weekDayHeaders = isFr
     ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -222,10 +267,10 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white tracking-tight">
-              {isFr ? 'Calendrier & Tendances' : 'Calendar & Habit Trends'}
+              {isFr ? 'Calendrier & Habitudes Réelles' : 'Calendar & Habit Trends'}
             </h3>
             <p className="text-[11px] text-slate-400">
-              {isFr ? 'Visualisez les jours où vous fumez le plus' : 'Identify patterns and peak smoking days'}
+              {isFr ? 'Calculé à 100% sur vos saisies enregistrées' : 'Computed strictly from your logged entries'}
             </p>
           </div>
         </div>
@@ -237,7 +282,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
               sound.playClick();
               setViewMode('calendar');
             }}
-            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
+            className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
               viewMode === 'calendar'
                 ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -249,16 +294,30 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
           <button
             onClick={() => {
               sound.playClick();
+              setViewMode('daily');
+            }}
+            className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+              viewMode === 'daily'
+                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>{isFr ? '7 Jours' : '7 Days'}</span>
+          </button>
+          <button
+            onClick={() => {
+              sound.playClick();
               setViewMode('weekday');
             }}
-            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
+            className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
               viewMode === 'weekday'
                 ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <BarChart3 className="w-3 h-3" />
-            <span>{isFr ? 'Semaine' : 'Week'}</span>
+            <span>{isFr ? 'Profil' : 'Profile'}</span>
           </button>
         </div>
       </div>
@@ -308,7 +367,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
               const data = dailyData.get(cell.dateStr);
               const isSelected = selectedDate === cell.dateStr;
               const hasIntake = data && data.totalUnits > 0;
-              const isClean = data && data.totalUnits === 0;
+              const isClean = !cell.isFuture && (!data || data.totalUnits === 0);
 
               let badgeColor = 'bg-slate-900/30 border-white/5 text-slate-400';
               if (cell.isFuture) {
@@ -337,7 +396,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                 >
                   <span className="text-[11px]">{cell.dayNumber}</span>
                   {hasIntake && (
-                    <span className="text-[8px] leading-none opacity-90">
+                    <span className="text-[8px] leading-none opacity-90 font-bold">
                       {data.totalUnits}u
                     </span>
                   )}
@@ -361,7 +420,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              {isFr ? 'Chargé (6+)' : 'Heavy (6+)'}
+              {isFr ? 'Intense (6+)' : 'Heavy (6+)'}
             </span>
           </div>
 
@@ -371,35 +430,33 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 text-teal-400" />
-                  {isFr ? `Détails du ${selectedDate}` : `Details for ${selectedDate}`}
+                  {isFr ? `Données saisies le ${selectedDate}` : `Database inputs for ${selectedDate}`}
                 </span>
-                {selectedDayInfo && selectedDayInfo.totalUnits === 0 && (
+                {(!selectedDayInfo || selectedDayInfo.totalUnits === 0) ? (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    {isFr ? 'Journée Propre' : 'Clean Day'}
+                    {isFr ? 'Journée Propre (0)' : 'Clean Day (0)'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    {selectedDayInfo.totalUnits} {isFr ? 'unités consommées' : 'units logged'}
                   </span>
                 )}
               </div>
 
-              {selectedDayInfo ? (
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
-                    <div className="text-[10px] text-slate-400">{isFr ? 'Cigarettes' : 'Cigarettes'}</div>
-                    <div className="text-sm font-bold text-amber-400">{selectedDayInfo.cigarette}</div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
-                    <div className="text-[10px] text-slate-400">{isFr ? 'Puffs' : 'Puffs'}</div>
-                    <div className="text-sm font-bold text-teal-400">{selectedDayInfo.puff_vape}</div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
-                    <div className="text-[10px] text-slate-400">{isFr ? 'Cannabis' : 'Cannabis'}</div>
-                    <div className="text-sm font-bold text-emerald-400">{selectedDayInfo.cannabis}</div>
-                  </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
+                  <div className="text-[10px] text-slate-400">{isFr ? 'Cigarettes' : 'Cigarettes'}</div>
+                  <div className="text-sm font-bold text-amber-400">{selectedDayInfo?.cigarette ?? 0}</div>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">
-                  {isFr ? 'Aucune consommation enregistrée pour ce jour.' : 'No intake logged for this date.'}
-                </p>
-              )}
+                <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
+                  <div className="text-[10px] text-slate-400">{isFr ? 'Puffs Vape' : 'Vape Puffs'}</div>
+                  <div className="text-sm font-bold text-teal-400">{selectedDayInfo?.puff_vape ?? 0}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-900/40 border border-white/5">
+                  <div className="text-[10px] text-slate-400">{isFr ? 'Cannabis / Joints' : 'Joints'}</div>
+                  <div className="text-sm font-bold text-emerald-400">{selectedDayInfo?.cannabis ?? 0}</div>
+                </div>
+              </div>
 
               {selectedDayInfo && (selectedDayInfo.sleep !== undefined || selectedDayInfo.energy !== undefined) && (
                 <div className="flex items-center gap-3 pt-1 border-t border-white/5 text-[11px] text-slate-300">
@@ -438,18 +495,110 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
         </div>
       )}
 
-      {/* VIEW 2: DAY OF THE WEEK TREND BAR CHART */}
+      {/* VIEW 2: 7-DAY CHRONOLOGICAL EVOLUTION & DAY-TO-DAY COMPARISON */}
+      {viewMode === 'daily' && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+              {isFr ? 'Comparaison Quotidienne (7 derniers jours)' : 'Daily Comparison (Last 7 Days)'}
+            </h4>
+            <p className="text-[11px] text-slate-400">
+              {isFr
+                ? 'Progression jour par jour comparée à la veille :'
+                : 'Day-by-day evolution compared to yesterday:'}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            {recentDaysComparison.map((day) => {
+              const isClean = day.data.totalUnits === 0;
+              return (
+                <div
+                  key={day.dateStr}
+                  className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                    day.isToday
+                      ? 'bg-teal-500/10 border-teal-500/30'
+                      : 'bg-slate-900/40 border-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                        isClean
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}
+                    >
+                      {isClean ? '0' : day.data.totalUnits}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-white capitalize">{day.dayName}</span>
+                        <span className="text-[10px] text-slate-400">({day.dayFormatted})</span>
+                        {day.isToday && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold">
+                            {isFr ? 'Aujourd\'hui' : 'Today'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {isClean ? (
+                          <span className="text-emerald-400 font-medium">
+                            {isFr ? 'Journée 100% sobre' : 'Smoke-free day'}
+                          </span>
+                        ) : (
+                          <span>
+                            {day.data.cigarette > 0 && `${day.data.cigarette} cig `}
+                            {day.data.puff_vape > 0 && `${day.data.puff_vape} puffs `}
+                            {day.data.cannabis > 0 && `${day.data.cannabis} joints`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Day-to-Day Delta Comparison */}
+                  <div className="text-right">
+                    {day.delta < 0 ? (
+                      <span className="flex items-center gap-0.5 text-xs font-bold text-emerald-400">
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        {Math.abs(day.delta)} {isFr ? 'en moins' : 'less'}
+                      </span>
+                    ) : day.delta > 0 ? (
+                      <span className="flex items-center gap-0.5 text-xs font-bold text-rose-400">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        +{day.delta} {isFr ? 'en plus' : 'more'}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-0.5 text-[11px] font-semibold text-slate-400">
+                        <Minus className="w-3 h-3" />
+                        {isFr ? 'Stable' : 'Equal'}
+                      </span>
+                    )}
+                    <span className="text-[9px] text-slate-500 block">
+                      {isFr ? 'vs jour précédent' : 'vs prior day'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 3: DAY OF THE WEEK TREND BAR CHART */}
       {viewMode === 'weekday' && (
         <div className="space-y-4">
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-              {isFr ? 'Comparaison par Jour de la Semaine' : 'Weekly Consumption Pattern'}
+              {isFr ? 'Profil d\'Habitudes par Jour de Semaine' : 'Weekly Habit Patterns'}
             </h4>
             <p className="text-[11px] text-slate-400">
               {isFr
-                ? 'Moyenne de substances consommées selon le jour de la semaine :'
-                : 'Average substance units consumed by day of the week:'}
+                ? 'Moyenne réelle d\'unités selon le jour de la semaine (calculée sur vos saisies) :'
+                : 'Actual average units by weekday from logged records:'}
             </p>
           </div>
 

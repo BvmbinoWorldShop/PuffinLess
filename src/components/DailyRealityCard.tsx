@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus } from 'lucide-react';
+import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus, X, AlertTriangle } from 'lucide-react';
 import type { UserProfile, SubstanceType } from '../types';
 import type { DailyReality } from '../core/obsidianCore';
 import { MorphicCard } from './MorphicCard';
@@ -12,11 +12,25 @@ interface Props {
   profile: UserProfile;
   reality: DailyReality;
   onOpenLog?: (substance: SubstanceType) => void;
+  onLogSubstance?: (substance: SubstanceType, count: number, trigger: string, note?: string) => void;
 }
 
-export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog }) => {
+const TRIGGERS = [
+  { id: 'Stress', fr: 'Stress', en: 'Stress' },
+  { id: 'After meal', fr: 'Après repas', en: 'After meal' },
+  { id: 'Social', fr: 'Soirée / Amis', en: 'Social' },
+  { id: 'Boredom', fr: 'Ennui', en: 'Boredom' },
+  { id: 'Work break', fr: 'Pause travail', en: 'Work break' },
+  { id: 'Other', fr: 'Autre', en: 'Other' },
+];
+
+export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog, onLogSubstance }) => {
   const isFr = profile.language === 'fr';
   const [period, setPeriod] = useState<Period>('day');
+  const [quickLogSubstance, setQuickLogSubstance] = useState<SubstanceType | null>(null);
+  const [quickLogCount, setQuickLogCount] = useState<number>(1);
+  const [quickLogTrigger, setQuickLogTrigger] = useState<string>('Stress');
+
   const d = DAYS[period];
   const smokeMin = reality.smokingMinutes * d;
   const lifeMin = reality.lifeLostMinutes * d;
@@ -39,8 +53,30 @@ export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog 
     return `${(h / 24).toFixed(1)} ${isFr ? 'jours' : 'days'}`;
   };
 
+  const handleOpenQuickLog = (s: SubstanceType) => {
+    sound.playClick();
+    if (onLogSubstance) {
+      setQuickLogSubstance(s);
+      setQuickLogCount(s === 'puff_vape' ? 10 : 1);
+      setQuickLogTrigger('Stress');
+    } else if (onOpenLog) {
+      onOpenLog(s);
+    }
+  };
+
+  const handleConfirmQuickLog = () => {
+    if (!quickLogSubstance) return;
+    sound.playWarning(); // warning audio + distinct hapticWarning vibration
+    if (onLogSubstance) {
+      onLogSubstance(quickLogSubstance, quickLogCount, quickLogTrigger);
+    } else if (onOpenLog) {
+      onOpenLog(quickLogSubstance);
+    }
+    setQuickLogSubstance(null);
+  };
+
   return (
-    <MorphicCard variant="elevated" className="space-y-4">
+    <MorphicCard variant="elevated" className="space-y-4 relative">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/25">
@@ -82,18 +118,13 @@ export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog 
             <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(cigs).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{isFr ? 'cigarettes' : 'cigarettes'}</div>
           </div>
-          {onOpenLog && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                onOpenLog('cigarette');
-              }}
-              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-amber-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-            >
-              <Plus className="w-2.5 h-2.5" />
-              {isFr ? 'Ajouter' : 'Log'}
-            </button>
-          )}
+          <button
+            onClick={() => handleOpenQuickLog('cigarette')}
+            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-amber-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+          >
+            <Plus className="w-2.5 h-2.5" />
+            {isFr ? 'Ajouter' : 'Log'}
+          </button>
         </div>
         <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
           <div>
@@ -101,18 +132,13 @@ export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog 
             <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.puffs * d).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{isFr ? 'bouffées' : 'vape puffs'}</div>
           </div>
-          {onOpenLog && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                onOpenLog('puff_vape');
-              }}
-              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-cyan-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-            >
-              <Plus className="w-2.5 h-2.5" />
-              {isFr ? 'Ajouter' : 'Log'}
-            </button>
-          )}
+          <button
+            onClick={() => handleOpenQuickLog('puff_vape')}
+            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-cyan-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+          >
+            <Plus className="w-2.5 h-2.5" />
+            {isFr ? 'Ajouter' : 'Log'}
+          </button>
         </div>
         <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
           <div>
@@ -120,20 +146,105 @@ export const DailyRealityCard: React.FC<Props> = ({ profile, reality, onOpenLog 
             <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(reality.joints * d).toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">{isFr ? 'joints' : 'joints'}</div>
           </div>
-          {onOpenLog && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                onOpenLog('cannabis');
-              }}
-              className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-lime-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-            >
-              <Plus className="w-2.5 h-2.5" />
-              {isFr ? 'Ajouter' : 'Log'}
-            </button>
-          )}
+          <button
+            onClick={() => handleOpenQuickLog('cannabis')}
+            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-lime-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
+          >
+            <Plus className="w-2.5 h-2.5" />
+            {isFr ? 'Ajouter' : 'Log'}
+          </button>
         </div>
       </div>
+
+      {/* INLINE QUICK-LOG POPUP AT THE EXACT SAME LEVEL (NO SCROLLING) */}
+      {quickLogSubstance && (
+        <div className="p-3.5 rounded-2xl bg-slate-900/95 border border-rose-500/40 shadow-xl space-y-3 animate-fade-in">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              {isFr
+                ? `Enregistrer : ${quickLogSubstance === 'cigarette' ? 'Cigarette' : quickLogSubstance === 'puff_vape' ? 'Puff Vape' : 'Joint / Cannabis'}`
+                : `Log intake: ${quickLogSubstance}`}
+            </span>
+            <button
+              onClick={() => setQuickLogSubstance(null)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Quick Quantities */}
+          <div>
+            <label className="text-[10px] font-semibold text-slate-400 block mb-1">
+              {isFr ? 'Quantité consommée :' : 'Quantity consumed:'}
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(quickLogSubstance === 'puff_vape' ? [5, 10, 15, 20] : [1, 2, 3, 5]).map((qty) => (
+                <button
+                  key={qty}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setQuickLogCount(qty);
+                  }}
+                  className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                    quickLogCount === qty
+                      ? 'bg-rose-500/25 border-rose-400 text-rose-200'
+                      : 'bg-slate-900/40 border-white/10 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  +{qty}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Triggers */}
+          <div>
+            <label className="text-[10px] font-semibold text-slate-400 block mb-1">
+              {isFr ? 'Déclencheur :' : 'Trigger context:'}
+            </label>
+            <div className="flex items-center gap-1 flex-wrap">
+              {TRIGGERS.map((trig) => (
+                <button
+                  key={trig.id}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setQuickLogTrigger(trig.id);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-medium border transition-all ${
+                    quickLogTrigger === trig.id
+                      ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                      : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {isFr ? trig.fr : trig.en}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Validation & Cancel */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setQuickLogSubstance(null)}
+              className="py-1.5 rounded-xl glass-button text-xs font-semibold text-slate-300"
+            >
+              {isFr ? 'Annuler' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmQuickLog}
+              className="py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs shadow-md shadow-rose-500/25 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+            >
+              {isFr ? 'Valider la prise' : 'Confirm intake'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Consequences */}
       <div className="grid grid-cols-1 gap-2">

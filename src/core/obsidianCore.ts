@@ -141,7 +141,7 @@ export function buildCoreReport(input: {
   const weekly: WeeklyPoint[] = lastNDates(7).map((date) => {
     const entry = sleepLogs.find((e) => e.date === date);
     const logged = sumIntake(substanceLogs, date);
-    const intake = total(logged) > 0 ? logged : entry?.substancesLogged ?? logged;
+    const intake = logged; // Strictly calculated from real substance database logs
     return {
       date,
       label: dayLabel(date),

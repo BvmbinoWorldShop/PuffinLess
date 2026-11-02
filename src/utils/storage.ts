@@ -377,26 +377,7 @@ export function loadCravings(): CravingEntry[] {
   } catch (e) {
     console.error('Error loading cravings', e);
   }
-  return [
-    {
-      id: 'c-1',
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-      intensity: 7,
-      trigger: 'After meal',
-      resisted: true,
-      substance: 'cigarette',
-      note: 'Did 4-7-8 breathing technique',
-    },
-    {
-      id: 'c-2',
-      timestamp: new Date(Date.now() - 3600000 * 22).toISOString(),
-      intensity: 8,
-      trigger: 'Work stress',
-      resisted: true,
-      substance: 'puff_vape',
-      note: 'Went for a 5-minute walk outside',
-    },
-  ];
+  return [];
 }
 
 export function saveCravings(cravings: CravingEntry[]): void {
