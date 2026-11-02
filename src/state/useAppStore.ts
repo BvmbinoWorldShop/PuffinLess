@@ -82,7 +82,7 @@ export function useAppStore() {
   const setLanguage = (lang: Language) => updateProfile({ ...profile, language: lang });
 
   /** Log a cigarette / puffs / joint. This ends the current streak and restarts the Clean Breath Counter. */
-  const logSubstance = (substance: SubstanceType, count: number, trigger?: string) => {
+  const logSubstance = (substance: SubstanceType, count: number, trigger?: string, intensity?: number) => {
     const now = new Date();
     const entry: SubstanceLog = {
       id: 'sub-' + now.getTime(),
@@ -94,6 +94,22 @@ export function useAppStore() {
     const logs = [entry, ...substanceLogs];
     setSubstanceLogs(logs);
     saveSubstanceLogs(logs);
+
+    // Also record a craving entry with resisted: false if triggered or with intensity
+    if (intensity !== undefined || trigger) {
+      const craveEntry: CravingEntry = {
+        id: 'c-' + now.getTime(),
+        timestamp: now.toISOString(),
+        intensity: intensity ?? 5,
+        trigger: trigger || 'Stress',
+        resisted: false,
+        substance,
+        note: 'Slip logged with craving motivation',
+      };
+      const nextCravings = [craveEntry, ...cravings];
+      setCravings(nextCravings);
+      saveCravings(nextCravings);
+    }
 
     // Close the streak (ignore accidental double taps under a minute)
     const streakLength = now.getTime() - new Date(profile.quitDate).getTime();

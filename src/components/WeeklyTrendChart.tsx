@@ -1,8 +1,10 @@
 import React from 'react';
 import type { WeeklyPoint } from '../core/obsidianCore';
+import type { Language } from '../types';
 
 interface Props {
   points: WeeklyPoint[];
+  language?: Language;
 }
 
 const W = 320;
@@ -12,7 +14,8 @@ const PAD_R = 10;
 const PLOT_TOP = 12;
 const PLOT_BOTTOM = 140;
 
-export const WeeklyTrendChart: React.FC<Props> = ({ points }) => {
+export const WeeklyTrendChart: React.FC<Props> = ({ points, language = 'en' }) => {
+  const isFr = language === 'fr';
   const n = points.length;
   const x = (i: number) => PAD_L + (i * (W - PAD_L - PAD_R)) / Math.max(1, n - 1);
   const y = (v: number) => PLOT_BOTTOM - ((v - 0) / 10) * (PLOT_BOTTOM - PLOT_TOP);
@@ -87,16 +90,16 @@ export const WeeklyTrendChart: React.FC<Props> = ({ points }) => {
               {p.label}
             </text>
             <text x={x(i)} y={PLOT_BOTTOM + 28} textAnchor="middle" fontSize="8" className={`fill-current ${p.clean ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {p.clean ? 'clean' : `${Math.round(p.units)} u`}
+              {p.clean ? (isFr ? 'propre' : 'clean') : `${Math.round(p.units)} u`}
             </text>
           </g>
         ))}
       </svg>
 
       <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400 mt-1">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 rounded bg-indigo-400 inline-block" />Sleep</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 rounded bg-emerald-500 inline-block" />Energy</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/50 inline-block" />Intake (cig-equivalent)</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 rounded bg-indigo-400 inline-block" />{isFr ? 'Sommeil' : 'Sleep'}</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 rounded bg-emerald-500 inline-block" />{isFr ? 'Énergie' : 'Energy'}</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/50 inline-block" />{isFr ? 'Consommation' : 'Intake (cig-equivalent)'}</span>
       </div>
     </div>
   );

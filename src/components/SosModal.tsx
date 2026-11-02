@@ -9,7 +9,7 @@ interface SosModalProps {
   isOpen: boolean;
   onClose: () => void;
   onResistedCraving: (trigger: string, intensity: number, substance?: SubstanceType) => void;
-  onLogSlip: (substance: SubstanceType, count: number, trigger?: string) => void;
+  onLogSlip: (substance: SubstanceType, count: number, trigger?: string, intensity?: number) => void;
   currency: string;
   moneySaved: number;
   language?: Language;
@@ -90,7 +90,8 @@ export const SosModal: React.FC<SosModalProps> = ({
   };
 
   const handleRecordSlip = (substance: SubstanceType, count: number) => {
-    onLogSlip(substance, count, selectedTrigger);
+    sound.playClick();
+    onLogSlip(substance, count, selectedTrigger, craveIntensity);
     setShowSlipConfirm(false);
     onClose();
   };
@@ -368,50 +369,69 @@ export const SosModal: React.FC<SosModalProps> = ({
           </div>
         </div>
 
-        {/* Main CTA */}
+        {/* Main CTAs: Resist vs Smoked */}
         <div className="mt-4 space-y-2">
-          <button
-            type="button"
-            onClick={handleVictory}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-            <span>{t('sosResistBtn', language)}</span>
-          </button>
-
           {!showSlipConfirm ? (
-            <button
-              type="button"
-              onClick={() => setShowSlipConfirm(true)}
-              className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-rose-400 transition-colors"
-            >
-              {t('sosSlipQuestion', language)}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleVictory}
+                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span>{language === 'fr' ? "J'ai résisté !" : "I Resisted!"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSlipConfirm(true)}
+                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-600/30 border border-rose-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              >
+                <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
+                <span>{language === 'fr' ? "J'ai fumé" : "I Smoked"}</span>
+              </button>
+            </div>
           ) : (
-            <div className="p-3 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-center space-y-2">
-              <p className="text-xs text-rose-200 flex items-center justify-center gap-1.5">
+            <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-center space-y-2.5 animate-fade-in">
+              <p className="text-xs font-semibold text-rose-200 flex items-center justify-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{t('sosSlipWarning', language)}</span>
+                <span>
+                  {language === 'fr'
+                    ? `Confirmer la consommation (Intensité : ${craveIntensity}/10) :`
+                    : `Confirm intake (Craving intensity: ${craveIntensity}/10):`}
+                </span>
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleRecordSlip('cigarette', 1)}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/30 border border-rose-500/40 text-xs text-rose-200 hover:bg-rose-500/50 font-semibold"
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                    selectedSubstance === 'cigarette'
+                      ? 'bg-rose-500 text-white keep-white border-rose-400 shadow-md'
+                      : 'bg-rose-500/20 text-rose-200 border-rose-500/30'
+                  }`}
                 >
                   1 {t('substanceCigarette', language)}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleRecordSlip('puff_vape', 10)}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/30 border border-rose-500/40 text-xs text-rose-200 hover:bg-rose-500/50 font-semibold"
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                    selectedSubstance === 'puff_vape'
+                      ? 'bg-rose-500 text-white keep-white border-rose-400 shadow-md'
+                      : 'bg-rose-500/20 text-rose-200 border-rose-500/30'
+                  }`}
                 >
                   10 {t('unitPuff', language)}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleRecordSlip('cannabis', 1)}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/30 border border-rose-500/40 text-xs text-rose-200 hover:bg-rose-500/50 font-semibold"
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                    selectedSubstance === 'cannabis'
+                      ? 'bg-rose-500 text-white keep-white border-rose-400 shadow-md'
+                      : 'bg-rose-500/20 text-rose-200 border-rose-500/30'
+                  }`}
                 >
                   1 {t('unitJoint', language)}
                 </button>
@@ -425,6 +445,12 @@ export const SosModal: React.FC<SosModalProps> = ({
               </div>
             </div>
           )}
+
+          <p className="text-[10px] text-slate-400 text-center">
+            {language === 'fr'
+              ? `Horodatage automatique · Déclencheur : ${selectedTrigger} · Intensité : ${craveIntensity}/10`
+              : `Automatic timestamp · Trigger: ${selectedTrigger} · Intensity: ${craveIntensity}/10`}
+          </p>
         </div>
       </div>
     </div>

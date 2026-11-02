@@ -74,6 +74,7 @@ export function App() {
             report={report}
             cravings={store.cravings}
             sleepEnergyLogs={store.sleepLogs}
+            substanceLogs={store.substanceLogs}
             onLogSubstance={actions.logSubstance}
             onSaveSleepEnergy={actions.saveSleepEnergyEntry}
             onOpenSos={() => setIsSosOpen(true)}

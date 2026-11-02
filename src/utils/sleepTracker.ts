@@ -36,7 +36,7 @@ export interface SleepCorrelationReport {
 const intakeUnits = (e: SleepEnergyEntry) =>
   e.substancesLogged.cigarette + e.substancesLogged.puff_vape / 10 + e.substancesLogged.cannabis * 2;
 
-export function computeSleepEnergyCorrelation(entries: SleepEnergyEntry[]): SleepCorrelationReport {
+export function computeSleepEnergyCorrelation(entries: SleepEnergyEntry[], isFr: boolean = false): SleepCorrelationReport {
   const cleanDays = entries.filter((e) => intakeUnits(e) === 0);
   const heavyDays = entries.filter((e) => intakeUnits(e) >= 6);
   const avg = (list: SleepEnergyEntry[], key: 'sleepRating' | 'energyRating') =>
@@ -54,8 +54,12 @@ export function computeSleepEnergyCorrelation(entries: SleepEnergyEntry[]): Slee
   const energyMultiplier = hasEnoughData ? Number((avgCleanEnergy / Math.max(1, avgHeavyEnergy)).toFixed(1)) : 0;
 
   const insightSummary = hasEnoughData
-    ? `On clean days your sleep scores ${avgCleanSleep}/10 vs ${avgHeavySleep}/10 on heavy days (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), and energy is ${energyMultiplier}x higher.`
-    : 'Keep logging sleep and energy on both clean and heavy days. Once you have both, PuffinLess will compare them for you.';
+    ? isFr
+      ? `Les jours sans fumer, votre sommeil est noté ${avgCleanSleep}/10 contre ${avgHeavySleep}/10 les jours avec forte consommation (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), et votre énergie est multipliée par ${energyMultiplier}.`
+      : `On clean days your sleep scores ${avgCleanSleep}/10 vs ${avgHeavySleep}/10 on heavy days (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), and energy is ${energyMultiplier}x higher.`
+    : isFr
+      ? 'Continuez à enregistrer votre sommeil et votre énergie les jours sobres et les jours avec fumée. Dès que vous aurez plusieurs relevés, PuffinLess comparera automatiquement vos progrès.'
+      : 'Keep logging sleep and energy on both clean and heavy days. Once you have both, PuffinLess will compare them for you.';
 
   return {
     avgCleanSleep,

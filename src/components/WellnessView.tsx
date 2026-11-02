@@ -46,7 +46,58 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
   const [bookmarks, setBookmarks] = useState<string[]>(['ql1', 'ql27']);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const corr = computeSleepEnergyCorrelation(sleepEnergyLogs);
+  const corr = computeSleepEnergyCorrelation(sleepEnergyLogs, isFr);
+
+  const formatLessonCat = (cat: string) => {
+    if (!isFr) return cat;
+    const map: Record<string, string> = {
+      'Biology of Craving': 'Biologie du Manque',
+      'Habit Rewiring': 'Recâblage des Habitudes',
+      'Identity & Mindset': 'Identité & Psychologie',
+      'Dopamine & Brain': 'Dopamine & Cerveau',
+      'Relapse Recovery': 'Surmonter les Faux Pas',
+      'Substance Guides': 'Guides Substances',
+    };
+    return map[cat] || cat;
+  };
+
+  const formatStudyTopicLabel = (topic: string) => {
+    if (!isFr) return topic;
+    const map: Record<string, string> = {
+      'Quitting': 'Sevrage',
+      'Nicotine': 'Nicotine',
+      'Cannabis': 'Cannabis',
+      'Vaping': 'Vape & Puffs',
+      'Sleep': 'Sommeil',
+      'Mindset': 'Psychologie',
+      'Habits': 'Habitudes',
+    };
+    return map[topic] || topic;
+  };
+
+  const formatResourceKind = (type: string) => {
+    if (!isFr) return type;
+    const map: Record<string, string> = {
+      'Talk': 'Conférence TED',
+      'Documentary': 'Documentaire',
+      'Book': 'Livre',
+      'Free help': 'Aide gratuite',
+    };
+    return map[type] || type;
+  };
+
+  const formatQuoteCatLabel = (cat: string) => {
+    if (!isFr) return cat;
+    const map: Record<string, string> = {
+      'Starting': 'Démarrage',
+      'Resilience': 'Résilience',
+      'Habits': 'Habitudes',
+      'Health': 'Santé',
+      'Calm': 'Sérénité',
+      'Identity': 'Identité',
+    };
+    return map[cat] || cat;
+  };
 
   const lessons = getLessons(language);
   const studies = getStudies(language);
@@ -199,7 +250,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                    <span className="text-emerald-400 font-bold uppercase tracking-wider">{l.category}</span>
+                    <span className="text-emerald-400 font-bold uppercase tracking-wider">{formatLessonCat(l.category)}</span>
                     <span>·</span><span>{l.duration}</span>
                   </div>
                   <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors mt-0.5">{l.title}</h4>
@@ -249,7 +300,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
               {studies.filter((s) => studyTopic === 'All' || s.topic === studyTopic).map((s) => (
                 <MorphicCard key={s.id} variant="default" className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">{s.topic}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">{formatStudyTopicLabel(s.topic)}</span>
                     <span className="text-[10px] text-slate-400">{s.year}</span>
                   </div>
                   <h4 className="text-sm font-bold text-white leading-snug">{s.title}</h4>
@@ -279,7 +330,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
                 <MorphicCard key={r.id} variant="default" className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${r.type === 'Free help' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'}`}>
-                      {r.type === 'Free help' && <Phone className="w-3 h-3 inline mr-1" />}{r.type}
+                      {r.type === 'Free help' && <Phone className="w-3 h-3 inline mr-1" />}{formatResourceKind(r.type)}
                     </span>
                     {r.year && <span className="text-[10px] text-slate-400">{r.year}</span>}
                   </div>
@@ -344,7 +395,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
                 </div>
               </div>
             </div>
-            <WeeklyTrendChart points={report.weekly} />
+            <WeeklyTrendChart points={report.weekly} language={language} />
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-2xl glass-panel text-center">
                 <div className="text-[10px] text-slate-400">{isFr ? 'Moyenne Sommeil' : 'Avg sleep'}</div>
@@ -466,7 +517,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
               <MorphicCard key={q.id} variant="default">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5 flex-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{q.category}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{formatQuoteCatLabel(q.category)}</span>
                     <p className="text-sm font-medium text-white italic leading-relaxed">“{q.quote}”</p>
                     <p className="text-xs font-semibold text-emerald-400">{q.author}</p>
                   </div>
@@ -497,7 +548,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
           <div className="relative w-full max-w-lg rounded-3xl glass-panel-elevated p-6 border border-white/15 shadow-2xl my-auto">
             <button onClick={() => setSelectedLesson(null)} className="absolute top-5 right-5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400"><X className="w-4 h-4" /></button>
             <div className="flex items-center gap-2 text-[11px] font-semibold text-emerald-400 mb-2">
-              <span className="uppercase tracking-wider">{selectedLesson.category}</span><span>·</span><span className="text-slate-400">{selectedLesson.duration}</span>
+              <span className="uppercase tracking-wider">{formatLessonCat(selectedLesson.category)}</span><span>·</span><span className="text-slate-400">{selectedLesson.duration}</span>
             </div>
             <h3 className="text-xl font-bold text-white mb-1 pr-8">{selectedLesson.title}</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedLesson.subtitle}</p>

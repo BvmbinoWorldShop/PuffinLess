@@ -3,7 +3,7 @@ import {
   Activity, CheckCircle, ChevronRight, Wind, ShieldCheck, Cigarette, Leaf, Plus, Moon,
   BatteryCharging, Sparkles, AlertCircle, Zap, Trophy, TrendingUp, TrendingDown, X, RotateCcw,
 } from 'lucide-react';
-import type { UserProfile, CravingEntry, SubstanceType, SleepEnergyEntry } from '../types';
+import type { UserProfile, CravingEntry, SubstanceType, SleepEnergyEntry, SubstanceLog } from '../types';
 import type { CalculatedStats } from '../utils/calculations';
 import type { CoreReport } from '../core/obsidianCore';
 import { getTierMeta } from '../core/levels';
@@ -15,6 +15,7 @@ import { MorphicCard } from './MorphicCard';
 import { ObsidianCoreCard } from './ObsidianCoreCard';
 import { DailyRealityCard } from './DailyRealityCard';
 import { WeeklyTrendChart } from './WeeklyTrendChart';
+import { CalendarTrendCard } from './CalendarTrendCard';
 import { sound } from '../utils/audio';
 
 interface DashboardViewProps {
@@ -23,6 +24,7 @@ interface DashboardViewProps {
   report: CoreReport;
   cravings: CravingEntry[];
   sleepEnergyLogs: SleepEnergyEntry[];
+  substanceLogs?: SubstanceLog[];
   onLogSubstance: (substance: SubstanceType, count: number, trigger?: string) => void;
   onSaveSleepEnergy: (entry: SleepEnergyEntry) => void;
   onOpenSos: () => void;
@@ -47,6 +49,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   report,
   cravings,
   sleepEnergyLogs,
+  substanceLogs = [],
   onLogSubstance,
   onSaveSleepEnergy,
   onOpenSos,
@@ -303,7 +306,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-400" />{lang === 'fr' ? 'Doses' : 'Intake'}</span>
             </div>
           </div>
-          <WeeklyTrendChart points={report.weekly} />
+          <WeeklyTrendChart points={report.weekly} language={lang} />
         </div>
 
         {/* Dynamic Correlations */}
@@ -328,6 +331,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </MorphicCard>
+
+      {/* 7. Calendar & Day-of-Week Trend Analysis */}
+      <CalendarTrendCard
+        substanceLogs={substanceLogs}
+        sleepLogs={sleepEnergyLogs}
+        cravings={cravings}
+        language={lang}
+      />
 
       {/* 7. Next Milestone */}
       <MorphicCard variant="default">
@@ -452,29 +463,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Comprehensive Intake Modal: Substance, Count & Trigger/Motivation */}
       {pending && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-md rounded-3xl glass-panel-elevated p-5 sm:p-6 border border-white/15 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-xl animate-fade-in">
+          <div className="relative w-full max-w-sm sm:max-w-md rounded-3xl glass-panel-elevated p-4 sm:p-5 border border-white/20 shadow-2xl">
             <button
               onClick={() => setPending(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
+              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2 mb-1">
-              <RotateCcw className="w-5 h-5 text-amber-400" />
-              <h3 className="text-base font-bold text-white">{t('logSubstanceTitle', lang)}</h3>
+            <div className="flex items-center gap-2 mb-0.5">
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm sm:text-base font-bold text-white">{t('logSubstanceTitle', lang)}</h3>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-[11px] text-slate-400 mb-3">
               {t('logSubstanceSub', lang)}
             </p>
 
             {/* 1. Substance Selector */}
-            <div className="mb-3.5">
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+            <div className="mb-2.5">
+              <label className="text-[11px] font-semibold text-slate-300 mb-1 block">
                 {t('selectSubstance', lang)}
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {(['cigarette', 'puff_vape', 'cannabis'] as SubstanceType[]).map((s) => {
                   const o = LOG_OPTIONS[s];
                   const Icon = o.icon;
@@ -487,13 +498,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         setPending(s);
                         setPendingCount(LOG_OPTIONS[s].counts[0]);
                       }}
-                      className={`py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
                         isSelected
                           ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-md shadow-amber-500/20'
                           : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">{o.label}</span>
                     </button>
                   );
@@ -502,11 +513,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {/* 2. Quantity Selector */}
-            <div className="mb-3.5">
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+            <div className="mb-2.5">
+              <label className="text-[11px] font-semibold text-slate-300 mb-1 block">
                 {t('selectQuantity', lang)}
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {LOG_OPTIONS[pending].counts.map((n) => (
                   <button
                     key={n}
@@ -514,7 +525,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       sound.playClick();
                       setPendingCount(n);
                     }}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                       pendingCount === n
                         ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-sm'
                         : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
@@ -527,11 +538,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {/* 3. Motivation / Trigger Selector */}
-            <div className="mb-5">
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+            <div className="mb-3.5">
+              <label className="text-[11px] font-semibold text-slate-300 mb-1 block">
                 {t('selectMotivation', lang)}
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {TRIGGER_OPTIONS.map((trig) => {
                   const isSelected = pendingTrigger === trig.id;
                   const label = lang === 'fr' ? trig.labelFr : trig.labelEn;
@@ -542,7 +553,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         sound.playClick();
                         setPendingTrigger(trig.id);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all ${
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-medium border transition-all ${
                         isSelected
                           ? 'bg-rose-500/30 border-rose-400 text-rose-200 shadow-sm'
                           : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
@@ -559,13 +570,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setPending(null)}
-                className="py-2.5 rounded-xl glass-button text-xs font-semibold text-slate-300"
+                className="py-2 rounded-xl glass-button text-xs font-semibold text-slate-300"
               >
                 {t('cancel', lang)}
               </button>
               <button
                 onClick={confirmLog}
-                className="py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white keep-white text-xs font-bold shadow-lg shadow-rose-500/25 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                className="py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white keep-white text-xs font-bold shadow-lg shadow-rose-500/25 hover:scale-[1.02] active:scale-[0.98] transition-transform"
               >
                 {t('logAndRestart', lang)}
               </button>
