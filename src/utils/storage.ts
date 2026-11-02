@@ -11,7 +11,6 @@ import type {
   SleepEnergyEntry,
   StreakRecord,
 } from '../types';
-import { SAMPLE_SLEEP_DATA } from './sleepTracker';
 
 const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -43,48 +42,41 @@ export function saveStreaks(streaks: StreakRecord[]): void {
   }
 }
 
-const getSampleQuitDate = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 4);
-  d.setHours(d.getHours() - 6);
-  return d.toISOString();
-};
-
 export const DEFAULT_PROFILE: UserProfile = {
-  name: 'Alex Vance',
+  name: '',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-  quitDate: getSampleQuitDate(),
-  cigarettesPerDay: 15,
-  pricePerPack: 12.5,
+  quitDate: new Date().toISOString(),
+  cigarettesPerDay: 10,
+  pricePerPack: 12.0,
   cigarettesInPack: 20,
-  puffsPerDay: 80,
-  cannabisGramsPerWeek: 3.5,
+  puffsPerDay: 0,
+  cannabisGramsPerWeek: 0,
   podPrice: 18,
   pricePerGram: 10,
   currency: '$',
   quitMode: 'cold_turkey',
   gradualDailyTarget: 5,
-  motivators: ['My Health & Stamina', 'Financial Freedom', 'Fresh Breath & Skin', 'Family Protection'],
-  isOnboarded: true,
+  motivators: ['My Health & Stamina', 'Financial Freedom', 'Fresh Breath & Skin'],
+  isOnboarded: false,
   soundEnabled: true,
   theme: 'dark',
   language: 'en',
-  age: 28,
+  age: 26,
   gender: 'Prefer not to say',
   ethnicity: 'Mixed / Global',
-  religion: 'Spiritual',
-  job: 'Technology & Design',
-  monthlyIncome: 3800,
+  religion: 'Spiritual / Personal',
+  job: '',
+  monthlyIncome: 3000,
   primarySubstance: 'cigarette',
-  habits: ['cigarette', 'puff_vape'],
+  habits: ['cigarette'],
   smokingHabitByDay: {
-    cigarettes: 15,
-    puffs: 60,
-    cannabis: 0.5,
-    yearsSmoking: 6,
-    peakTriggers: ['Stress', 'After meal', 'Morning coffee'],
+    cigarettes: 10,
+    puffs: 0,
+    cannabis: 0,
+    yearsSmoking: 3,
+    peakTriggers: ['Stress', 'After meal'],
   },
-  customCoachGoal: 'Reclaim my lung capacity, save $4,500/year to invest, and achieve peak cognitive performance.',
+  customCoachGoal: 'Reclaim my lung capacity, save my money to invest, and achieve peak cognitive performance.',
 };
 
 export const DEFAULT_PURCHASES: PurchaseExpense[] = [
@@ -295,7 +287,7 @@ export function loadProfile(): UserProfile {
   } catch (e) {
     console.error('Error loading profile', e);
   }
-  return DEFAULT_PROFILE;
+  return { ...DEFAULT_PROFILE, quitDate: new Date().toISOString() };
 }
 
 export function saveProfile(profile: UserProfile): void {
@@ -313,7 +305,7 @@ export function loadExpenses(): PurchaseExpense[] {
   } catch (e) {
     console.error('Error loading expenses', e);
   }
-  return DEFAULT_PURCHASES;
+  return [];
 }
 
 export function saveExpenses(expenses: PurchaseExpense[]): void {
@@ -349,7 +341,7 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
   } catch (e) {
     console.error('Error loading sleep energy', e);
   }
-  return SAMPLE_SLEEP_DATA;
+  return [];
 }
 
 export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {

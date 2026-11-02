@@ -20,9 +20,8 @@ import {
   loadSleepEnergy, saveSleepEnergy,
   loadForumPosts, saveForumPosts,
   loadStreaks, saveStreaks,
-  DEFAULT_PROFILE, DEFAULT_SAVINGS_GOALS, DEFAULT_FORUM_POSTS, DEFAULT_PURCHASES,
+  DEFAULT_PROFILE, DEFAULT_SAVINGS_GOALS, DEFAULT_FORUM_POSTS,
 } from '../utils/storage';
-import { SAMPLE_SLEEP_DATA } from '../utils/sleepTracker';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
@@ -182,11 +181,11 @@ export function useAppStore() {
 
   const resetAll = () => {
     localStorage.clear();
-    setProfile(DEFAULT_PROFILE);
+    setProfile({ ...DEFAULT_PROFILE, quitDate: new Date().toISOString() });
     setGoals(DEFAULT_SAVINGS_GOALS);
     setPosts(DEFAULT_FORUM_POSTS);
-    setExpenses(DEFAULT_PURCHASES);
-    setSleepLogs(SAMPLE_SLEEP_DATA);
+    setExpenses([]);
+    setSleepLogs([]);
     setSubstanceLogs([]);
     setCravings([]);
     setStreaks([]);

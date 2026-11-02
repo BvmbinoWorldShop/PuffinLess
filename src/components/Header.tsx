@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, User, Smartphone, Monitor, Sun, Moon } from 'lucide-react';
+import { Zap, User, Sun, Moon } from 'lucide-react';
 import type { UserProfile } from '../types';
 import type { LevelTier } from '../core/levels';
 import { Dynamic3DIcon } from './Dynamic3DIcon';
@@ -13,8 +13,6 @@ interface HeaderProps {
   onOpenSos: () => void;
   onOpenProfile: () => void;
   onToggleTheme: () => void;
-  isMobileDeviceFrame: boolean;
-  onToggleDeviceFrame: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,8 +22,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSos,
   onOpenProfile,
   onToggleTheme,
-  isMobileDeviceFrame,
-  onToggleDeviceFrame,
 }) => {
   const isDark = profile.theme === 'dark';
   const lang = profile.language || 'en';
@@ -60,7 +56,13 @@ export const Header: React.FC<HeaderProps> = ({
             <Dynamic3DIcon size={36} />
           </div>
           <div className="min-w-0">
-            <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-none bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
+            <h1
+              className={`font-extrabold text-base sm:text-lg tracking-tight leading-none bg-clip-text text-transparent transition-all ${
+                isDark
+                  ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200'
+                  : 'bg-gradient-to-r from-slate-950 via-emerald-950 to-teal-950 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+              }`}
+            >
               {t('brandName', lang)}
             </h1>
             {/* Color-coded habit indicator without level text */}
@@ -82,14 +84,6 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center justify-center w-8 h-8 rounded-xl glass-button text-slate-300"
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400 animate-spin-slow" /> : <Moon className="w-4 h-4 text-indigo-500" />}
-          </button>
-
-          <button
-            onClick={() => { sound.playClick(); onToggleDeviceFrame(); }}
-            title={isMobileDeviceFrame ? 'Full layout' : 'Phone preview'}
-            className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl glass-button text-slate-300"
-          >
-            {isMobileDeviceFrame ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
           </button>
 
           {/* Profile & Settings Button */}
