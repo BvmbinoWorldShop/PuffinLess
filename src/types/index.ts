@@ -1,6 +1,7 @@
 export type QuitMode = 'cold_turkey' | 'gradual';
 export type AppTheme = 'dark' | 'light';
 export type Language = 'en' | 'fr';
+export type QuitGoal = 'want_to_quit' | 'already_quit' | 'just_tracking';
 
 export type SubstanceType = 'cigarette' | 'puff_vape' | 'cannabis';
 
@@ -90,6 +91,7 @@ export interface UserProfile {
   soundEnabled: boolean;
   theme: AppTheme;
   language: Language;
+  quitGoal?: QuitGoal;
 
   // Personalized Life & Coach Context
   age?: number;
@@ -184,4 +186,5 @@ export interface Quote {
   quote: string;
   author: string;
   category: string;
+  book?: string;
 }

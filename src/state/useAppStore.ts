@@ -135,6 +135,48 @@ export function useAppStore() {
     }
   };
 
+  /** Undo or remove a mistakenly logged intake for today */
+  const removeSubstance = (substance: SubstanceType, count: number = 1) => {
+    const today = localDateStr();
+    let remainingToRemove = count;
+    const newLogs: SubstanceLog[] = [];
+    let modified = false;
+
+    // Iterate through logs and decrement/remove today's matches
+    for (const log of substanceLogs) {
+      const isToday = localDateStr(log.timestamp) === today;
+      if (isToday && log.substance === substance && remainingToRemove > 0) {
+        modified = true;
+        if (log.count <= remainingToRemove) {
+          remainingToRemove -= log.count;
+          // Omit this log
+        } else {
+          newLogs.push({ ...log, count: log.count - remainingToRemove });
+          remainingToRemove = 0;
+        }
+      } else {
+        newLogs.push(log);
+      }
+    }
+
+    if (modified) {
+      setSubstanceLogs(newLogs);
+      saveSubstanceLogs(newLogs);
+
+      // If today is now clean and a streak was broken, restore previous streak start
+      const todayTotal = sumIntake(newLogs, today);
+      if (todayTotal.cigarette === 0 && todayTotal.puff_vape === 0 && todayTotal.cannabis === 0) {
+        if (streaks.length > 0) {
+          const lastStreak = streaks[0];
+          const remainingStreaks = streaks.slice(1);
+          setStreaks(remainingStreaks);
+          saveStreaks(remainingStreaks);
+          updateProfile({ ...profile, quitDate: lastStreak.start });
+        }
+      }
+    }
+  };
+
   /** Mark a craving as resisted (from the Craving button). Remembered by the Core. */
   const resistCraving = (trigger: string, intensity: number, substance?: SubstanceType) => {
     const entry: CravingEntry = {
@@ -211,7 +253,7 @@ export function useAppStore() {
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, posts, streaks,
     stats, report,
     actions: {
-      updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, resistCraving, saveSleepEnergyEntry,
+      updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
       addExpense, deleteExpense, addGoal, toggleGoal, addPost, toggleLike, completeOnboarding, resetAll,
     },
   };

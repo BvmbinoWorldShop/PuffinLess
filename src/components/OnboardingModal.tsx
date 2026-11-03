@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf } from 'lucide-react';
-import type { UserProfile, QuitMode, Language } from '../types';
+import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2 } from 'lucide-react';
+import type { UserProfile, QuitMode, Language, QuitGoal } from '../types';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
 import confetti from 'canvas-confetti';
@@ -21,6 +21,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const [step, setStep] = useState<number>(1);
   const [name, setName] = useState(initialProfile.name || '');
+  const [quitGoal, setQuitGoal] = useState<QuitGoal>(initialProfile.quitGoal || 'want_to_quit');
   const [cigsPerDay, setCigsPerDay] = useState(initialProfile.cigarettesPerDay || 15);
   const [puffsPerDay, setPuffsPerDay] = useState(initialProfile.puffsPerDay || 80);
   const [cannabisGrams, setCannabisGrams] = useState(initialProfile.cannabisGramsPerWeek || 3.5);
@@ -62,6 +63,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         ...initialProfile,
         name: name.trim() || 'Champion',
         language: lang,
+        quitGoal,
         cigarettesPerDay: Number(cigsPerDay) || 15,
         puffsPerDay: Number(puffsPerDay) || 80,
         cannabisGramsPerWeek: Number(cannabisGrams) || 3.5,
@@ -69,7 +71,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         cigarettesInPack: Number(cigsInPack) || 20,
         currency,
         quitMode,
-        quitDate: dateObj.toISOString(),
+        quitDate: quitGoal === 'just_tracking' ? new Date().toISOString() : dateObj.toISOString(),
         motivators: selectedMotivators,
         isOnboarded: true,
       };
@@ -247,6 +249,37 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
 
             <div className="space-y-3">
+              {/* Objective Selector */}
+              <div>
+                <label className="block text-xs font-semibold text-emerald-400 mb-1.5">
+                  🎯 {isFr ? 'Quel est votre objectif principal ?' : 'What is your main goal?'}
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'want_to_quit' as QuitGoal, labelFr: 'Je veux arrêter', labelEn: 'Want to quit', icon: Target },
+                    { id: 'already_quit' as QuitGoal, labelFr: 'Déjà arrêté', labelEn: 'Already quit', icon: Shield },
+                    { id: 'just_tracking' as QuitGoal, labelFr: 'Suivi simple', labelEn: 'Just tracking', icon: BarChart2 },
+                  ].map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setQuitGoal(g.id);
+                      }}
+                      className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                        quitGoal === g.id
+                          ? 'bg-emerald-500/25 border-emerald-400 text-white shadow-sm'
+                          : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <g.icon className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold">{isFr ? g.labelFr : g.labelEn}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
                   {isFr ? 'Votre prénom ou pseudo' : 'Your Name'}
@@ -322,7 +355,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                    {isFr ? 'Herbe (g / sem)' : 'Weed (Grams/Wk)'}
+                    {isFr ? 'Cannabis / CBD (g/sem)' : 'Cannabis/CBD (g/wk)'}
                   </label>
                   <input
                     type="number"
@@ -334,6 +367,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   />
                 </div>
               </div>
+
+              <p className="text-[10px] text-slate-400 italic">
+                ℹ️ {isFr
+                  ? 'Ces repères servent uniquement à estimer vos économies. Ils ne comptabilisent aucune consommation dans votre journal.'
+                  : 'This baseline is only used to project savings and does not add any consumed intake to your logs.'}
+              </p>
 
               {/* Quit Date Selector */}
               <div>

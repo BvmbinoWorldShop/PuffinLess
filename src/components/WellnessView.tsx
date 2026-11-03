@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Wind, Brain, Quote as QuoteIcon, Bookmark, Share2, Play, Pause, RotateCcw, Check, ChevronRight, X, Moon,
-  BatteryCharging, Sparkles, Library, FlaskConical, MonitorPlay, ShieldQuestion, CalendarClock, Phone,
+  Bookmark, Share2, Play, Pause, RotateCcw, Check, ChevronRight, X, Moon,
+  BatteryCharging, Sparkles, FlaskConical, MonitorPlay, ShieldQuestion, CalendarClock, Phone,
 } from 'lucide-react';
 import type { PsychologyLesson, SleepEnergyEntry, Language } from '../types';
 import type { CoreReport } from '../core/obsidianCore';
 import { getLessons } from '../utils/psychologyLessons';
 import {
-  getStudies, getResources, getMyths, getTimeline, getQuotes,
+  getStudies, getResources, getMyths, getTimeline,
 } from '../content/library';
-import type { StudyTopic, QuoteItem } from '../content/library';
+import type { StudyTopic } from '../content/library';
 import { computeSleepEnergyCorrelation } from '../utils/sleepTracker';
 import { MorphicCard } from './MorphicCard';
 import { WeeklyTrendChart } from './WeeklyTrendChart';
 import { sound } from '../utils/audio';
+import { Wellness3DIcon } from './Wellness3DIcon';
+import { getRotatingWeeklyQuote, DAILY_QUOTES, DAILY_QUOTES_FR } from '../utils/storage';
 
 type Technique = '4-7-8' | 'box' | 'calm';
 type WellnessTab = 'mind' | 'library' | 'sleep' | 'breathe' | 'quotes';
@@ -42,7 +44,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
   const [cycles, setCycles] = useState(0);
 
   // quotes
-  const [quoteCat, setQuoteCat] = useState<QuoteItem['category'] | 'All'>('All');
+  const [quoteCat, setQuoteCat] = useState<string>('All');
   const [bookmarks, setBookmarks] = useState<string[]>(['ql1', 'ql27']);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -86,25 +88,11 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
     return map[type] || type;
   };
 
-  const formatQuoteCatLabel = (cat: string) => {
-    if (!isFr) return cat;
-    const map: Record<string, string> = {
-      'Starting': 'Démarrage',
-      'Resilience': 'Résilience',
-      'Habits': 'Habitudes',
-      'Health': 'Santé',
-      'Calm': 'Sérénité',
-      'Identity': 'Identité',
-    };
-    return map[cat] || cat;
-  };
-
   const lessons = getLessons(language);
   const studies = getStudies(language);
   const resources = getResources(language);
   const myths = getMyths(language);
   const timeline = getTimeline(timelineKind, language);
-  const quotes = getQuotes(language);
 
   const TECHNIQUES: Record<Technique, { name: string; inhale: number; hold: number; exhale: number; pause: number; desc: string }> = useMemo(() => ({
     '4-7-8': {
@@ -137,29 +125,60 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
         if (prev > 1) return prev - 1;
         const cfg = TECHNIQUES[technique];
         if (phase === 'Inhale') {
-          if (cfg.hold > 0) { setPhase('Hold'); return cfg.hold; }
-          sound.playBreathTone(true); setPhase('Exhale'); return cfg.exhale;
+          if (cfg.hold > 0) {
+            sound.vibrate(15);
+            setPhase('Hold');
+            return cfg.hold;
+          }
+          sound.playBreathTone(true);
+          sound.vibrate([20, 30, 20]);
+          setPhase('Exhale');
+          return cfg.exhale;
         }
-        if (phase === 'Hold') { sound.playBreathTone(true); setPhase('Exhale'); return cfg.exhale; }
-        if (phase === 'Exhale' && cfg.pause > 0) { setPhase('Pause'); return cfg.pause; }
-        sound.playBreathTone(false); setCycles((c) => c + 1); setPhase('Inhale'); return cfg.inhale;
+        if (phase === 'Hold') {
+          sound.playBreathTone(true);
+          sound.vibrate([20, 30, 20]);
+          setPhase('Exhale');
+          return cfg.exhale;
+        }
+        if (phase === 'Exhale' && cfg.pause > 0) {
+          sound.vibrate(15);
+          setPhase('Pause');
+          return cfg.pause;
+        }
+        sound.playBreathTone(false);
+        sound.vibrate(25);
+        setCycles((c) => c + 1);
+        setPhase('Inhale');
+        return cfg.inhale;
       });
     }, 1000);
     return () => clearInterval(timer);
   }, [running, phase, technique, TECHNIQUES]);
 
   const startStop = () => {
-    if (!running) { sound.playBreathTone(false); setPhase('Inhale'); setSecs(TECHNIQUES[technique].inhale); }
+    if (!running) {
+      sound.playBreathTone(false);
+      sound.vibrate(25);
+      setPhase('Inhale');
+      setSecs(TECHNIQUES[technique].inhale);
+    }
     setRunning(!running);
   };
-  const resetBreath = () => { setRunning(false); setPhase('Inhale'); setSecs(TECHNIQUES[technique].inhale); setCycles(0); };
+  const resetBreath = () => {
+    sound.vibrate(12);
+    setRunning(false);
+    setPhase('Inhale');
+    setSecs(TECHNIQUES[technique].inhale);
+    setCycles(0);
+  };
 
-  const TABS: Array<{ id: WellnessTab; label: string; icon: React.ElementType }> = [
-    { id: 'mind', label: isFr ? 'Mental' : 'Mind', icon: Brain },
-    { id: 'library', label: isFr ? 'Bibliothèque' : 'Library', icon: Library },
-    { id: 'sleep', label: isFr ? 'Sommeil' : 'Sleep', icon: Moon },
-    { id: 'breathe', label: isFr ? 'Respirer' : 'Breathe', icon: Wind },
-    { id: 'quotes', label: isFr ? 'Citations' : 'Quotes', icon: QuoteIcon },
+  const TABS: Array<{ id: WellnessTab; label: string }> = [
+    { id: 'mind', label: isFr ? 'Mental' : 'Mind' },
+    { id: 'library', label: isFr ? 'Bibliothèque' : 'Library' },
+    { id: 'sleep', label: isFr ? 'Sommeil' : 'Sleep' },
+    { id: 'breathe', label: isFr ? 'Respirer' : 'Breathe' },
+    { id: 'quotes', label: isFr ? 'Citations' : 'Quotes' },
   ];
 
   const chip = (active: boolean) =>
@@ -186,15 +205,19 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
     { id: 'Free help', label: isFr ? 'Numéros gratuits' : 'Free help' },
   ];
 
-  const quoteCatOptions: Array<{ id: QuoteItem['category'] | 'All'; label: string }> = [
-    { id: 'All', label: isFr ? 'Toutes' : 'All' },
-    { id: 'Starting', label: isFr ? 'Démarrage' : 'Starting' },
-    { id: 'Resilience', label: isFr ? 'Résilience' : 'Resilience' },
-    { id: 'Habits', label: isFr ? 'Habitudes' : 'Habits' },
-    { id: 'Health', label: isFr ? 'Santé' : 'Health' },
-    { id: 'Calm', label: isFr ? 'Sérénité' : 'Calm' },
-    { id: 'Identity', label: isFr ? 'Identité' : 'Identity' },
-  ];
+  const allQuotes = isFr ? DAILY_QUOTES_FR : DAILY_QUOTES;
+  const quoteCatOptions = useMemo(() => {
+    const cats = Array.from(new Set(allQuotes.map((q) => q.category)));
+    return [
+      { id: 'All', label: isFr ? 'Toutes' : 'All' },
+      ...cats.map((c) => ({ id: c, label: c })),
+    ];
+  }, [allQuotes, isFr]);
+
+  const filteredQuotes = useMemo(() => {
+    if (quoteCat === 'All') return allQuotes;
+    return allQuotes.filter((q) => q.category === quoteCat);
+  }, [allQuotes, quoteCat]);
 
   const phaseLabel = () => {
     if (!running) return isFr ? 'Prêt' : 'Ready';
@@ -211,19 +234,24 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
 
   return (
     <div className="space-y-5 pb-28 animate-fade-in">
-      {/* Tabs */}
-      <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-slate-900/60 border border-white/10">
+      {/* 3D Colorful Tabs */}
+      <div className="grid grid-cols-5 gap-1 p-1.5 rounded-2xl bg-slate-900/70 border border-white/10 shadow-lg">
         {TABS.map((t) => {
-          const Icon = t.icon;
           const active = tab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => { sound.playClick(); setTab(t.id); }}
-              className={`py-2 rounded-xl flex flex-col items-center gap-1 transition-all ${active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400 hover:text-white'}`}
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
+                active
+                  ? 'bg-emerald-500/25 text-white border border-emerald-400/50 shadow-md shadow-emerald-500/20 scale-[1.03]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <Icon className="w-4 h-4" />
-              <span className="text-[10px] font-semibold">{t.label}</span>
+              <Wellness3DIcon type={t.id} size={26} />
+              <span className={`text-[10px] font-bold tracking-tight truncate ${active ? 'text-white' : 'text-slate-400'}`}>
+                {t.label}
+              </span>
             </button>
           );
         })}
@@ -234,7 +262,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
         <div className="space-y-3">
           <MorphicCard variant="emerald">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><Brain className="w-5 h-5" /></div>
+              <Wellness3DIcon type="mind" size={36} />
               <div>
                 <h3 className="text-sm font-bold text-white">
                   {isFr ? 'Masterclasses Psychologie & Mental' : 'Psychology & Mindset Masterclasses'}
@@ -266,6 +294,20 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
       {/* LIBRARY */}
       {tab === 'library' && (
         <div className="space-y-4">
+          <MorphicCard variant="emerald">
+            <div className="flex items-center gap-2.5">
+              <Wellness3DIcon type="library" size={34} />
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  {isFr ? 'Bibliothèque Scientifique & Ressources' : 'Scientific Library & Resources'}
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  {isFr ? 'Études cliniques évaluées par des pairs, livres de référence et démystification' : 'Peer-reviewed clinical studies, recommended books & myth busting'}
+                </p>
+              </div>
+            </div>
+          </MorphicCard>
+
           <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-slate-900/60 border border-white/10">
             {([
               { id: 'studies', label: isFr ? 'Études' : 'Studies', icon: FlaskConical },
@@ -360,7 +402,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
                   {isFr ? 'Nicotine (cigarettes & puffs)' : 'Nicotine (cigs & vape)'}
                 </button>
                 <button onClick={() => setTimelineKind('cannabis')} className={chip(timelineKind === 'cannabis')}>
-                  {isFr ? 'Cannabis / Joints' : 'Cannabis'}
+                  {isFr ? 'Cannabis / CBD' : 'Cannabis / CBD'}
                 </button>
               </div>
               {timeline.map((w, i) => (
@@ -383,8 +425,8 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
         <div className="space-y-4">
           <MorphicCard variant="elevated" className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25"><Moon className="w-5 h-5" /></div>
+              <div className="flex items-center gap-2.5">
+                <Wellness3DIcon type="sleep" size={34} />
                 <div>
                   <h3 className="text-sm font-bold text-white">{isFr ? 'Bilan Hebdomadaire du Sommeil' : 'Your Week'}</h3>
                   <p className="text-[11px] text-slate-400">
@@ -462,8 +504,8 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
       {tab === 'breathe' && (
         <MorphicCard variant="emerald" className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><Wind className="w-5 h-5" /></div>
+            <div className="flex items-center gap-2.5">
+              <Wellness3DIcon type="breathe" size={36} />
               <div>
                 <h3 className="text-sm font-bold text-white">{isFr ? 'Studio de Respiration Guidée' : 'Breathing Studio'}</h3>
                 <p className="text-[11px] text-slate-400">{isFr ? 'Désamorcez n\'importe quelle pulsion en 3 minutes' : 'Calm a craving in 3 minutes'}</p>
@@ -484,12 +526,49 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
             ))}
           </div>
 
+          {/* LUXURY MULTI-RING BREATHING SPHERE */}
           <div className="text-center py-2">
-            <div className={`w-44 h-44 mx-auto rounded-full glass-panel-elevated flex flex-col items-center justify-center border-2 shadow-2xl transition-all duration-1000 ${phaseTone}`}>
-              <span className="text-[11px] uppercase tracking-widest font-bold opacity-80">{phaseLabel()}</span>
-              <span className="text-5xl font-extrabold my-0.5 tabular-nums">{running ? secs : '·'}</span>
-              <span className="text-[10px] text-slate-400">{TECHNIQUES[technique].name}</span>
+            <div className="relative w-56 h-56 mx-auto flex items-center justify-center my-3 select-none">
+              {/* Outer Glowing Pulse Aura */}
+              <div
+                className={`absolute inset-0 rounded-full blur-2xl transition-all duration-1000 ${
+                  phase === 'Inhale'
+                    ? 'bg-gradient-to-tr from-emerald-500/40 via-teal-400/30 to-cyan-500/40 scale-125 opacity-90'
+                    : phase === 'Hold'
+                    ? 'bg-gradient-to-tr from-amber-500/40 via-yellow-400/30 to-amber-600/40 scale-110 opacity-80'
+                    : phase === 'Exhale'
+                    ? 'bg-gradient-to-tr from-teal-500/30 via-indigo-500/30 to-sky-600/30 scale-95 opacity-60'
+                    : 'bg-emerald-500/20 scale-100 opacity-40'
+                }`}
+              />
+
+              {/* Concentric Middle Halo Ring */}
+              <div
+                className={`absolute inset-3 rounded-full border transition-all duration-1000 ${
+                  phase === 'Inhale'
+                    ? 'border-emerald-400/60 scale-110 shadow-lg shadow-emerald-500/20'
+                    : phase === 'Hold'
+                    ? 'border-amber-400/60 scale-105 shadow-lg shadow-amber-500/20'
+                    : 'border-teal-400/40 scale-95'
+                }`}
+              />
+
+              {/* 3D Glass Morphic Core */}
+              <div
+                className={`relative w-44 h-44 rounded-full glass-panel-elevated flex flex-col items-center justify-center border-2 shadow-2xl transition-all duration-1000 ${phaseTone}`}
+              >
+                <span className="text-[11px] uppercase tracking-widest font-extrabold opacity-90">
+                  {phaseLabel()}
+                </span>
+                <span className="text-5xl font-extrabold my-0.5 tabular-nums tracking-tighter">
+                  {running ? secs : '·'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  {TECHNIQUES[technique].name}
+                </span>
+              </div>
             </div>
+
             <p className="text-xs text-slate-300 max-w-xs mx-auto mt-4">{TECHNIQUES[technique].desc}</p>
             <div className="flex items-center justify-center gap-3 mt-4">
               <button onClick={startStop} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-xl transition-all keep-white ${running ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400' : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/30 hover:scale-105'}`}>
@@ -501,9 +580,40 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
         </MorphicCard>
       )}
 
-      {/* QUOTES */}
+      {/* QUOTES & LITERATURE */}
       {tab === 'quotes' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Weekly Spotlight Wisdom Card with Real Author & Book */}
+          {(() => {
+            const weeklyQuote = getRotatingWeeklyQuote(isFr ? 'fr' : 'en');
+            return (
+              <div className="p-4 rounded-3xl glass-panel-gold border border-amber-500/35 shadow-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wellness3DIcon type="quotes" size={26} />
+                    <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                      {isFr ? 'Citation Phare de la Semaine' : 'Weekly Spotlight Wisdom'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 border border-amber-500/30">
+                    {weeklyQuote.category}
+                  </span>
+                </div>
+                <p className="text-sm italic text-white font-medium leading-relaxed">
+                  « {weeklyQuote.quote} »
+                </p>
+                <div className="flex items-center justify-between pt-1 border-t border-amber-500/20 text-xs flex-wrap gap-2">
+                  <span className="font-bold text-white">— {weeklyQuote.author}</span>
+                  {weeklyQuote.book && (
+                    <span className="text-[11px] text-amber-400 font-medium italic">
+                      📖 {weeklyQuote.book}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {quoteCatOptions.map((opt) => (
               <button key={opt.id} onClick={() => setQuoteCat(opt.id)} className={chip(quoteCat === opt.id)}>
@@ -511,13 +621,20 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
               </button>
             ))}
           </div>
-          {quotes.filter((q) => quoteCat === 'All' || q.category === quoteCat).map((q) => {
+
+          {/* Dynamic rotating quote library from clinical authors */}
+          {filteredQuotes.map((q) => {
             const saved = bookmarks.includes(q.id);
             return (
               <MorphicCard key={q.id} variant="default">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5 flex-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{formatQuoteCatLabel(q.category)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{q.category}</span>
+                      {q.book && (
+                        <span className="text-[10px] text-emerald-400 font-medium truncate">📖 {q.book}</span>
+                      )}
+                    </div>
                     <p className="text-sm font-medium text-white italic leading-relaxed">“{q.quote}”</p>
                     <p className="text-xs font-semibold text-emerald-400">{q.author}</p>
                   </div>
@@ -529,7 +646,7 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
                       <Bookmark className={`w-3.5 h-3.5 ${saved ? 'fill-current' : ''}`} />
                     </button>
                     <button
-                      onClick={() => { sound.playClick(); navigator.clipboard?.writeText(`"${q.quote}" - ${q.author}`); setCopied(q.id); setTimeout(() => setCopied(null), 1800); }}
+                      onClick={() => { sound.playClick(); navigator.clipboard?.writeText(`"${q.quote}" - ${q.author} (${q.book || ''})`); setCopied(q.id); setTimeout(() => setCopied(null), 1800); }}
                       className="p-2 rounded-xl glass-button text-slate-400"
                     >
                       {copied === q.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}

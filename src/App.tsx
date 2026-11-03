@@ -84,6 +84,7 @@ export function App() {
             sleepEnergyLogs={store.sleepLogs}
             substanceLogs={store.substanceLogs}
             onLogSubstance={actions.logSubstance}
+            onRemoveSubstance={actions.removeSubstance}
             onSaveSleepEnergy={actions.saveSleepEnergyEntry}
             onOpenSos={() => setIsSosOpen(true)}
             onNavigateToTab={goTab}

@@ -217,10 +217,10 @@ export const TRANSLATIONS = {
     // Substances
     substanceCigarette: 'Cigarette',
     substancePuff: 'Puff / Vape',
-    substanceCannabis: 'Cannabis / Joint',
+    substanceCannabis: 'Cannabis / CBD',
     unitCigarette: 'cig',
     unitPuff: 'bouffées',
-    unitJoint: 'joint',
+    unitJoint: 'joint / dose',
 
     // Triggers / Motivations
     triggerStress: 'Stress',
@@ -289,7 +289,7 @@ export const TRANSLATIONS = {
     // Item Types
     itemCigarettes: 'Cigarettes',
     itemPuffVape: 'Puff / Pod de vape',
-    itemCannabis: 'Cannabis / Herbe',
+    itemCannabis: 'Cannabis / CBD',
     itemRollingPapers: 'Feuilles à rouler & filtres',
     itemLighters: 'Briquets & accessoires',
     itemAccessories: 'Accessoires divers',
@@ -326,7 +326,7 @@ export const SUBSTANCE_LABELS: Record<Language, Record<SubstanceType, string>> =
   fr: {
     cigarette: 'Cigarette',
     puff_vape: 'Puff / Vape',
-    cannabis: 'Cannabis / Joint',
+    cannabis: 'Cannabis / CBD',
   },
 };
 

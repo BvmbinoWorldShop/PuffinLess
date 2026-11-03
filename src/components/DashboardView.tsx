@@ -17,6 +17,7 @@ import { DailyRealityCard } from './DailyRealityCard';
 import { WeeklyTrendChart } from './WeeklyTrendChart';
 import { CalendarTrendCard } from './CalendarTrendCard';
 import { sound } from '../utils/audio';
+import { getRotatingDailyQuote } from '../utils/storage';
 
 interface DashboardViewProps {
   profile: UserProfile;
@@ -26,6 +27,7 @@ interface DashboardViewProps {
   sleepEnergyLogs: SleepEnergyEntry[];
   substanceLogs?: SubstanceLog[];
   onLogSubstance: (substance: SubstanceType, count: number, trigger?: string) => void;
+  onRemoveSubstance?: (substance: SubstanceType, count?: number) => void;
   onSaveSleepEnergy: (entry: SleepEnergyEntry) => void;
   onOpenSos: () => void;
   onNavigateToTab: (tab: 'money' | 'wellness' | 'rewards') => void;
@@ -51,6 +53,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   sleepEnergyLogs,
   substanceLogs = [],
   onLogSubstance,
+  onRemoveSubstance,
   onSaveSleepEnergy,
   onOpenSos,
   onNavigateToTab,
@@ -206,6 +209,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <ChevronRight className="w-5 h-5 text-rose-400 group-hover:translate-x-1 transition-transform" />
       </button>
 
+      {/* Rotating Daily Neuroscience & Mindset Insight */}
+      {(() => {
+        const rotatingQuote = getRotatingDailyQuote(lang);
+        return (
+          <div className="p-3.5 rounded-2xl glass-panel-gold space-y-1.5 animate-fade-in border border-amber-500/30">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>{lang === 'fr' ? 'Sagesse & Clarté du Jour' : 'Daily Wisdom & Insight'}</span>
+            </div>
+            <p className="text-xs italic text-white font-medium leading-relaxed">
+              « {rotatingQuote.quote} »
+            </p>
+            <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-semibold flex-wrap">
+              <span>— {rotatingQuote.author}</span>
+              {rotatingQuote.book && (
+                <span className="text-slate-300 font-normal italic">
+                  · {rotatingQuote.book}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3. Obsidian Core */}
       <ObsidianCoreCard report={report} language={lang} />
 
@@ -305,9 +332,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Quantity Selector */}
             <div>
-              <span className="text-[10px] font-semibold text-slate-300 block mb-1">
-                {t('selectQuantity', lang)}
-              </span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-semibold text-slate-300">
+                  {t('selectQuantity', lang)}
+                </span>
+                {today[pending] > 0 && onRemoveSubstance && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      onRemoveSubstance(pending, pending === 'puff_vape' ? 5 : 1);
+                    }}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 transition-all flex items-center gap-1 shadow-sm"
+                    title={lang === 'fr' ? 'Corriger une erreur (-1)' : 'Correct an entry (-1)'}
+                  >
+                    <span>-1 {LOG_OPTIONS[pending].unit}</span>
+                    <span className="text-[9px] opacity-75">({lang === 'fr' ? 'Corriger' : 'Undo'})</span>
+                  </button>
+                )}
+              </div>
               <div className="flex gap-1.5">
                 {LOG_OPTIONS[pending].counts.map((n) => (
                   <button
@@ -389,7 +432,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </MorphicCard>
 
       {/* 5. Daily reality */}
-      <DailyRealityCard profile={profile} reality={report.reality} onOpenLog={openLog} onLogSubstance={onLogSubstance} />
+      <DailyRealityCard
+        profile={profile}
+        reality={report.reality}
+        todayIntake={today}
+        onOpenLog={openLog}
+        onLogSubstance={onLogSubstance}
+        onRemoveSubstance={onRemoveSubstance}
+      />
 
       {/* 6. Sleep & energy check-in + weekly trend */}
       <MorphicCard variant="elevated" className="space-y-4">

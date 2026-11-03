@@ -10,6 +10,7 @@ import type {
   SubstanceLog,
   SleepEnergyEntry,
   StreakRecord,
+  Language,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -165,35 +166,199 @@ export const DEFAULT_SAVINGS_GOALS: SavingsGoal[] = [
 export const DAILY_QUOTES: Quote[] = [
   {
     id: 'q-1',
-    quote: 'Every breath you take without smoke or vapor is a direct deposit into your biological and financial future.',
-    author: 'Dr. James Clear',
-    category: 'Mindset',
+    quote: 'You do not rise to the level of your goals. You fall to the level of your systems. Every cigarette resisted is an immediate vote for your future self.',
+    author: 'James Clear',
+    book: 'Atomic Habits',
+    category: 'Habits',
   },
   {
     id: 'q-2',
-    quote: 'A craving is merely a three-minute neurological storm. You are the deep ocean beneath it.',
-    author: 'Neurobiology of Habit',
-    category: 'Cravings',
-  },
-  {
-    id: 'q-3',
-    quote: 'You did not give up a pleasure; you walked out of a costly biochemical trap.',
+    quote: 'You did not give up a genuine pleasure; you walked out of a costly, engineered biochemical prison.',
     author: 'Allen Carr',
+    book: 'The Easy Way to Stop Smoking',
     category: 'Freedom',
   },
   {
+    id: 'q-3',
+    quote: 'The pursuit of pleasure leads inevitably to pain. When you fast from dopamine spikes, your neurological baseline resets to genuine peace.',
+    author: 'Dr. Anna Lembke (Stanford)',
+    book: 'Dopamine Nation',
+    category: 'Neuroscience',
+  },
+  {
     id: 'q-4',
-    quote: 'Deep sleep and clear mornings are the ultimate luxury. Smoke only robs you of both.',
-    author: 'Matthew Walker, PhD',
-    category: 'Vitality',
+    quote: 'Between stimulus and response there is a space. In that space lies our freedom and our power to choose our response.',
+    author: 'Viktor E. Frankl',
+    book: 'Man\'s Search for Meaning',
+    category: 'Mindset',
   },
   {
     id: 'q-5',
-    quote: 'Discipline is simply choosing between what you crave now and the sovereign freedom you want most.',
-    author: 'Abraham Lincoln',
-    category: 'Willpower',
+    quote: 'The attempt to escape from pain is what creates more pain. Ask not why the addiction, but why the pain.',
+    author: 'Dr. Gabor Maté',
+    book: 'In the Realm of Hungry Ghosts',
+    category: 'Healing',
+  },
+  {
+    id: 'q-6',
+    quote: 'A craving is merely a wave of physical sensations in the body. When you ride the urge with curious awareness instead of resisting it, it crests and dissolves within minutes.',
+    author: 'Dr. Judson Brewer (Brown)',
+    book: 'The Craving Mind',
+    category: 'Cravings',
+  },
+  {
+    id: 'q-7',
+    quote: 'Deep slow-wave sleep and clear mornings are the ultimate luxury. Smoke only robs you of both.',
+    author: 'Dr. Matthew Walker',
+    book: 'Why We Sleep',
+    category: 'Vitality',
+  },
+  {
+    id: 'q-8',
+    quote: 'You have power over your mind - not outside events. Realize this, and you will find unstoppable strength.',
+    author: 'Marcus Aurelius',
+    book: 'Meditations',
+    category: 'Resilience',
+  },
+  {
+    id: 'q-9',
+    quote: 'The opposite of addiction is not sobriety. It is human connection, purposeful routines, and self-compassion.',
+    author: 'Johann Hari',
+    book: 'Lost Connections',
+    category: 'Connection',
+  },
+  {
+    id: 'q-10',
+    quote: 'Trauma and chronic stress register deeply in physical tissues. Reclaiming conscious breath is the first step in restoring somatic regulation.',
+    author: 'Dr. Bessel van der Kolk',
+    book: 'The Body Keeps the Score',
+    category: 'Recovery',
+  },
+  {
+    id: 'q-11',
+    quote: 'Thoughts and cravings are not commands. They are merely passing weather events in the sky of your awareness.',
+    author: 'Dr. Russ Harris',
+    book: 'The Happiness Trap',
+    category: 'Mental Freedom',
+  },
+  {
+    id: 'q-12',
+    quote: 'True self-discipline is an act of deep self-love, choosing the sovereign vitality you want most over a fleeting impulse.',
+    author: 'Dr. Nicole LePera',
+    book: 'How to Do the Work',
+    category: 'Empowerment',
   },
 ];
+
+export const DAILY_QUOTES_FR: Quote[] = [
+  {
+    id: 'q-fr-1',
+    quote: 'Vous ne vous élevez pas au niveau de vos objectifs. Vous tombez au niveau de vos systèmes. Chaque bouffée refusée est un vote concret pour la personne libre que vous devenez.',
+    author: 'James Clear',
+    book: 'Un rien peut tout changer (Atomic Habits)',
+    category: 'Habitudes',
+  },
+  {
+    id: 'q-fr-2',
+    quote: 'Vous n\'avez renoncé à aucun plaisir réel ; vous venez simplement de vous échapper d\'un piège biochimique coûteux et inutile.',
+    author: 'Allen Carr',
+    book: 'La méthode simple pour en finir avec la cigarette',
+    category: 'Liberté',
+  },
+  {
+    id: 'q-fr-3',
+    quote: 'La recherche compulsive du plaisir immédiat dérègle la balance neurobiologique. En observant une diète de nicotine, vos récepteurs dopaminergiques se régénèrent et vous retrouvez une sérénité profonde.',
+    author: 'Dr. Anna Lembke (Stanford)',
+    book: 'Dopamine Nation',
+    category: 'Neurosciences',
+  },
+  {
+    id: 'q-fr-4',
+    quote: 'Entre le stimulus et la réponse, il existe un espace. Dans cet espace réside notre pouvoir de choisir notre vie et notre souveraineté.',
+    author: 'Viktor E. Frankl',
+    book: 'Découvrir un sens à sa vie',
+    category: 'Mental',
+  },
+  {
+    id: 'q-fr-5',
+    quote: 'Toute addiction naît d\'une tentative d\'échapper à une douleur ou à un vide. Ne demandez pas pourquoi l\'addiction, mais pourquoi la souffrance.',
+    author: 'Dr. Gabor Maté',
+    book: 'Dans le royaume des fantômes affamés',
+    category: 'Guérison',
+  },
+  {
+    id: 'q-fr-6',
+    quote: 'L\'envie irrépressible n\'est qu\'une vague sensorielle passagère. En l\'observant avec curiosité sans la combattre, elle atteint son pic puis s\'évanouit en moins de trois minutes.',
+    author: 'Dr. Judson Brewer (Brown)',
+    book: 'L\'esprit sous emprise (The Craving Mind)',
+    category: 'Envies',
+  },
+  {
+    id: 'q-fr-7',
+    quote: 'Le sommeil profond et le réveil énergique sans brouillard sont le véritable luxe. Fumer ne fait que voler vos phases de sommeil réparateur.',
+    author: 'Dr. Matthew Walker',
+    book: 'Pourquoi nous dormons',
+    category: 'Vitalité',
+  },
+  {
+    id: 'q-fr-8',
+    quote: 'Tu as pouvoir sur ton esprit, non sur les événements extérieurs. Comprends cela, et tu trouveras une force inébranlable.',
+    author: 'Marcus Aurèle',
+    book: 'Pensées pour moi-même',
+    category: 'Résilience',
+  },
+  {
+    id: 'q-fr-9',
+    quote: 'Le contraire de l\'addiction n\'est pas la privation. C\'est le lien humain, la clarté intérieure et l\'alignement avec ce qui compte vraiment.',
+    author: 'Johann Hari',
+    book: 'La force des liens (Lost Connections)',
+    category: 'Connexion',
+  },
+  {
+    id: 'q-fr-10',
+    quote: 'Le corps et le système nerveux gardent l\'empreinte du stress. Réapprendre à respirer profondément est la première étape pour désamorcer l\'anxiété sans substance.',
+    author: 'Dr. Bessel van der Kolk',
+    book: 'Le corps n\'oublie rien',
+    category: 'Système Nerveux',
+  },
+  {
+    id: 'q-fr-11',
+    quote: 'Vos pulsions et pensées anxieuses ne sont pas des ordres. Ce ne sont que des nuages passagers dans le ciel immense de votre conscience.',
+    author: 'Dr. Russ Harris',
+    book: 'Le piège du bonheur',
+    category: 'Détachement',
+  },
+  {
+    id: 'q-fr-12',
+    quote: 'La vraie discipline est un acte d\'amour envers soi-même : choisir la santé et l\'énergie durable plutôt qu\'un soulagement artificiel de 5 minutes.',
+    author: 'Dr. Nicole LePera',
+    book: 'La méthode pour se libérer',
+    category: 'Renaissance',
+  },
+];
+
+/** Returns dynamically rotating quote based on day and week of the year */
+export function getRotatingDailyQuote(lang: Language = 'fr'): Quote {
+  const list = lang === 'fr' ? DAILY_QUOTES_FR : DAILY_QUOTES;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now.getTime() - start.getTime();
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay);
+  const idx = dayOfYear % list.length;
+  return list[idx];
+}
+
+/** Returns rotating weekly focus quote */
+export function getRotatingWeeklyQuote(lang: Language = 'fr'): Quote {
+  const list = lang === 'fr' ? DAILY_QUOTES_FR : DAILY_QUOTES;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((days + start.getDay() + 1) / 7);
+  const idx = (weekNumber * 3) % list.length;
+  return list[idx];
+}
 
 export const WELLNESS_ARTICLES: WellnessArticle[] = [
   {

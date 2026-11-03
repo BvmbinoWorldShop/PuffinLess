@@ -3,7 +3,7 @@ import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
   Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload
 } from 'lucide-react';
-import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType } from '../types';
+import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
 
 interface ProfileModalProps {
@@ -82,6 +82,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [job, setJob] = useState(profile.job || 'Creative & Tech Professional');
   const [monthlyIncome, setMonthlyIncome] = useState<number | ''>(profile.monthlyIncome ?? 3500);
   const [currency, setCurrency] = useState(profile.currency || '$');
+  const [quitGoal, setQuitGoal] = useState<QuitGoal>(profile.quitGoal || 'want_to_quit');
 
   // Substance Habits
   const [habits, setHabits] = useState<SubstanceType[]>(
@@ -246,6 +247,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       theme,
       soundEnabled,
       currency,
+      quitGoal,
       age: Number(age) || 28,
       gender,
       ethnicity,
@@ -426,6 +428,44 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     ? 'Ces informations restent 100% privées sur votre appareil. Elles permettent au moteur Obsidian Core de calibrer des conseils psychologiques et financiers adaptés à votre réalité.'
                     : 'This information stays 100% private on your device. It allows the Obsidian Core to personalize psychological and financial coaching to your exact life.'}
                 </span>
+              </div>
+
+              {/* OBJECTIVE SELECTOR */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-2">
+                <label className="block text-xs font-bold text-emerald-400">
+                  🎯 {isFr ? 'Votre Objectif Principal' : 'Your Main Objective'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'want_to_quit' as QuitGoal, labelFr: 'Je veux arrêter', labelEn: 'Want to quit', icon: '🎯' },
+                    { id: 'already_quit' as QuitGoal, labelFr: 'Déjà arrêté', labelEn: 'Already quit', icon: '🛡️' },
+                    { id: 'just_tracking' as QuitGoal, labelFr: 'Suivi simple', labelEn: 'Just tracking', icon: '📊' },
+                  ].map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setQuitGoal(g.id);
+                      }}
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all flex flex-col items-center gap-1 ${
+                        quitGoal === g.id
+                          ? 'bg-emerald-500 text-white border-emerald-400 shadow-md'
+                          : 'bg-black/30 border-white/10 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-base">{g.icon}</span>
+                      <span className="text-[10px] text-center font-bold leading-tight">{isFr ? g.labelFr : g.labelEn}</span>
+                    </button>
+                  ))}
+                </div>
+                {quitGoal === 'just_tracking' && (
+                  <p className="text-[10px] text-teal-300 italic">
+                    ℹ️ {isFr
+                      ? 'Mode suivi actif : la date d\'arrêt est optionnelle. L\'application s\'adapte à la réduction progressive sans pression de rechute.'
+                      : 'Tracking mode active: clean start date is optional. The app focuses on habit reduction without relapse pressure.'}
+                  </p>
+                )}
               </div>
 
               {/* AVATAR SELECTOR & LOCAL PHOTO UPLOAD */}
@@ -647,7 +687,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   {[
                     { id: 'cigarette' as SubstanceType, labelEn: 'Cigarette', labelFr: 'Cigarette', icon: '🚬' },
                     { id: 'puff_vape' as SubstanceType, labelEn: 'Vape / Puff', labelFr: 'Puff / Vape', icon: '💨' },
-                    { id: 'cannabis' as SubstanceType, labelEn: 'Cannabis / Weed', labelFr: 'Cannabis / Herbe', icon: '🌿' },
+                    { id: 'cannabis' as SubstanceType, labelEn: 'Cannabis / CBD', labelFr: 'Cannabis / CBD', icon: '🌿' },
                   ].map((item) => {
                     const active = habits.includes(item.id);
                     return (
@@ -700,7 +740,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           : 'bg-black/30 border-white/10 text-slate-300'
                       }`}
                     >
-                      {h === 'cigarette' ? '🚬 Cigarette' : h === 'puff_vape' ? '💨 Vape' : '🌿 Cannabis'}
+                      {h === 'cigarette' ? '🚬 Cigarette' : h === 'puff_vape' ? '💨 Vape' : '🌿 Cannabis / CBD'}
                     </button>
                   ))}
                 </div>
@@ -769,10 +809,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                 {habits.includes('cannabis') && (
                   <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
-                    <span className="text-xs font-bold text-slate-200">🌿 {isFr ? 'Paramètres Cannabis / Weed' : 'Cannabis Baseline'}</span>
+                    <span className="text-xs font-bold text-slate-200">🌿 {isFr ? 'Paramètres Cannabis / CBD' : 'Cannabis / CBD Baseline'}</span>
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">{isFr ? 'Grames / semaine' : 'Grams / week'}</label>
+                        <label className="block text-[11px] text-slate-400 mb-1">{isFr ? 'Grammes / semaine' : 'Grams / week'}</label>
                         <input
                           type="number"
                           step="0.5"
@@ -796,6 +836,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
                   </div>
                 )}
+
+                <div className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5 text-[10px] text-slate-400 italic">
+                  ℹ️ {isFr
+                    ? 'Rappel : ces paramètres servent uniquement à estimer vos économies et vos gains de santé. Ils n\'enregistrent AUCUNE consommation dans votre journal quotidien.'
+                    : 'Reminder: these numbers serve as your baseline reference to project savings. They do NOT add any consumed intake to your daily database.'}
+                </div>
               </div>
 
               {/* PEAK TRIGGERS */}
