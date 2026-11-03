@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus, X, AlertTriangle, Sparkles, Minus } from 'lucide-react';
+import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus, X, Sparkles, Minus, RotateCcw } from 'lucide-react';
 import type { UserProfile, SubstanceType } from '../types';
 import type { DailyReality } from '../core/obsidianCore';
 import { MorphicCard } from './MorphicCard';
@@ -25,6 +25,59 @@ const TRIGGERS = [
   { id: 'Work break', fr: 'Pause travail', en: 'Work break' },
   { id: 'Other', fr: 'Autre', en: 'Other' },
 ];
+
+const SUBSTANCES_CONFIG: Record<
+  SubstanceType,
+  {
+    labelFr: string;
+    labelEn: string;
+    unitFr: string;
+    unitEn: string;
+    icon: React.ComponentType<{ className?: string }>;
+    colorText: string;
+    colorBg: string;
+    colorBorder: string;
+    quickAddCounts: number[];
+    quickUndoStep: number;
+  }
+> = {
+  cigarette: {
+    labelFr: 'Cigarettes',
+    labelEn: 'Cigarettes',
+    unitFr: 'cig',
+    unitEn: 'cigs',
+    icon: Cigarette,
+    colorText: 'text-amber-400',
+    colorBg: 'bg-amber-500/15',
+    colorBorder: 'border-amber-500/30',
+    quickAddCounts: [1, 2, 3, 5],
+    quickUndoStep: 1,
+  },
+  puff_vape: {
+    labelFr: 'Puff / Vape',
+    labelEn: 'Puff / Vape',
+    unitFr: 'bouffées',
+    unitEn: 'puffs',
+    icon: Wind,
+    colorText: 'text-cyan-400',
+    colorBg: 'bg-cyan-500/15',
+    colorBorder: 'border-cyan-500/30',
+    quickAddCounts: [5, 10, 15, 20],
+    quickUndoStep: 5,
+  },
+  cannabis: {
+    labelFr: 'Cannabis / CBD',
+    labelEn: 'Cannabis / CBD',
+    unitFr: 'joint / g',
+    unitEn: 'joint / g',
+    icon: Leaf,
+    colorText: 'text-lime-400',
+    colorBg: 'bg-lime-500/15',
+    colorBorder: 'border-lime-500/30',
+    quickAddCounts: [1, 2, 3],
+    quickUndoStep: 1,
+  },
+};
 
 export const DailyRealityCard: React.FC<Props> = ({
   profile,
@@ -99,12 +152,12 @@ export const DailyRealityCard: React.FC<Props> = ({
 
   const handleOpenQuickLog = (s: SubstanceType) => {
     sound.playClick();
-    if (onLogSubstance) {
+    if (quickLogSubstance === s) {
+      setQuickLogSubstance(null);
+    } else {
       setQuickLogSubstance(s);
-      setQuickLogCount(s === 'puff_vape' ? 10 : 1);
+      setQuickLogCount(SUBSTANCES_CONFIG[s].quickAddCounts[0]);
       setQuickLogTrigger('Stress');
-    } else if (onOpenLog) {
-      onOpenLog(s);
     }
   };
 
@@ -119,12 +172,13 @@ export const DailyRealityCard: React.FC<Props> = ({
     setQuickLogSubstance(null);
   };
 
-  const handleQuickUndo = (s: SubstanceType) => {
+  const handleQuickUndo = (s: SubstanceType, stepCount?: number) => {
     sound.playClick();
+    sound.vibrate(15);
     if (onRemoveSubstance) {
-      onRemoveSubstance(s, s === 'puff_vape' ? 5 : 1);
+      const step = stepCount ?? SUBSTANCES_CONFIG[s].quickUndoStep;
+      onRemoveSubstance(s, step);
     }
-    setQuickLogSubstance(null);
   };
 
   return (
@@ -199,62 +253,90 @@ export const DailyRealityCard: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* Projected Counts */}
+      {/* Projected Counts with easy + Add and -1 Correction */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
-          <div>
-            <Cigarette className="w-4 h-4 mx-auto text-amber-400" />
-            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(cigs).toLocaleString()}</div>
-            <div className="text-[10px] text-slate-400">{isFr ? 'cigarettes' : 'cigarettes'}</div>
-          </div>
-          <button
-            onClick={() => handleOpenQuickLog('cigarette')}
-            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-amber-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            {isFr ? 'Ajouter' : 'Log'}
-          </button>
-        </div>
-        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
-          <div>
-            <Wind className="w-4 h-4 mx-auto text-cyan-400" />
-            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(activePuffs * d).toLocaleString()}</div>
-            <div className="text-[10px] text-slate-400">{isFr ? 'bouffées vape' : 'vape puffs'}</div>
-          </div>
-          <button
-            onClick={() => handleOpenQuickLog('puff_vape')}
-            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-cyan-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            {isFr ? 'Ajouter' : 'Log'}
-          </button>
-        </div>
-        <div className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-between">
-          <div>
-            <Leaf className="w-4 h-4 mx-auto text-lime-400" />
-            <div className="text-lg font-extrabold text-white mt-1 tabular-nums">{Math.round(activeJoints * d).toLocaleString()}</div>
-            <div className="text-[10px] text-slate-400">{isFr ? 'Cannabis / CBD' : 'Cannabis / CBD'}</div>
-          </div>
-          <button
-            onClick={() => handleOpenQuickLog('cannabis')}
-            className="mt-2 w-full py-1 rounded-xl glass-button text-[9px] font-bold text-lime-400 flex items-center justify-center gap-0.5 hover:scale-105 active:scale-95 transition-transform"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            {isFr ? 'Ajouter' : 'Log'}
-          </button>
-        </div>
+        {(['cigarette', 'puff_vape', 'cannabis'] as SubstanceType[]).map((s) => {
+          const cfg = SUBSTANCES_CONFIG[s];
+          const Icon = cfg.icon;
+          const allowed = habits.length === 0 || habits.includes(s);
+          const rawCount =
+            s === 'cigarette' ? (activeCigs * d) :
+            s === 'puff_vape' ? (activePuffs * d) :
+            (activeJoints * d);
+          const countDisplay = allowed ? Math.round(rawCount).toLocaleString() : '0';
+          const todayCount = todayIntake ? todayIntake[s] : 0;
+          const isSelected = quickLogSubstance === s;
+
+          return (
+            <div
+              key={s}
+              className={`p-3 rounded-2xl glass-panel flex flex-col items-center justify-between transition-all ${
+                isSelected ? 'ring-2 ring-rose-400/80 bg-rose-500/15 shadow-md shadow-rose-500/20 scale-[1.02]' : ''
+              } ${!allowed ? 'opacity-40' : ''}`}
+            >
+              <div className="w-full">
+                <div className={`w-8 h-8 rounded-xl mx-auto flex items-center justify-center border mb-1.5 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="text-lg font-extrabold text-white tabular-nums">{countDisplay}</div>
+                <div className="text-[10px] text-slate-400 truncate">{isFr ? cfg.labelFr : cfg.labelEn}</div>
+                {todayIntake && sourceMode === 'today' && (
+                  <div className="text-[9px] text-slate-400 mt-0.5 tabular-nums">
+                    {isFr ? 'Aujourd\'hui :' : 'Today:'} <b className={todayCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>{todayCount}</b>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons: Add (+) and Correct (-1) */}
+              <div className="mt-2 flex items-center gap-1 w-full pt-1 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenQuickLog(s)}
+                  className={`flex-1 py-1 rounded-xl text-[10px] font-bold flex items-center justify-center gap-0.5 transition-all ${
+                    isSelected
+                      ? 'bg-rose-500 text-white keep-white shadow-sm'
+                      : `glass-button ${cfg.colorText} hover:scale-105 active:scale-95`
+                  }`}
+                  title={isFr ? `Ajouter : ${cfg.labelFr}` : `Log ${cfg.labelEn}`}
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{isSelected ? (isFr ? 'Fermer' : 'Close') : (isFr ? 'Ajouter' : 'Log')}</span>
+                </button>
+
+                {onRemoveSubstance && (
+                  <button
+                    type="button"
+                    onClick={() => handleQuickUndo(s, cfg.quickUndoStep)}
+                    disabled={todayCount <= 0}
+                    className={`px-2 py-1 rounded-xl text-[10px] font-bold flex items-center justify-center gap-0.5 transition-all ${
+                      todayCount > 0
+                        ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/35 hover:scale-105 active:scale-95 shadow-sm'
+                        : 'border border-white/5 bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-40'
+                    }`}
+                    title={isFr ? `Corriger (-${cfg.quickUndoStep} ${cfg.unitFr})` : `Undo (-${cfg.quickUndoStep} ${cfg.unitEn})`}
+                  >
+                    <Minus className="w-2.5 h-2.5" />
+                    <span>{cfg.quickUndoStep === 1 ? '-1' : `-${cfg.quickUndoStep}`}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* INLINE QUICK-LOG POPUP AT THE EXACT SAME LEVEL (NO SCROLLING) */}
+      {/* INLINE QUICK-LOG & CORRECTION POPUP AT THE EXACT SAME LEVEL (NO SCROLLING) */}
       {quickLogSubstance && (
         <div className="p-3.5 rounded-2xl bg-slate-900/95 border border-rose-500/40 shadow-xl space-y-3 animate-fade-in">
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              {isFr
-                ? `Enregistrer : ${quickLogSubstance === 'cigarette' ? 'Cigarette' : quickLogSubstance === 'puff_vape' ? 'Puff Vape' : 'Cannabis / CBD'}`
-                : `Log intake: ${quickLogSubstance === 'cannabis' ? 'Cannabis / CBD' : quickLogSubstance}`}
-            </span>
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white">
+                {isFr
+                  ? `Saisie & Correction : ${SUBSTANCES_CONFIG[quickLogSubstance].labelFr}`
+                  : `Log & Correction: ${SUBSTANCES_CONFIG[quickLogSubstance].labelEn}`}
+              </span>
+            </div>
             <button
               onClick={() => setQuickLogSubstance(null)}
               className="p-1 rounded-lg text-slate-400 hover:text-white"
@@ -263,25 +345,76 @@ export const DailyRealityCard: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Quick Quantities (+ and -1 correction option) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-semibold text-slate-300">
-                {isFr ? 'Quantité consommée :' : 'Quantity consumed:'}
-              </label>
-              {todayIntake && todayIntake[quickLogSubstance] > 0 && onRemoveSubstance && (
+          {/* Quick Switch between all 3 substances */}
+          <div className="flex gap-1.5">
+            {(['cigarette', 'puff_vape', 'cannabis'] as SubstanceType[]).map((s) => {
+              const cfg = SUBSTANCES_CONFIG[s];
+              const Icon = cfg.icon;
+              const isSelected = quickLogSubstance === s;
+              const cnt = todayIntake ? todayIntake[s] : 0;
+              return (
                 <button
+                  key={s}
                   type="button"
-                  onClick={() => handleQuickUndo(quickLogSubstance)}
-                  className="px-2 py-0.5 rounded-lg text-[10px] font-bold border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all flex items-center gap-1"
+                  onClick={() => {
+                    sound.playClick();
+                    setQuickLogSubstance(s);
+                    setQuickLogCount(cfg.quickAddCounts[0]);
+                  }}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                    isSelected
+                      ? 'bg-rose-500/25 border-rose-400 text-rose-200 shadow-sm'
+                      : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                  }`}
                 >
-                  <Minus className="w-3 h-3" />
-                  <span>{isFr ? 'Corriger (-1)' : 'Undo (-1)'}</span>
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{isFr ? cfg.labelFr : cfg.labelEn}</span>
+                  {cnt > 0 && (
+                    <span className="text-[9px] px-1 py-0.2 rounded-full bg-rose-500/30 text-rose-300 font-extrabold">
+                      {cnt}
+                    </span>
+                  )}
                 </button>
-              )}
+              );
+            })}
+          </div>
+
+          {/* Today's status & Instant Correction Button (-1) */}
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-white/10 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="text-[10px] text-slate-400">{isFr ? 'Enregistré aujourd\'hui :' : 'Logged today:'}</span>
+              <b className={`font-extrabold ${todayIntake && todayIntake[quickLogSubstance] > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {todayIntake ? todayIntake[quickLogSubstance] : 0} {isFr ? SUBSTANCES_CONFIG[quickLogSubstance].unitFr : SUBSTANCES_CONFIG[quickLogSubstance].unitEn}
+              </b>
             </div>
+
+            {onRemoveSubstance && (
+              <button
+                type="button"
+                onClick={() => handleQuickUndo(quickLogSubstance, SUBSTANCES_CONFIG[quickLogSubstance].quickUndoStep)}
+                disabled={!todayIntake || todayIntake[quickLogSubstance] <= 0}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 transition-all ${
+                  todayIntake && todayIntake[quickLogSubstance] > 0
+                    ? 'border-rose-500/50 bg-rose-500/25 text-rose-200 hover:bg-rose-500/40 active:scale-95 shadow-sm'
+                    : 'border-white/5 bg-slate-900/40 text-slate-600 opacity-40 cursor-not-allowed'
+                }`}
+                title={isFr ? 'Annuler ou corriger une erreur' : 'Undo or fix a mistake'}
+              >
+                <Minus className="w-3.5 h-3.5" />
+                <span>
+                  -{SUBSTANCES_CONFIG[quickLogSubstance].quickUndoStep} {isFr ? 'Corriger' : 'Undo'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Quick Add Quantities */}
+          <div>
+            <label className="text-[10px] font-semibold text-slate-300 block mb-1">
+              {isFr ? 'Ou ajouter une prise :' : 'Or log consumption:'}
+            </label>
             <div className="grid grid-cols-4 gap-1.5">
-              {(quickLogSubstance === 'puff_vape' ? [5, 10, 15, 20] : [1, 2, 3, 5]).map((qty) => (
+              {SUBSTANCES_CONFIG[quickLogSubstance].quickAddCounts.map((qty) => (
                 <button
                   key={qty}
                   type="button"
@@ -291,7 +424,7 @@ export const DailyRealityCard: React.FC<Props> = ({
                   }}
                   className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
                     quickLogCount === qty
-                      ? 'bg-rose-500/25 border-rose-400 text-rose-200'
+                      ? 'bg-rose-500/25 border-rose-400 text-rose-200 shadow-sm'
                       : 'bg-slate-900/40 border-white/10 text-slate-300 hover:text-white'
                   }`}
                 >
@@ -334,14 +467,14 @@ export const DailyRealityCard: React.FC<Props> = ({
               onClick={() => setQuickLogSubstance(null)}
               className="py-1.5 rounded-xl glass-button text-xs font-semibold text-slate-300"
             >
-              {isFr ? 'Annuler' : 'Cancel'}
+              {isFr ? 'Fermer' : 'Close'}
             </button>
             <button
               type="button"
               onClick={handleConfirmQuickLog}
               className="py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white keep-white font-bold text-xs shadow-md shadow-rose-500/25 hover:scale-[1.02] active:scale-[0.98] transition-transform"
             >
-              {isFr ? 'Valider la prise' : 'Confirm intake'}
+              {isFr ? `Valider (+${quickLogCount})` : `Confirm (+${quickLogCount})`}
             </button>
           </div>
         </div>
