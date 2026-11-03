@@ -3,7 +3,7 @@ import {
   Bookmark, Share2, Play, Pause, RotateCcw, Check, ChevronRight, X, Moon,
   BatteryCharging, Sparkles, FlaskConical, MonitorPlay, ShieldQuestion, CalendarClock, Phone,
 } from 'lucide-react';
-import type { PsychologyLesson, SleepEnergyEntry, Language } from '../types';
+import type { PsychologyLesson, SleepEnergyEntry, Language, SubstanceLog, CravingEntry } from '../types';
 import type { CoreReport } from '../core/obsidianCore';
 import { getLessons } from '../utils/psychologyLessons';
 import {
@@ -13,6 +13,7 @@ import type { StudyTopic } from '../content/library';
 import { computeSleepEnergyCorrelation } from '../utils/sleepTracker';
 import { MorphicCard } from './MorphicCard';
 import { WeeklyTrendChart } from './WeeklyTrendChart';
+import { CalendarTrendCard } from './CalendarTrendCard';
 import { sound } from '../utils/audio';
 import { Wellness3DIcon } from './Wellness3DIcon';
 import { getRotatingWeeklyQuote, DAILY_QUOTES, DAILY_QUOTES_FR } from '../utils/storage';
@@ -24,10 +25,18 @@ type LibraryTab = 'studies' | 'resources' | 'myths' | 'timeline';
 interface WellnessViewProps {
   report: CoreReport;
   sleepEnergyLogs: SleepEnergyEntry[];
+  substanceLogs?: SubstanceLog[];
+  cravings?: CravingEntry[];
   language?: Language;
 }
 
-export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyLogs, language = 'en' }) => {
+export const WellnessView: React.FC<WellnessViewProps> = ({
+  report,
+  sleepEnergyLogs,
+  substanceLogs,
+  cravings,
+  language = 'en',
+}) => {
   const isFr = language === 'fr';
   const [tab, setTab] = useState<WellnessTab>('mind');
   const [libTab, setLibTab] = useState<LibraryTab>('studies');
@@ -497,6 +506,14 @@ export const WellnessView: React.FC<WellnessViewProps> = ({ report, sleepEnergyL
               );
             })}
           </MorphicCard>
+
+          {/* Calendrier & Habitudes Synchronisé sous Sommeil */}
+          <CalendarTrendCard
+            substanceLogs={substanceLogs || []}
+            sleepLogs={sleepEnergyLogs}
+            cravings={cravings || []}
+            language={language}
+          />
         </div>
       )}
 

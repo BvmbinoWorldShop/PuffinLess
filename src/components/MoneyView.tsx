@@ -33,6 +33,7 @@ interface MoneyViewProps {
   onDeleteExpense: (id: string) => void;
   onAddGoal: (goal: SavingsGoal) => void;
   onToggleGoalComplete: (id: string) => void;
+  onDeleteGoal?: (id: string) => void;
 }
 
 export const MoneyView: React.FC<MoneyViewProps> = ({
@@ -44,6 +45,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   onDeleteExpense,
   onAddGoal,
   onToggleGoalComplete,
+  onDeleteGoal,
 }) => {
   const isFr = profile.language === 'fr';
   const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'goals'>('overview');
@@ -160,10 +162,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               <Coins className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 dark:text-amber-300">
                 {isFr ? 'Centre Financier PuffinLess' : 'PuffinLess Money Center'}
               </span>
-              <p className="text-[11px] text-amber-200/80">
+              <p className="text-[11px] text-slate-900 dark:text-amber-200/90 light-text-black font-medium leading-tight">
                 {isFr ? 'Suivi précis des dépenses, du capital préservé et des intérêts composés' : 'Track spending, compounded loss & preserved capital'}
               </p>
             </div>
@@ -173,10 +175,11 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               sound.playClick();
               setIsExpenseModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/25 border border-amber-400/40 text-amber-200 hover:bg-amber-500/35 text-xs font-bold transition-all shadow-md"
+            title={isFr ? 'Noter un Achat' : 'Add Purchase'}
+            aria-label={isFr ? 'Noter un Achat' : 'Add Purchase'}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-200 hover:bg-amber-500/40 hover:scale-105 active:scale-95 flex items-center justify-center font-bold transition-all shadow-md shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{isFr ? 'Noter un Achat' : 'Add Purchase'}</span>
+            <Plus className="w-4 h-4 text-amber-300" />
           </button>
         </div>
 
@@ -527,20 +530,34 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                       )}
                     </span>
 
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        onToggleGoalComplete(g.id);
-                      }}
-                      className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all ${
-                        g.completed
-                          ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
-                          : 'glass-button text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <CheckCircle className="w-3 h-3" />
-                      <span>{g.completed ? (isFr ? 'Acheté ✓' : 'Claimed') : (isFr ? 'Valider l\'achat' : 'Mark Claimed')}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          onToggleGoalComplete(g.id);
+                        }}
+                        className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all ${
+                          g.completed
+                            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                            : 'glass-button text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        <span>{g.completed ? (isFr ? 'Acheté ✓' : 'Claimed') : (isFr ? 'Valider l\'achat' : 'Mark Claimed')}</span>
+                      </button>
+                      {onDeleteGoal && (
+                        <button
+                          onClick={() => {
+                            sound.playClick();
+                            onDeleteGoal(g.id);
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                          title={isFr ? 'Supprimer cet objectif' : 'Delete goal'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </MorphicCard>
               );

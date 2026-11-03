@@ -258,25 +258,42 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
-    <MorphicCard variant="elevated" className="space-y-4">
-      {/* Header & View Switcher */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-teal-500/15 text-teal-400 border border-teal-500/25">
-            <CalendarIcon className="w-4 h-4" />
+    <MorphicCard variant="elevated" className="space-y-3">
+      {/* Compact Top Bar: Month Navigation & Mode Switcher — Streamlined, No Bulky Title */}
+      <div className="flex items-center justify-between gap-2">
+        {viewMode === 'calendar' ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                sound.playClick();
+                setActiveMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+              }}
+              aria-label="Previous month"
+              className="p-1 rounded-lg glass-button text-slate-400 hover:text-white"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs font-bold text-white capitalize px-1">{monthName}</span>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setActiveMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+              }}
+              aria-label="Next month"
+              className="p-1 rounded-lg glass-button text-slate-400 hover:text-white"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white tracking-tight">
-              {isFr ? 'Calendrier & Habitudes Réelles' : 'Calendar & Habit Trends'}
-            </h3>
-            <p className="text-[11px] text-slate-400">
-              {isFr ? 'Calculé à 100% sur vos saisies enregistrées' : 'Computed strictly from your logged entries'}
-            </p>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs font-bold text-teal-400">
+            <CalendarIcon className="w-3.5 h-3.5" />
+            <span>{viewMode === 'daily' ? (isFr ? 'Derniers 7 Jours' : 'Last 7 Days') : (isFr ? 'Profil par Jour' : 'Weekday Profile')}</span>
           </div>
-        </div>
+        )}
 
         {/* View Mode Toggle */}
-        <div className="flex p-0.5 rounded-xl bg-slate-900/60 border border-white/10 text-[11px] font-semibold">
+        <div className="flex p-0.5 rounded-xl bg-slate-900/60 border border-white/10 text-[10px] sm:text-[11px] font-semibold shrink-0">
           <button
             onClick={() => {
               sound.playClick();
@@ -324,29 +341,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
 
       {/* VIEW 1: MONTHLY CALENDAR GRID */}
       {viewMode === 'calendar' && (
-        <div className="space-y-3">
-          {/* Month selector */}
-          <div className="flex items-center justify-between px-1">
-            <button
-              onClick={() => {
-                sound.playClick();
-                setActiveMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-              }}
-              className="p-1.5 rounded-xl glass-button text-slate-400 hover:text-white"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-bold text-white capitalize">{monthName}</span>
-            <button
-              onClick={() => {
-                sound.playClick();
-                setActiveMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-              }}
-              className="p-1.5 rounded-xl glass-button text-slate-400 hover:text-white"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="space-y-2.5">
 
           {/* Weekday headers */}
           <div className="grid grid-cols-7 gap-1 text-center">

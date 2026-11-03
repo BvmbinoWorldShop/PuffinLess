@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2 } from 'lucide-react';
+import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2, X } from 'lucide-react';
 import type { UserProfile, QuitMode, Language, QuitGoal } from '../types';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
@@ -8,18 +8,23 @@ import confetti from 'canvas-confetti';
 interface OnboardingModalProps {
   isOpen: boolean;
   initialProfile: UserProfile;
+  initialStep?: number;
   onComplete: (profile: UserProfile) => void;
+  onClose?: () => void;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
   initialProfile,
+  initialStep = 1,
   onComplete,
+  onClose,
 }) => {
   const [lang, setLang] = useState<Language>(initialProfile.language || 'en');
   const isFr = lang === 'fr';
 
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState<number>(initialStep);
+  const [pwaPlatform, setPwaPlatform] = useState<'ios' | 'android'>('ios');
   const [name, setName] = useState(initialProfile.name || '');
   const [quitGoal, setQuitGoal] = useState<QuitGoal>(initialProfile.quitGoal || 'want_to_quit');
   const [cigsPerDay, setCigsPerDay] = useState(initialProfile.cigarettesPerDay || 15);
@@ -49,7 +54,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const handleNextStep = () => {
     sound.playClick();
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
     } else {
       const dateObj = new Date();
@@ -108,10 +113,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Step Indicator & Language Flags Switcher */}
+        {/* Step Indicator & Language Flags Switcher & Close button */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <div
                 key={s}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -125,7 +130,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {/* 🇫🇷 / 🇬🇧 Language Toggle */}
             <div className="flex items-center p-0.5 rounded-xl bg-slate-900/80 border border-white/15 text-xs">
               <button
@@ -151,8 +156,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
 
             <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">
-              {isFr ? `Étape ${step} sur 3` : `Step ${step} of 3`}
+              {isFr ? `Étape ${step} sur 4` : `Step ${step} of 4`}
             </span>
+
+            {onClose && initialProfile.isOnboarded && (
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); onClose(); }}
+                className="w-7 h-7 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white shrink-0 ml-1"
+                title="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -510,6 +526,181 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
+        {/* STEP 4: Mobile PWA Install Tips (iOS & Android) */}
+        {step === 4 && (
+          <div className="space-y-4 animate-fade-in">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">📲</span>
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  {isFr ? 'Installer sur Mobile (PWA)' : 'Install on Mobile (PWA)'}
+                </h2>
+              </div>
+              <p className="text-xs text-slate-300">
+                {isFr
+                  ? 'Ajoutez PuffinLess à votre écran d\'accueil pour l\'utiliser comme une véritable application native (plein écran, sans barre d\'adresse, haptique).'
+                  : 'Add PuffinLess to your home screen for the full native app experience (fullscreen, no browser URL bar, haptics).'}
+              </p>
+            </div>
+
+            {/* Platform Toggle (iOS vs Android) */}
+            <div className="flex p-1 rounded-2xl bg-slate-900/80 border border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setPwaPlatform('ios');
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  pwaPlatform === 'ios'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>🍎</span>
+                <span>iPhone / iPad (iOS)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setPwaPlatform('android');
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  pwaPlatform === 'android'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>🤖</span>
+                <span>Android (Chrome)</span>
+              </button>
+            </div>
+
+            {/* Step-by-step instructions */}
+            {pwaPlatform === 'ios' ? (
+              <div className="space-y-2.5">
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">
+                      {isFr ? 'Ouvrez Safari' : 'Open in Safari'}
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'Sur iPhone, assurez-vous d\'ouvrir l\'application dans le navigateur Safari officiel.'
+                        : 'On iPhone, make sure to open this URL inside Apple Safari.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>{isFr ? 'Touchez le bouton Partager' : 'Tap the Share Button'}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-white text-[10px]">⎋ / ⬆️</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'En bas au milieu de l\'écran Safari, touchez le carré avec la flèche vers le haut.'
+                        : 'At the bottom bar of Safari, tap the square icon with an arrow pointing up.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>{isFr ? '« Sur l\'écran d\'accueil »' : '« Add to Home Screen »'}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-white text-[10px]">➕</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'Faites défiler le menu vers le bas et sélectionnez l\'option « Sur l\'écran d\'accueil ».'
+                        : 'Scroll down the share sheet and tap « Add to Home Screen ».'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-300">
+                      {isFr ? 'Touchez « Ajouter »' : 'Tap « Add »'}
+                    </h4>
+                    <p className="text-[11px] text-emerald-200/90 mt-0.5">
+                      {isFr
+                        ? 'Touchez « Ajouter » en haut à droite. L\'icône PuffinLess apparaît immédiatement sur votre écran d\'accueil !'
+                        : 'Tap « Add » in the top-right corner. The PuffinLess icon is now on your home screen ready to launch!'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">
+                      {isFr ? 'Ouvrez Google Chrome' : 'Open in Google Chrome'}
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'Sur votre téléphone Android, ouvrez le lien dans le navigateur Google Chrome.'
+                        : 'On Android, open this web address inside Google Chrome.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>{isFr ? 'Touchez le menu ⋮' : 'Tap the Menu ⋮'}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-white text-[10px]">⋮</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'Touchez les 3 petits points verticaux en haut à droite du navigateur.'
+                        : 'Tap the 3 vertical dots in the top-right corner of Chrome.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">
+                      {isFr ? '« Installer l\'application »' : '« Install App » / « Add to Home »'}
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {isFr
+                        ? 'Appuyez sur « Installer l\'application » ou « Ajouter à l\'écran d\'accueil ».'
+                        : 'Tap « Install App » or « Add to Home screen » in the Chrome menu.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-300">
+                      {isFr ? 'Confirmez l\'Installation' : 'Confirm Install'}
+                    </h4>
+                    <p className="text-[11px] text-emerald-200/90 mt-0.5">
+                      {isFr
+                        ? 'Appuyez sur « Installer ». L\'application PuffinLess s\'installe en 1 seconde avec icône dédiée !'
+                        : 'Tap « Install ». PuffinLess installs in 1 second with a dedicated app icon!'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
           {step > 1 ? (
@@ -532,7 +723,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             onClick={handleNextStep}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all ml-auto"
           >
-            <span>{step === 3 ? (isFr ? 'Démarrer Mon Aventure PuffinLess' : 'Start My PuffinLess Journey') : (isFr ? 'Continuer' : 'Continue')}</span>
+            <span>{step === 4 ? (isFr ? 'Démarrer Mon Aventure PuffinLess' : 'Start My PuffinLess Journey') : (isFr ? 'Continuer' : 'Continue')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

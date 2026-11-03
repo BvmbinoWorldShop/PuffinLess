@@ -21,6 +21,7 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(!profile.isOnboarded);
+  const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Auto-hide bottom navigation on scroll down, show on scroll up
@@ -100,9 +101,18 @@ export function App() {
             onDeleteExpense={actions.deleteExpense}
             onAddGoal={actions.addGoal}
             onToggleGoalComplete={actions.toggleGoal}
+            onDeleteGoal={actions.deleteGoal}
           />
         )}
-        {currentTab === 'wellness' && <WellnessView report={report} sleepEnergyLogs={store.sleepLogs} language={lang} />}
+        {currentTab === 'wellness' && (
+          <WellnessView
+            report={report}
+            sleepEnergyLogs={store.sleepLogs}
+            substanceLogs={store.substanceLogs}
+            cravings={store.cravings}
+            language={lang}
+          />
+        )}
         {currentTab === 'rewards' && <RewardsView stats={stats} currency={profile.currency} language={lang} />}
       </main>
 
@@ -119,8 +129,11 @@ export function App() {
       />
 
       <OnboardingModal
+        key={`onboarding-${isOnboardingOpen}-${onboardingStep}`}
         isOpen={isOnboardingOpen}
         initialProfile={profile}
+        initialStep={onboardingStep}
+        onClose={() => setIsOnboardingOpen(false)}
         onComplete={(p) => {
           actions.completeOnboarding(p);
           setIsOnboardingOpen(false);
@@ -132,9 +145,13 @@ export function App() {
         profile={profile}
         onClose={() => setIsProfileOpen(false)}
         onSaveProfile={actions.updateProfile}
-        onRerunOnboarding={() => setIsOnboardingOpen(true)}
+        onRerunOnboarding={(step = 1) => {
+          setOnboardingStep(step);
+          setIsOnboardingOpen(true);
+        }}
         onResetData={() => {
           actions.resetAll();
+          setOnboardingStep(1);
           setIsOnboardingOpen(true);
         }}
       />

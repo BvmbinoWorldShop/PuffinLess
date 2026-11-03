@@ -34,13 +34,23 @@ export interface CalculatedStats {
   level: LevelProgress;
 }
 
-/** What the user's habit costs per day, across cigarettes, vape puffs and cannabis. */
+/** What the user's habit costs per day, strictly counting ONLY the selected substances in profile settings. If nothing is selected, returns 0. */
 export function baselineDailyCost(profile: UserProfile): number {
-  const costPerCig = profile.cigarettesInPack > 0 ? profile.pricePerPack / profile.cigarettesInPack : 0.5;
-  const cigs = profile.cigarettesPerDay * costPerCig;
-  const puffs = profile.puffsPerDay * ((profile.podPrice ?? 18) / 600);
-  const weed = (profile.cannabisGramsPerWeek / 7) * (profile.pricePerGram ?? 10);
-  return Number((cigs + puffs + weed).toFixed(2));
+  const habits = profile.habits ?? [];
+  if (habits.length === 0) return 0;
+
+  let total = 0;
+  if (habits.includes('cigarette')) {
+    const costPerCig = profile.cigarettesInPack > 0 ? profile.pricePerPack / profile.cigarettesInPack : 0.5;
+    total += (profile.cigarettesPerDay || 0) * costPerCig;
+  }
+  if (habits.includes('puff_vape')) {
+    total += (profile.puffsPerDay || 0) * ((profile.podPrice ?? 18) / 600);
+  }
+  if (habits.includes('cannabis')) {
+    total += (((profile.cannabisGramsPerWeek || 0) / 7) * (profile.pricePerGram ?? 10));
+  }
+  return Number(total.toFixed(2));
 }
 
 export function calculateStats(
@@ -69,16 +79,21 @@ export function calculateStats(
     slipsBySubstance[l.substance] += l.count;
   });
 
-  // Everything avoided = baseline habit over all smoke-free time
+  // Everything avoided = baseline habit over all smoke-free time, strictly for selected substances in settings
+  const habits = profile.habits ?? [];
+  const hasCig = habits.includes('cigarette');
+  const hasPuff = habits.includes('puff_vape');
+  const hasCannabis = habits.includes('cannabis');
+
   const cleanDays = totalCleanSeconds / 86400;
-  const cigarettesAvoided = Math.floor(cleanDays * profile.cigarettesPerDay);
-  const puffsAvoided = Math.floor(cleanDays * profile.puffsPerDay);
-  const gramsAvoided = Number((cleanDays * (profile.cannabisGramsPerWeek / 7)).toFixed(1));
+  const cigarettesAvoided = hasCig ? Math.floor(cleanDays * (profile.cigarettesPerDay || 0)) : 0;
+  const puffsAvoided = hasPuff ? Math.floor(cleanDays * (profile.puffsPerDay || 0)) : 0;
+  const gramsAvoided = hasCannabis ? Number((cleanDays * ((profile.cannabisGramsPerWeek || 0) / 7)).toFixed(1)) : 0;
 
   const dailyBaselineCost = baselineDailyCost(profile);
   const moneySaved = Number((cleanDays * dailyBaselineCost).toFixed(2));
   const costPerCigarette = profile.cigarettesInPack > 0 ? profile.pricePerPack / profile.cigarettesInPack : 0.5;
-  const dailyCost = Number((profile.cigarettesPerDay * costPerCigarette).toFixed(2));
+  const dailyCost = hasCig ? Number(((profile.cigarettesPerDay || 0) * costPerCigarette).toFixed(2)) : 0;
 
   // ~11 minutes of life per cigarette (BMJ 2000); vape puffs counted at 15 puffs ≈ 1 cigarette of nicotine
   const lifeRegainedHours = Number((((cigarettesAvoided + puffsAvoided / 15) * 11) / 60).toFixed(1));

@@ -95,11 +95,15 @@ const total = (i: Intake) => i.cigarette + i.puff_vape + i.cannabis;
 const avg = (n: number[]) => (n.length ? n.reduce((a, b) => a + b, 0) / n.length : null);
 const round1 = (n: number | null) => (n === null ? null : Number(n.toFixed(1)));
 
-/** What a normal day of the user's habit looks like, before quitting. */
+/** What a normal day of the user's habit looks like, before quitting, strictly respecting selected substances in settings. */
 export function computeDailyReality(profile: UserProfile, dailyCost: number): DailyReality {
-  const cigarettes = profile.cigarettesPerDay;
-  const puffs = profile.puffsPerDay;
-  const joints = Number(((profile.cannabisGramsPerWeek / 7) * 2).toFixed(1)); // ~0.5 g per joint
+  const habits = profile.habits ?? [];
+  const cigarettes = habits.includes('cigarette') ? (profile.cigarettesPerDay || 0) : 0;
+  const puffs = habits.includes('puff_vape') ? (profile.puffsPerDay || 0) : 0;
+  const joints = habits.includes('cannabis')
+    ? Number(((((profile.cannabisGramsPerWeek || 0) / 7) * 2)).toFixed(1)) // ~0.5 g per joint
+    : 0;
+
   const smokingMinutes = cigarettes * 7 + puffs * 0.2 + joints * 15;
   // BMJ 2000: ~11 min of life per cigarette. Vapes are counted at 15 puffs per cigarette-equivalent (estimate).
   const lifeLostMinutes = (cigarettes + puffs / 15) * 11;

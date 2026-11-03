@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
-  Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload
+  Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload, Smartphone
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
@@ -11,7 +11,7 @@ interface ProfileModalProps {
   profile: UserProfile;
   onClose: () => void;
   onSaveProfile: (profile: UserProfile) => void;
-  onRerunOnboarding: () => void;
+  onRerunOnboarding: (step?: number) => void;
   onResetData: () => void;
 }
 
@@ -295,7 +295,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
-      <div className="relative w-full max-w-lg rounded-3xl glass-panel-elevated p-5 sm:p-7 border border-white/15 shadow-2xl my-auto max-h-[92vh] flex flex-col">
+      <div className="settings-modal relative w-full max-w-lg rounded-3xl glass-panel-elevated p-5 sm:p-7 border border-white/15 shadow-2xl my-auto max-h-[92vh] flex flex-col">
         {/* Close Button */}
         <button
           onClick={() => {
@@ -1057,17 +1057,31 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
               {/* Reset / Onboarding re-run */}
               <div className="pt-2 flex items-center justify-between gap-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onRerunOnboarding();
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isFr ? 'Revoir le Guide' : 'Rerun Tour'}</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onRerunOnboarding(1);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isFr ? 'Revoir le Guide' : 'Rerun Tour'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onRerunOnboarding(4);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-teal-400" />
+                    <span>{isFr ? 'Guide Mobile PWA' : 'PWA Guide'}</span>
+                  </button>
+                </div>
 
                 {!confirmReset ? (
                   <button

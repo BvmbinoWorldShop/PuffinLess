@@ -54,9 +54,19 @@ export const DailyRealityCard: React.FC<Props> = ({
   const costPerPuff = (profile.podPrice ?? 18) / 600;
   const costPerGram = profile.pricePerGram ?? 10;
 
-  const activeCigs = sourceMode === 'today' && todayIntake ? todayIntake.cigarette : reality.cigarettes;
-  const activePuffs = sourceMode === 'today' && todayIntake ? todayIntake.puff_vape : reality.puffs;
-  const activeJoints = sourceMode === 'today' && todayIntake ? todayIntake.cannabis : reality.joints;
+  // Respect selected substances from settings strictly (if none selected, all start from 0)
+  const habits = profile.habits ?? [];
+  const allowsCig = habits.includes('cigarette');
+  const allowsPuff = habits.includes('puff_vape');
+  const allowsCannabis = habits.includes('cannabis');
+
+  const rawCigs = sourceMode === 'today' && todayIntake ? todayIntake.cigarette : reality.cigarettes;
+  const rawPuffs = sourceMode === 'today' && todayIntake ? todayIntake.puff_vape : reality.puffs;
+  const rawJoints = sourceMode === 'today' && todayIntake ? todayIntake.cannabis : reality.joints;
+
+  const activeCigs = allowsCig ? rawCigs : 0;
+  const activePuffs = allowsPuff ? rawPuffs : 0;
+  const activeJoints = allowsCannabis ? rawJoints : 0;
 
   const activeCostPerDay =
     sourceMode === 'today' && todayIntake

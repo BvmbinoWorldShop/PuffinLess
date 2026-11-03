@@ -66,19 +66,73 @@
   color: #64748b !important;
 }
 
-/* Preserve pure white text on solid dark backgrounds, dark gradients, and badges */
+/* Preserve pure white text ONLY on explicitly styled buttons, dark gradients, or badges */
 .theme-light .keep-white,
 .theme-light .keep-white *,
-.theme-light .bg-black,
-.theme-light .bg-black *,
-.theme-light [class*="bg-black/"],
-.theme-light [class*="bg-black/"] *,
-.theme-light [class*="bg-slate-950"].keep-dark,
-.theme-light [class*="bg-slate-950"].keep-dark *,
-.theme-light [class*="bg-gradient-to-r"].text-white,
-.theme-light [class*="bg-gradient-to-r"] .text-white,
-.theme-light [class*="bg-gradient-to-br"].text-white,
-.theme-light [class*="bg-gradient-to-br"] .text-white {
+.theme-light button.bg-black,
+.theme-light button.bg-black *,
+.theme-light .btn-dark,
+.theme-light .btn-dark * {
+  color: #ffffff !important;
+}
+
+/* Crisp pitch black text helper */
+.theme-light .light-text-black,
+.theme-light .light-text-black * {
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+/* LIGHT MODE SETTINGS & PROFILE MODAL - 100% BLACK/DARK CRISP READABLE TEXT */
+.theme-light .settings-modal,
+.theme-light .settings-modal form,
+.theme-light .settings-modal [class*="glass-panel"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.theme-light .settings-modal h2,
+.theme-light .settings-modal h3,
+.theme-light .settings-modal h4,
+.theme-light .settings-modal label,
+.theme-light .settings-modal p,
+.theme-light .settings-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]),
+.theme-light .settings-modal .text-white {
+  color: #0f172a !important;
+}
+
+.theme-light .settings-modal .text-slate-400,
+.theme-light .settings-modal .text-slate-300,
+.theme-light .settings-modal .text-slate-500 {
+  color: #334155 !important;
+}
+
+.theme-light .settings-modal input,
+.theme-light .settings-modal select,
+.theme-light .settings-modal textarea {
+  background-color: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.theme-light .settings-modal input:focus,
+.theme-light .settings-modal select:focus,
+.theme-light .settings-modal textarea:focus {
+  border-color: #10b981 !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.theme-light .settings-modal [class*="bg-slate-900"],
+.theme-light .settings-modal [class*="bg-slate-950"],
+.theme-light .settings-modal [class*="bg-black/"] {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Ensure selected primary button in settings keeps white text */
+.theme-light .settings-modal button[type="submit"],
+.theme-light .settings-modal button[type="submit"] * {
   color: #ffffff !important;
 }
 

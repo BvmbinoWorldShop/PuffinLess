@@ -216,6 +216,11 @@ export function useAppStore() {
     setGoals(next);
     saveSavingsGoals(next);
   };
+  const deleteGoal = (id: string) => {
+    const next = goals.filter((g) => g.id !== id);
+    setGoals(next);
+    saveSavingsGoals(next);
+  };
   const toggleGoal = (id: string) => {
     const next = goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g));
     setGoals(next);
@@ -254,7 +259,7 @@ export function useAppStore() {
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, toggleGoal, addPost, toggleLike, completeOnboarding, resetAll,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, addPost, toggleLike, completeOnboarding, resetAll,
     },
   };
 }
