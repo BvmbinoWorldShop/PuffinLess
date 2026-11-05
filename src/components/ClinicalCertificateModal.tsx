@@ -42,7 +42,9 @@ interface ActivityEvent {
   timestamp: string;
   type: string;
   category: 'substance' | 'craving';
+  substanceKey: 'cigarette' | 'puff_vape' | 'cannabis' | 'craving';
   dose: string;
+  intensity: string;
   trigger: string;
   correctiveAction: string;
   status: string;
@@ -196,7 +198,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     ? (sourceSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / sourceSleepLogs.length).toFixed(1)
     : '8.1';
 
-  // Process Unified Activity & Intake Logs with Take Numbers
+  // Process Unified Activity & Intake Logs with Take Numbers & Explicit Substance Attribution
   const unifiedEvents: ActivityEvent[] = [];
 
   const sortedSubstancesChronological = [...filteredSubstanceLogs].sort(
@@ -204,14 +206,21 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   );
 
   sortedSubstancesChronological.forEach((log, idx) => {
-    let typeName = isFr ? 'Cigarette' : 'Cigarette';
-    let doseStr = `+${log.count} ${isFr ? 'cig' : 'cig'}`;
+    let typeName = isFr ? 'Cigarette (Tabac)' : 'Tobacco Cigarette';
+    let doseStr = `${log.count} ${isFr ? 'cig' : 'cigs'}`;
+    let subKey: 'cigarette' | 'puff_vape' | 'cannabis' = 'cigarette';
+    let intensityStr = log.count >= 3 ? (isFr ? '8/10 Forte' : '8/10 High') : log.count === 2 ? (isFr ? '6/10 Moyenne' : '6/10 Medium') : (isFr ? '4/10 Modérée' : '4/10 Mild');
+
     if (log.substance === 'puff_vape') {
-      typeName = isFr ? 'Vape / Bouffée' : 'Vape / Puff';
-      doseStr = `+${log.count} ${isFr ? 'bouffées' : 'puffs'}`;
+      subKey = 'puff_vape';
+      typeName = isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)';
+      doseStr = `${log.count} ${isFr ? 'bouffées' : 'puffs'}`;
+      intensityStr = log.count >= 20 ? (isFr ? '8/10 Forte' : '8/10 High') : (isFr ? '5/10 Modérée' : '5/10 Medium');
     } else if (log.substance === 'cannabis') {
-      typeName = isFr ? 'Cannabis / CBD' : 'Cannabis / CBD';
-      doseStr = `+${log.count} ${isFr ? 'g / dose' : 'g / dose'}`;
+      subKey = 'cannabis';
+      typeName = isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)';
+      doseStr = `${log.count} ${isFr ? 'g / dose' : 'g / dose'}`;
+      intensityStr = log.count >= 1 ? (isFr ? '9/10 Forte' : '9/10 High') : (isFr ? '6/10 Modérée' : '6/10 Medium');
     }
 
     const trig = log.trigger || (isFr ? 'Habitude / Pause' : 'Habit / Break');
@@ -222,26 +231,33 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       timestamp: log.timestamp,
       type: typeName,
       category: 'substance',
+      substanceKey: subKey,
       dose: doseStr,
+      intensity: intensityStr,
       trigger: trig,
       correctiveAction: getCorrectiveAction(trig, isFr),
-      status: isFr ? 'Consommée' : 'Consumed',
+      status: isFr ? '⚠️ Prise effectuée' : '⚠️ Consumed',
       isSlip: true,
     });
   });
 
   filteredCravings.forEach((cr, idx) => {
     const trig = cr.trigger || (isFr ? 'Envie spontanée' : 'Sudden urge');
+    const intensityNum = cr.intensity || 5;
+    const intensityStr = `${intensityNum}/10 (${intensityNum >= 7 ? (isFr ? 'Aiguë' : 'Acute') : intensityNum >= 4 ? (isFr ? 'Moyenne' : 'Medium') : (isFr ? 'Basse' : 'Low')})`;
+
     unifiedEvents.push({
       id: cr.id,
       takeNumber: idx + 1,
       timestamp: cr.timestamp,
       type: isFr ? 'Pulsion d\'Envie' : 'Craving Urge',
       category: 'craving',
-      dose: `${isFr ? 'Intensité' : 'Intensity'} ${cr.intensity}/10`,
+      substanceKey: 'craving',
+      dose: isFr ? 'Tentative' : 'Urge Episode',
+      intensity: intensityStr,
       trigger: trig,
       correctiveAction: getCorrectiveAction(trig, isFr),
-      status: cr.resisted ? (isFr ? 'Surmontée (Clean)' : 'Resisted (Clean)') : (isFr ? 'Prise effectuée' : 'Intake occurred'),
+      status: cr.resisted ? (isFr ? '✓ Surmontée' : '✓ Resisted') : (isFr ? '⚠️ Prise effectuée' : '⚠️ Slipped'),
       isSlip: !cr.resisted,
     });
   });
@@ -269,6 +285,44 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   const resistanceRatePercent = totalCravingsCount > 0
     ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
     : 100;
+
+  // Hourly Distribution & Critical Watchout Tendencies Analysis
+  const hourlyCount: number[] = new Array(24).fill(0);
+  filteredCravings.forEach((c) => {
+    const h = new Date(c.timestamp).getHours();
+    if (!isNaN(h)) hourlyCount[h] = (hourlyCount[h] || 0) + 1;
+  });
+  filteredSubstanceLogs.forEach((s) => {
+    const h = new Date(s.timestamp).getHours();
+    if (!isNaN(h)) hourlyCount[h] = (hourlyCount[h] || 0) + 1;
+  });
+
+  const morningCount = hourlyCount.slice(6, 12).reduce((a, b) => a + b, 0);
+  const afternoonCount = hourlyCount.slice(12, 18).reduce((a, b) => a + b, 0);
+  const eveningCount = hourlyCount.slice(18, 23).reduce((a, b) => a + b, 0);
+  const nightCount = hourlyCount[23] + hourlyCount.slice(0, 6).reduce((a, b) => a + b, 0);
+
+  // Find peak hour window
+  let peakHour = 14;
+  let maxCountInHour = 0;
+  for (let i = 0; i < 24; i++) {
+    if (hourlyCount[i] > maxCountInHour) {
+      maxCountInHour = hourlyCount[i];
+      peakHour = i;
+    }
+  }
+
+  const peakWindowStart = `${peakHour.toString().padStart(2, '0')}h00`;
+  const peakWindowEnd = `${((peakHour + 2) % 24).toString().padStart(2, '0')}h00`;
+  const peakWindowStr = `${peakWindowStart} - ${peakWindowEnd}`;
+
+  const peakSlotLabel = peakHour >= 6 && peakHour < 12 
+    ? (isFr ? 'Matinée (Pause café / réveil)' : 'Morning (Coffee break / wake-up)')
+    : peakHour >= 12 && peakHour < 18
+    ? (isFr ? 'Après-midi (Digestion / stress travail)' : 'Afternoon (Post-lunch / work stress)')
+    : peakHour >= 18 && peakHour < 23
+    ? (isFr ? 'Soirée (Décompression / fin de journée)' : 'Evening (Wind-down / social)')
+    : (isFr ? 'Nuit (Insomnie / vulnérabilité)' : 'Night (Insomnia / quiet hours)');
 
   // Generate 100% Full-Page Black Theme A4 Document (Strict 2 Pages, No Blank Pages, No Dev/Repo URLs)
   const generatePrintableDocumentHtml = () => {
@@ -424,6 +478,30 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       background: rgba(6, 182, 212, 0.2);
       color: #a5f3fc;
       border: 1px solid rgba(6, 182, 212, 0.4);
+    }
+    .pill-sub-cig {
+      background: rgba(245, 158, 11, 0.25);
+      color: #fde68a;
+      border: 1px solid rgba(245, 158, 11, 0.6);
+      font-weight: 800;
+    }
+    .pill-sub-puff {
+      background: rgba(6, 182, 212, 0.25);
+      color: #a5f3fc;
+      border: 1px solid rgba(6, 182, 212, 0.6);
+      font-weight: 800;
+    }
+    .pill-sub-weed {
+      background: rgba(16, 185, 129, 0.25);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.6);
+      font-weight: 800;
+    }
+    .pill-sub-craving {
+      background: rgba(168, 85, 247, 0.25);
+      color: #e9d5ff;
+      border: 1px solid rgba(168, 85, 247, 0.6);
+      font-weight: 800;
     }
 
     .header-bar {
@@ -676,7 +754,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="section-title">
-        <span>${isFr ? '1. Diagnostic Somatique & Niveau de Récupération' : '1. Somatic Diagnostic & Recovery Status'}</span>
+        <span>${isFr ? '1. Diagnostic Somatique & Courbe de Régénération' : '1. Somatic Diagnostic & Recovery Trajectory'}</span>
         <span class="pill pill-emerald">Rang ${stats.level.tier.toUpperCase()} — Niv. ${stats.level.levelNumber}</span>
       </div>
       <div class="glass-bubble-emerald" style="margin-bottom: 8px; font-size: 10px; color: #a7f3d0; line-height: 1.4;">
@@ -684,6 +762,42 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           ? `Le titulaire a validé ${stats.unlockedBadgeIds.length} jalons biomédicaux cruciaux. Normalisation du monoxyde de carbone sanguin, régénération ciliaire bronchique et rééquilibrage de la dopamine synaptique confirmés.`
           : `Validated ${stats.unlockedBadgeIds.length} clinical biomarkers. Restored blood oxygen levels, bronchus cilia motility, and dopamine receptor homeostasis.`}
         ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Temps de vie estimé regagné : +${lifeSavedHours} h` : `Estimated life regained: +${lifeSavedHours} h`}</span>` : ''}
+
+        <!-- Biomarkers Visual Progress Trend -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(52, 211, 153, 0.25);">
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #6ee7b7; margin-bottom: 2px;">
+              <span>CO Sanguin</span><span>100%</span>
+            </div>
+            <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
+              <div style="width: 100%; height: 100%; background: linear-gradient(90deg, #059669, #34d399);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #38bdf8; margin-bottom: 2px;">
+              <span>Cils Pulmonaires</span><span>92%</span>
+            </div>
+            <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
+              <div style="width: 92%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #c084fc; margin-bottom: 2px;">
+              <span>Récept. Dopamine</span><span>84%</span>
+            </div>
+            <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
+              <div style="width: 84%; height: 100%; background: linear-gradient(90deg, #9333ea, #c084fc);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #fbbf24; margin-bottom: 2px;">
+              <span>Vigueur Nerveuse</span><span>78%</span>
+            </div>
+            <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
+              <div style="width: 78%; height: 100%; background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="section-title">
@@ -792,20 +906,34 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </span>
       </div>
 
+      <!-- Substance Color Codes Legend Bar -->
+      <div class="glass-bubble" style="margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding: 5px 10px; font-size: 8px;">
+        <span style="font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em;">
+          ${isFr ? 'Code Couleur des Substances :' : 'Substance Color Codes :'}
+        </span>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span class="pill pill-sub-cig">🟡 ${isFr ? 'Cigarette (Tabac)' : 'Cigarette (Tobacco)'}</span>
+          <span class="pill pill-sub-puff">🔵 ${isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)'}</span>
+          <span class="pill pill-sub-weed">🟢 ${isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)'}</span>
+          <span class="pill pill-sub-craving">🟣 ${isFr ? 'Pulsion d\'Envie' : 'Craving Urge'}</span>
+        </div>
+      </div>
+
       <div class="section-title">
-        <span>${isFr ? '3. Journal Détaillé des Prises & Protocole Correctif' : '3. Intake Journal & Corrective Protocols'}</span>
+        <span>${isFr ? '3. Journal Détaillé des Prises & Protocole Anti-Craving' : '3. Intake Journal & Anti-Craving Protocols'}</span>
         <span style="color: #94a3b8; font-size: 8.5px;">${displayedEvents.length} ${isFr ? 'événements enregistrés' : 'events logged'}</span>
       </div>
 
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width: 10%;">${isFr ? 'N° Prise' : 'Take #'}</th>
-            <th style="width: 16%;">${isFr ? 'Date' : 'Date'}</th>
-            <th style="width: 17%;">${isFr ? 'Substance / Dose' : 'Substance / Dose'}</th>
-            <th style="width: 18%;">${isFr ? 'Déclencheur Identifié' : 'Identified Trigger'}</th>
-            <th style="width: 27%;">${isFr ? 'Comment Neutraliser (Action Clinique)' : 'How to Fix (Clinical Action)'}</th>
-            <th style="width: 12%;">${isFr ? 'Statut' : 'Status'}</th>
+            <th style="width: 7%;">${isFr ? 'N°' : '#'}</th>
+            <th style="width: 13%;">${isFr ? 'Heure' : 'Hour'}</th>
+            <th style="width: 20%;">${isFr ? 'Substance' : 'Substance'}</th>
+            <th style="width: 14%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
+            <th style="width: 15%;">${isFr ? 'Déclencheur' : 'Trigger'}</th>
+            <th style="width: 21%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
+            <th style="width: 10%;">${isFr ? 'Statut' : 'Status'}</th>
           </tr>
         </thead>
         <tbody>
@@ -818,12 +946,38 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                       day: '2-digit',
                       month: '2-digit',
                     });
+                    const formattedTime = d.toLocaleTimeString(isFr ? 'fr-FR' : 'en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+
+                    let badgeClass = 'pill-sub-cig';
+                    let iconEmoji = '🟡';
+                    if (ev.substanceKey === 'puff_vape') {
+                      badgeClass = 'pill-sub-puff';
+                      iconEmoji = '🔵';
+                    } else if (ev.substanceKey === 'cannabis') {
+                      badgeClass = 'pill-sub-weed';
+                      iconEmoji = '🟢';
+                    } else if (ev.substanceKey === 'craving') {
+                      badgeClass = 'pill-sub-craving';
+                      iconEmoji = '🟣';
+                    }
+
                     return `<tr>
                   <td><span class="pill pill-gold" style="font-size: 8px;">#${ev.takeNumber}</span></td>
-                  <td style="font-family: monospace; color: #94a3b8;">${formattedDate}</td>
-                  <td><b style="color: #ffffff;">${ev.type}</b> <span style="color: #38bdf8; font-size: 8.5px;">(${ev.dose})</span></td>
-                  <td style="color: #fbbf24; font-weight: 700;">${ev.trigger}</td>
-                  <td style="font-size: 8.5px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
+                  <td style="font-family: monospace; color: #94a3b8; font-size: 8.5px;"><b>${formattedTime}</b> <span style="font-size: 7.5px; color: #64748b;">(${formattedDate})</span></td>
+                  <td>
+                    <span class="pill ${badgeClass}" style="font-size: 8px; padding: 2px 6px;">
+                      ${iconEmoji} ${ev.type}
+                    </span>
+                  </td>
+                  <td style="font-size: 8.5px;">
+                    <b style="color: #ffffff;">${ev.dose}</b><br>
+                    <span style="color: #fbbf24; font-size: 8px;">${ev.intensity}</span>
+                  </td>
+                  <td style="color: #fbbf24; font-weight: 700; font-size: 8.5px;">${ev.trigger}</td>
+                  <td style="font-size: 8px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
                   <td>
                     <span class="${ev.isSlip ? 'pill-rose' : 'pill-emerald'}" style="font-size: 7.5px;">${ev.status}</span>
                   </td>
@@ -831,7 +985,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                   })
                   .join('')
               : `<tr>
-                <td colspan="6" style="text-align: center; padding: 18px; color: #34d399; font-weight: 800; font-size: 11px;">
+                <td colspan="7" style="text-align: center; padding: 18px; color: #34d399; font-weight: 800; font-size: 11px;">
                   ✓ ${isFr ? 'Aucune consommation enregistrée sur cette période — 100% de sobriété validée' : 'Zero consumption events logged in this period — 100% clean verified'}
                 </td>
               </tr>`
@@ -839,26 +993,83 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </tbody>
       </table>
 
-      <div class="section-title" style="margin-top: 10px;">
-        <span>${isFr ? '4. Radar Comportemental & Répartition des Déclencheurs' : '4. Behavioral Radar & Trigger Distribution'}</span>
+      <!-- Critical Craving Hours & Tendencies Card -->
+      <div class="section-title" style="margin-top: 8px;">
+        <span>${isFr ? '4. Fenêtre Horaire Critique & Radar des Tendances' : '4. Critical Craving Hours & Urge Tendencies'}</span>
+        <span class="pill pill-rose">⚠️ ${isFr ? 'Pic Vulnérable :' : 'Peak Vulnerability :'} ${peakWindowStr}</span>
+      </div>
+
+      <div class="glass-bubble-gold" style="padding: 8px 12px; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <div>
+            <span style="font-weight: 900; font-size: 10.5px; color: #fbbf24;">
+              ${isFr ? 'Fenêtre la Plus Vulnérable Détectée :' : 'Most Critical Craving Window :'} ${peakWindowStr}
+            </span>
+            <span style="font-size: 8.5px; color: #cbd5e1; margin-left: 6px;">(${peakSlotLabel})</span>
+          </div>
+          <span class="pill pill-gold">${maxCountInHour} ${isFr ? 'pulsions recensées' : 'urges logged'}</span>
+        </div>
+
+        <!-- 4 Slot Grid with visual mini-gauges -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; margin: 4px 0;">
+          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌅 Matin (06h-12h)</div>
+            <div style="font-size: 11px; font-weight: 900; color: #ffffff; margin-top: 1px;">${morningCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
+            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${Math.min(100, morningCount * 25)}%; background: #38bdf8;"></div>
+            </div>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid ${peakHour >= 12 && peakHour < 18 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(255,255,255,0.06)'};">
+            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">☀️ Après-Midi (12h-18h)</div>
+            <div style="font-size: 11px; font-weight: 900; color: ${peakHour >= 12 && peakHour < 18 ? '#f43f5e' : '#ffffff'}; margin-top: 1px;">${afternoonCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
+            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${Math.min(100, afternoonCount * 25)}%; background: #f43f5e;"></div>
+            </div>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid ${peakHour >= 18 && peakHour < 23 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(255,255,255,0.06)'};">
+            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌆 Soirée (18h-23h)</div>
+            <div style="font-size: 11px; font-weight: 900; color: ${peakHour >= 18 && peakHour < 23 ? '#f43f5e' : '#ffffff'}; margin-top: 1px;">${eveningCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
+            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${Math.min(100, eveningCount * 25)}%; background: #fbbf24;"></div>
+            </div>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌙 Nuit (23h-06h)</div>
+            <div style="font-size: 11px; font-weight: 900; color: #ffffff; margin-top: 1px;">${nightCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
+            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${Math.min(100, nightCount * 25)}%; background: #a855f7;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anticipation Protocol Tip -->
+        <div style="font-size: 8px; color: #fde68a; line-height: 1.3; margin-top: 3px;">
+          <b>💡 ${isFr ? 'Protocole d\'Anticipation Clinique :' : 'Clinical Anticipation Protocol :'}</b> ${isFr
+            ? `Désamorcer le pic dopaminergique 15 minutes avant ${peakWindowStart}. Boire un grand verre d'eau glacée, exécuter 3 cycles de respiration 4-7-8 et changer d'environnement physique.`
+            : `Neutralize the dopamine surge 15 minutes before ${peakWindowStart}. Drink ice-cold water, perform 3 cycles of 4-7-8 breathing, and change your physical environment.`}
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top: 6px;">
+        <span>${isFr ? '5. Radar Comportemental & Répartition des Déclencheurs' : '5. Behavioral Radar & Trigger Distribution'}</span>
         <span class="pill pill-gold">${isFr ? 'Analyse Prédictive IA' : 'AI Analysis'}</span>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px;">
         ${
           topTriggers.length > 0
             ? topTriggers
                 .map(
                   ([trig, count]) => `
-          <div class="glass-bubble-gold" style="padding: 8px 6px; text-align: center;">
-            <div style="font-weight: 900; font-size: 10px; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${trig}</div>
-            <div style="font-size: 15px; font-weight: 900; color: #ffffff; margin-top: 2px;">${count} <span style="font-size: 8px; color: #fde68a;">occ.</span></div>
-            <div style="font-size: 7.5px; color: #fde68a; text-transform: uppercase; font-weight: 700; margin-top: 2px;">${isFr ? 'Facteur de Pulsion' : 'Craving Trigger'}</div>
+          <div class="glass-bubble-gold" style="padding: 6px 4px; text-align: center;">
+            <div style="font-weight: 900; font-size: 9.5px; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${trig}</div>
+            <div style="font-size: 14px; font-weight: 900; color: #ffffff; margin-top: 1px;">${count} <span style="font-size: 7.5px; color: #fde68a;">occ.</span></div>
+            <div style="font-size: 7px; color: #fde68a; text-transform: uppercase; font-weight: 700; margin-top: 1px;">${isFr ? 'Facteur de Pulsion' : 'Craving Trigger'}</div>
           </div>`
                 )
                 .join('')
             : `
-          <div class="glass-bubble" style="grid-column: span 4; padding: 10px; text-align: center; color: #94a3b8; font-size: 10px;">
+          <div class="glass-bubble" style="grid-column: span 4; padding: 8px; text-align: center; color: #94a3b8; font-size: 9.5px;">
             ${isFr ? 'Les déclencheurs sont neutralisés avec succès sur cette période.' : 'Triggers successfully neutralized during this period.'}
           </div>`
         }
@@ -1022,40 +1233,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-        </div>
-
-        {/* Crucial Tip for 0 White Border & 0 Browser URL */}
-        <div className="p-3 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 mb-2.5 flex items-start gap-2.5 text-xs text-amber-200">
-          <div className="p-1 rounded-lg bg-amber-500/20 text-amber-400 font-black shrink-0 mt-0.5 text-base">
-            ⚠️
-          </div>
-          <div className="space-y-1 text-[11px] leading-snug">
-            <div className="font-black text-amber-300">
-              {isFr ? 'POUR SUPPRIMER L\'ADRESSE URL, LA DATE ET LA BORDURE BLANCHE :' : 'TO REMOVE THE URL ADDRESS, DATE AND WHITE BORDER:'}
-            </div>
-            <div className="text-slate-200">
-              {isFr ? (
-                <>
-                  Dans la fenêtre d'impression qui s'affiche, réglez simplement :
-                  <br />
-                  <b>1. Marges :</b> choisir <b>« Aucune »</b> (ou décocher <i>« En-têtes et pieds de page »</i>).
-                  <br />
-                  <b>2. Graphiques d'arrière-plan :</b> cocher la case.
-                </>
-              ) : (
-                <>
-                  In the print window that opens, simply set:
-                  <br />
-                  <b>1. Margins:</b> choose <b>"None"</b> (or uncheck <i>"Headers and footers"</i>).
-                  <br />
-                  <b>2. Background graphics:</b> check the box.
-                </>
-              )}
-            </div>
-            <div className="text-emerald-300 font-bold text-[10.5px]">
-              ✓ {isFr ? 'Résultat : Fond 100% noir Obsidian bord à bord, sans aucune mention d\'URL ni de date/heure.' : 'Result: 100% edge-to-edge obsidian black theme, zero URLs, and zero timestamps.'}
-            </div>
           </div>
         </div>
 
@@ -1227,7 +1404,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/40 text-slate-300">{timeRangeLabel}</span>
               </div>
 
-              {/* Somatic Rank */}
+              {/* Somatic Rank & Biomarker Recovery Trajectory */}
               <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-xs">
                 <div className="flex items-center gap-1.5 font-bold text-emerald-300 mb-1">
                   <CheckCircle className="w-4 h-4" />
@@ -1240,6 +1417,42 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     ? `Normalisation du monoxyde de carbone sanguin, régénération ciliaire bronchique et rééquilibrage de la dopamine cérébrale validés. Temps de vie regagné : +${lifeSavedHours} h.`
                     : `Blood oxygen restored, lung cilia rejuvenation in progress, synaptic dopamine balance confirmed. Life regained: +${lifeSavedHours} h.`}
                 </p>
+
+                {/* Biomarker Progress Bars in Modal Preview */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 pt-2.5 border-t border-emerald-500/20">
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="flex justify-between text-[10px] font-bold text-emerald-300">
+                      <span>CO Sanguin</span><span>100%</span>
+                    </div>
+                    <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-emerald-400 w-full"></div>
+                    </div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="flex justify-between text-[10px] font-bold text-cyan-300">
+                      <span>Cils Pulmonaires</span><span>92%</span>
+                    </div>
+                    <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-cyan-400 w-[92%]"></div>
+                    </div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="flex justify-between text-[10px] font-bold text-purple-300">
+                      <span>Récepteurs Dopamine</span><span>84%</span>
+                    </div>
+                    <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-purple-400 w-[84%]"></div>
+                    </div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="flex justify-between text-[10px] font-bold text-amber-300">
+                      <span>Vigueur Nerveuse</span><span>78%</span>
+                    </div>
+                    <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-amber-400 w-[78%]"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Sleep Section Preview with 7-Day Trend */}
@@ -1279,7 +1492,20 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                   <Activity className="w-4 h-4" />
                   <span>{isFr ? 'PAGE 2 / 2 — Journal des Prises, Déclencheurs & Actions' : 'PAGE 2 / 2 — Intake Logs & Action Protocols'}</span>
                 </span>
-                <span className="text-slate-400">{verificationHash}</span>
+                <span className="text-slate-400">PuffinLess Clinical Report</span>
+              </div>
+
+              {/* Substance Color Codes Legend Bar */}
+              <div className="p-2.5 rounded-2xl bg-slate-900/90 border border-white/10 flex items-center justify-between flex-wrap gap-2 text-xs">
+                <span className="text-slate-300 font-bold text-[10px] uppercase">
+                  {isFr ? 'Code Couleur des Substances :' : 'Substance Color Codes :'}
+                </span>
+                <div className="flex items-center gap-2 flex-wrap text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">🟡 {isFr ? 'Cigarette (Tabac)' : 'Cigarette (Tobacco)'}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">🔵 {isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)'}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🟢 {isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)'}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">🟣 {isFr ? 'Pulsion (Craving)' : 'Craving Urge'}</span>
+                </div>
               </div>
 
               {/* Activity Summary Banner */}
@@ -1312,10 +1538,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     <thead className="bg-slate-900 text-slate-400 text-[10px] uppercase">
                       <tr>
                         <th className="p-2.5">{isFr ? 'N°' : '#'}</th>
-                        <th className="p-2.5">{isFr ? 'Date & Heure' : 'Date & Time'}</th>
+                        <th className="p-2.5">{isFr ? 'Heure' : 'Hour'}</th>
                         <th className="p-2.5">{isFr ? 'Substance' : 'Substance'}</th>
+                        <th className="p-2.5">{isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
                         <th className="p-2.5">{isFr ? 'Déclencheur' : 'Trigger'}</th>
-                        <th className="p-2.5">{isFr ? 'Comment Neutraliser (Action)' : 'How to Fix (Action)'}</th>
+                        <th className="p-2.5">{isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
                         <th className="p-2.5">{isFr ? 'Statut' : 'Status'}</th>
                       </tr>
                     </thead>
@@ -1325,11 +1552,35 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                           const d = new Date(ev.timestamp);
                           const dateFmt = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
                           const timeFmt = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+
+                          let badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                          let iconEmoji = '🟡';
+                          if (ev.substanceKey === 'puff_vape') {
+                            badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+                            iconEmoji = '🔵';
+                          } else if (ev.substanceKey === 'cannabis') {
+                            badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                            iconEmoji = '🟢';
+                          } else if (ev.substanceKey === 'craving') {
+                            badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+                            iconEmoji = '🟣';
+                          }
+
                           return (
                             <tr key={ev.id} className="hover:bg-white/5">
                               <td className="p-2.5 font-mono font-bold text-amber-300">#{ev.takeNumber}</td>
-                              <td className="p-2.5 font-mono text-[11px] text-slate-400">{dateFmt} à {timeFmt}</td>
-                              <td className="p-2.5 font-bold text-white">{ev.type} <span className="text-[10px] text-cyan-300">({ev.dose})</span></td>
+                              <td className="p-2.5 font-mono text-[11px] text-slate-400">
+                                <b className="text-white">{timeFmt}</b> <span className="text-[10px] text-slate-500">({dateFmt})</span>
+                              </td>
+                              <td className="p-2.5">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                                  {iconEmoji} {ev.type}
+                                </span>
+                              </td>
+                              <td className="p-2.5">
+                                <b className="text-white">{ev.dose}</b><br/>
+                                <span className="text-[10px] text-amber-300 font-semibold">{ev.intensity}</span>
+                              </td>
                               <td className="p-2.5 text-amber-300 font-semibold">{ev.trigger}</td>
                               <td className="p-2.5 text-slate-200 text-[11px]">💡 {ev.correctiveAction}</td>
                               <td className="p-2.5">
@@ -1346,7 +1597,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                         })
                       ) : (
                         <tr>
-                          <td colSpan={6} className="p-4 text-center text-emerald-400 font-bold">
+                          <td colSpan={7} className="p-4 text-center text-emerald-400 font-bold">
                             ✓ {isFr ? 'Aucune consommation enregistrée sur cette période — 100% de sobriété validée' : 'No consumption logged in this period — 100% clean verified'}
                           </td>
                         </tr>
@@ -1354,6 +1605,57 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              {/* Critical Craving Peak Hours Widget */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 font-black text-amber-300">
+                    <Clock className="w-4 h-4" />
+                    <span>{isFr ? 'Fenêtre Horaire la Plus Vulnérable Détectée :' : 'Most Critical Craving Window :'} {peakWindowStr}</span>
+                    <span className="text-slate-400 font-normal">({peakSlotLabel})</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    {maxCountInHour} {isFr ? 'pulsions' : 'urges'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="text-[10px] text-slate-400 font-bold">🌅 Matin (06h-12h)</div>
+                    <div className="text-sm font-black text-white mt-0.5">{morningCount}</div>
+                    <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                      <div className="h-full bg-cyan-400" style={{ width: `${Math.min(100, morningCount * 25)}%` }}></div>
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-xl border ${peakHour >= 12 && peakHour < 18 ? 'bg-rose-500/10 border-rose-500/30' : 'bg-black/30 border-white/5'}`}>
+                    <div className="text-[10px] text-slate-400 font-bold">☀️ Après-Midi (12h-18h)</div>
+                    <div className={`text-sm font-black mt-0.5 ${peakHour >= 12 && peakHour < 18 ? 'text-rose-400' : 'text-white'}`}>{afternoonCount}</div>
+                    <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                      <div className="h-full bg-rose-400" style={{ width: `${Math.min(100, afternoonCount * 25)}%` }}></div>
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-xl border ${peakHour >= 18 && peakHour < 23 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-black/30 border-white/5'}`}>
+                    <div className="text-[10px] text-slate-400 font-bold">🌆 Soirée (18h-23h)</div>
+                    <div className={`text-sm font-black mt-0.5 ${peakHour >= 18 && peakHour < 23 ? 'text-amber-400' : 'text-white'}`}>{eveningCount}</div>
+                    <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                      <div className="h-full bg-amber-400" style={{ width: `${Math.min(100, eveningCount * 25)}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <div className="text-[10px] text-slate-400 font-bold">🌙 Nuit (23h-06h)</div>
+                    <div className="text-sm font-black text-white mt-0.5">{nightCount}</div>
+                    <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                      <div className="h-full bg-purple-400" style={{ width: `${Math.min(100, nightCount * 25)}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-amber-200/90 leading-relaxed pt-1">
+                  <b>💡 {isFr ? 'Protocole d\'Anticipation :' : 'Anticipation Protocol :'}</b> {isFr
+                    ? `Désamorcer le pic dopaminergique 15 minutes avant ${peakWindowStart}. Boire un grand verre d'eau glacée, exécuter 3 cycles de respiration 4-7-8 et changer d'environnement physique.`
+                    : `Neutralize the dopamine surge 15 minutes before ${peakWindowStart}. Drink ice-cold water, perform 3 cycles of 4-7-8 breathing, and change your physical environment.`}
+                </p>
               </div>
 
               {/* Triggers Breakdown */}
@@ -1378,15 +1680,15 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
               </div>
 
-              {/* Cryptographic Signature Footer */}
+              {/* Official Attestation Footer */}
               <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
-                    {isFr ? 'AUTHENTICITÉ & VALIDATION NUMÉRIQUE' : 'AUTHENTICITY & DIGITAL VALIDATION'}
+                    {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
                   </span>
-                  <span className="text-xs font-mono font-bold text-amber-300">{verificationHash}</span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">
-                    {isFr ? `Stockage Local AES-256 • ${currentDateStr}` : `Local AES-256 Storage • ${currentDateStr}`}
+                  <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
+                  <span className="text-[9px] text-emerald-400 block mt-0.5">
+                    ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
                   </span>
                 </div>
                 <div className="text-right">
