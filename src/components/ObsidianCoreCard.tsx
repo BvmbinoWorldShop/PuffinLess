@@ -46,27 +46,32 @@ export const ObsidianCoreCard: React.FC<Props> = ({ report, language = 'en' }) =
   }
 
   return (
-    <MorphicCard variant="obsidian" className="space-y-4">
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
-          <span className="absolute inset-0 rounded-2xl bg-emerald-400/40 blur-md animate-pulse" />
-          <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-indigo-600 flex items-center justify-center border border-white/30 shadow-lg">
-            <BrainCircuit className="w-5 h-5 text-white" />
+    <MorphicCard variant="obsidian" className="space-y-3.5">
+      {/* Header - on the same line to clear the view */}
+      <div className="flex items-center justify-between gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative shrink-0">
+            <span className="absolute inset-0 rounded-xl bg-emerald-400/40 blur-sm animate-pulse" />
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 via-teal-500 to-indigo-600 flex items-center justify-center border border-white/20 shadow-md">
+              <BrainCircuit className="w-4 h-4 text-white" />
+            </div>
           </div>
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-400 whitespace-nowrap">
               {isFr ? 'Centre de Contrôle' : 'Control Center'}
             </span>
-            <span className="text-[10px] text-slate-400">
-              {isFr ? `• ${habit.memoryEvents} événements analysés` : `• ${habit.memoryEvents} moments analyzed`}
+            <span className="text-[10px] text-slate-400 whitespace-nowrap">
+              {isFr ? `• ${habit.memoryEvents} événements` : `• ${habit.memoryEvents} moments`}
             </span>
           </div>
-          <h3 className="text-base font-extrabold text-white tracking-tight leading-tight mt-0.5">{report.greeting}</h3>
-          <p className="text-xs text-slate-300 mt-1 leading-relaxed">{report.headline}</p>
         </div>
+
+        <span className="text-[11px] font-semibold text-slate-300 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full shrink-0">
+          {report.greeting}
+        </span>
       </div>
+
+      <p className="text-xs text-slate-300 leading-relaxed">{report.headline}</p>
 
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

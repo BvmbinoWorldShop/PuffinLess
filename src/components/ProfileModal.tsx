@@ -1251,18 +1251,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {/* Primary Action Button (Always visible at bottom) */}
           <div className="pt-3 border-t border-white/10 shrink-0">
             <button
+              id="settings-save-button"
               type="submit"
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white font-bold text-sm shadow-xl shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#059669', color: '#ffffff' }}
+              className="btn-settings-save w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 !bg-emerald-600 !text-white font-bold text-sm shadow-xl shadow-emerald-500/25 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {savedSuccess ? (
                 <>
-                  <Check className="w-4 h-4 text-white" />
-                  <span>{isFr ? 'Profil et Coach Enregistrés !' : 'Profile & Coach Updated!'}</span>
+                  <Check className="w-4 h-4 !text-white" />
+                  <span className="!text-white font-bold">{isFr ? 'Profil et Coach Enregistrés !' : 'Profile & Coach Updated!'}</span>
                 </>
               ) : (
                 <>
-                  <Brain className="w-4 h-4" />
-                  <span>
+                  <Brain className="w-4 h-4 !text-white" />
+                  <span className="!text-white font-bold">
                     {isFr ? 'Enregistrer & Activer le Coach Personnalisé' : 'Save & Calibrate AI Coach'}
                   </span>
                 </>

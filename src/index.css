@@ -163,8 +163,19 @@
   background-color: #ffffff !important;
 }
 
-/* Ensure selected primary button in settings and guide keeps white text */
-.theme-light .settings-modal button[type="submit"],
+/* Ensure selected primary button in settings and guide keeps green background & white text */
+.theme-light #settings-save-button,
+.theme-light .btn-settings-save,
+.theme-light .settings-modal button[type="submit"] {
+  background: linear-gradient(135deg, #059669, #0d9488) !important;
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border: 1px solid #10b981 !important;
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4) !important;
+}
+
+.theme-light #settings-save-button *,
+.theme-light .btn-settings-save *,
 .theme-light .settings-modal button[type="submit"] *,
 .theme-light .guide-modal button[type="submit"],
 .theme-light .guide-modal button[type="submit"] *,
