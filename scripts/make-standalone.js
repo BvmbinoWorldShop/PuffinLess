@@ -35,3 +35,14 @@ if (jsMatch && jsMatch[1]) {
 const standalonePath = path.join(distDir, 'standalone.html');
 fs.writeFileSync(standalonePath, html, 'utf8');
 console.log('Standalone single-file HTML generated at:', standalonePath);
+
+// Sync to Desktop folder if present
+const desktopFolder = 'C:\\Users\\tiegb\\Desktop\\final version 1';
+if (fs.existsSync(desktopFolder)) {
+  try {
+    fs.writeFileSync(path.join(desktopFolder, 'PuffinLess_App.html'), html, 'utf8');
+    console.log('Synchronized standalone app to Desktop folder:', desktopFolder);
+  } catch (err) {
+    console.warn('Could not sync to desktop:', err);
+  }
+}

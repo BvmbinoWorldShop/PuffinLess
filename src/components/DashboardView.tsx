@@ -366,7 +366,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     disabled={today[pending] <= 0}
                     onClick={() => {
                       sound.playClick();
-                      sound.vibrate(20);
+                      sound.vibrate(45);
                       onRemoveSubstance(pending, pending === 'puff_vape' ? 5 : 1);
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition-all ${

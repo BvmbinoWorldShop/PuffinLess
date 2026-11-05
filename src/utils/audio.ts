@@ -22,7 +22,7 @@ class SoundManager {
   }
 
   // Native Web Haptic Vibration (Tactile return for mobile and desktop)
-  public vibrate(pattern: number | number[] = 24) {
+  public vibrate(pattern: number | number[] = 45) {
     if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(pattern);
@@ -32,25 +32,25 @@ class SoundManager {
     }
   }
 
-  // Pre-configured tactile feedback patterns
+  // Pre-configured tactile feedback patterns (High-strength tactile impulse)
   public hapticTick() {
-    this.vibrate(24); // crisp 24ms mechanical tap feel
+    this.vibrate(45); // strong, crisp 45ms mechanical punch
   }
 
   public hapticSelect() {
-    this.vibrate(30); // distinct 30ms selector tap
+    this.vibrate(60); // solid 60ms selection thud
   }
 
   public hapticToggle() {
-    this.vibrate([18, 35, 22]); // tactile double-impulse for switches and toggles
+    this.vibrate([40, 30, 50]); // firm dual-kick for switches and toggles
   }
 
   public hapticSuccess() {
-    this.vibrate([35, 45, 65]); // celebratory triple pulse
+    this.vibrate([60, 40, 90, 40, 130]); // deep celebratory motor rumble
   }
 
   public hapticWarning() {
-    this.vibrate([45, 50, 45]); // double alert pulse
+    this.vibrate([80, 50, 90]); // strong urgent alert pulse
   }
 
   private initContext() {

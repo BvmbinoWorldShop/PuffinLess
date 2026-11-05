@@ -35,7 +35,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab,
               role="tab"
               aria-selected={isActive}
               onClick={() => {
-                sound.vibrate(28);
+                sound.vibrate(55);
                 sound.playClick();
                 onSelectTab(tab.id);
               }}

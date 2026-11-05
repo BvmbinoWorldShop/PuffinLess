@@ -137,28 +137,28 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
         const cfg = TECHNIQUES[technique];
         if (phase === 'Inhale') {
           if (cfg.hold > 0) {
-            sound.vibrate([30, 30]); // firm double tap when entering Hold
+            sound.vibrate([55, 45, 55]); // firm double tap when entering Hold
             setPhase('Hold');
             return cfg.hold;
           }
           sound.playBreathTone(true);
-          sound.vibrate([50, 40, 30]); // descending release rumble for Exhale
+          sound.vibrate([80, 50, 60, 40]); // descending release rumble for Exhale
           setPhase('Exhale');
           return cfg.exhale;
         }
         if (phase === 'Hold') {
           sound.playBreathTone(true);
-          sound.vibrate([50, 40, 30]); // descending release rumble for Exhale
+          sound.vibrate([80, 50, 60, 40]); // descending release rumble for Exhale
           setPhase('Exhale');
           return cfg.exhale;
         }
         if (phase === 'Exhale' && cfg.pause > 0) {
-          sound.vibrate(25); // gentle resting tap for Pause
+          sound.vibrate(40); // gentle resting tap for Pause
           setPhase('Pause');
           return cfg.pause;
         }
         sound.playBreathTone(false);
-        sound.vibrate([40, 50, 40]); // ascending tactile swell for Inhale
+        sound.vibrate([60, 50, 70, 50, 80]); // ascending tactile swell for Inhale
         setCycles((c) => c + 1);
         setPhase('Inhale');
         return cfg.inhale;
@@ -170,16 +170,16 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
   const startStop = () => {
     if (!running) {
       sound.playBreathTone(false);
-      sound.vibrate([40, 50, 40]);
+      sound.vibrate([60, 50, 70]);
       setPhase('Inhale');
       setSecs(TECHNIQUES[technique].inhale);
     } else {
-      sound.vibrate(18);
+      sound.vibrate(40);
     }
     setRunning(!running);
   };
   const resetBreath = () => {
-    sound.vibrate(20);
+    sound.vibrate(45);
     setRunning(false);
     setPhase('Inhale');
     setSecs(TECHNIQUES[technique].inhale);
