@@ -1,13 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Lock, ScanFace, Shield, Delete, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, Shield, Delete, AlertCircle, RotateCcw } from 'lucide-react';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
-import {
-  getSecurityConfig,
-  verifyPin,
-  authenticateWithBiometrics,
-  isBiometricAvailable,
-} from '../utils/security';
+import { getSecurityConfig, verifyPin } from '../utils/security';
 import type { Language } from '../types';
 
 interface AppLockScreenProps {
@@ -19,30 +14,8 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
   const isFr = language === 'fr';
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [hasBiometric, setHasBiometric] = useState(false);
-  const [isAuthenticatingBio, setIsAuthenticatingBio] = useState(false);
 
   const config = getSecurityConfig();
-
-  const handleBiometricAuth = React.useCallback(async () => {
-    setIsAuthenticatingBio(true);
-    sound.playClick();
-    const success = await authenticateWithBiometrics();
-    setIsAuthenticatingBio(false);
-    if (success) {
-      sound.playCelebration();
-      onUnlock();
-    }
-  }, [onUnlock]);
-
-  useEffect(() => {
-    isBiometricAvailable().then((avail) => {
-      setHasBiometric(avail && config.biometricEnabled);
-      if (avail && config.biometricEnabled) {
-        handleBiometricAuth();
-      }
-    });
-  }, [handleBiometricAuth, config.biometricEnabled]);
 
   const handleKeyPress = (num: string) => {
     sound.playClick();
@@ -68,6 +41,12 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
     sound.playClick();
     setError(false);
     setPin((p) => p.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    sound.playClick();
+    setError(false);
+    setPin('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,12 +81,12 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
         <div className="space-y-1">
           <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center justify-center gap-1.5">
             <Shield className="w-4 h-4 text-emerald-400" />
-            <span>{isFr ? 'PuffinLess Sécurisé' : 'PuffinLess Locked'}</span>
+            <span>{isFr ? 'PuffinLess Protégé' : 'PuffinLess Protected'}</span>
           </h2>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
             {isFr
-              ? 'Entrez votre code d\'accès ou utilisez la reconnaissance faciale'
-              : 'Enter your passcode or use biometric unlock'}
+              ? 'Entrez votre mot de passe pour ouvrir l\'application'
+              : 'Enter your password to unlock the application'}
           </p>
         </div>
 
@@ -130,25 +109,8 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
         {error && (
           <div className="flex items-center gap-1.5 text-xs text-rose-400 font-semibold animate-fade-in">
             <AlertCircle className="w-3.5 h-3.5" />
-            <span>{isFr ? 'Code d\'accès incorrect' : 'Incorrect passcode'}</span>
+            <span>{isFr ? 'Mot de passe incorrect' : 'Incorrect password'}</span>
           </div>
-        )}
-
-        {/* Optional Biometric (Face ID / Fingerprint) button */}
-        {hasBiometric && (
-          <button
-            type="button"
-            onClick={handleBiometricAuth}
-            disabled={isAuthenticatingBio}
-            className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-500/30 active:scale-95 transition-all shadow-md shadow-emerald-500/10"
-          >
-            <ScanFace className="w-4 h-4 text-emerald-400" />
-            <span>
-              {isAuthenticatingBio
-                ? (isFr ? 'Vérification Face ID en cours...' : 'Verifying Face ID...')
-                : (isFr ? 'Déverrouiller avec Face ID / Empreinte' : 'Unlock with Face ID / Biometrics')}
-            </span>
-          </button>
         )}
 
         {/* Numeric Keypad */}
@@ -164,19 +126,14 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
             </button>
           ))}
 
-          {/* Biometric trigger on bottom-left of keypad */}
+          {/* Reset / Clear */}
           <button
             type="button"
-            onClick={hasBiometric ? handleBiometricAuth : undefined}
-            disabled={!hasBiometric}
-            className={`h-12 rounded-2xl border flex items-center justify-center transition-all ${
-              hasBiometric
-                ? 'bg-slate-900/60 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-90'
-                : 'bg-transparent border-transparent opacity-0 cursor-default'
-            }`}
-            title="Face ID"
+            onClick={handleClear}
+            className="h-12 rounded-2xl bg-slate-900/60 border border-white/10 text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 transition-all flex items-center justify-center shadow-sm"
+            title={isFr ? 'Effacer tout' : 'Clear all'}
           >
-            <ScanFace className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
 
           <button
