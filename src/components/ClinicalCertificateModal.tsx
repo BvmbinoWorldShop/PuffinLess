@@ -276,49 +276,75 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 <html lang="${language}">
 <head>
   <meta charset="utf-8">
-  <title>PuffinLess - ${isFr ? 'Dossier Clinique & Rapport Officiel' : 'Clinical Record & Victory Report'}</title>
+  <title></title>
   <style>
     @page {
       size: A4 portrait;
-      margin: 0; /* Zero margin removes browser header/footer URLs (GitHub/Vercel) */
+      margin: 0mm !important;
     }
-    * {
-      box-sizing: border-box;
+    @page :left { margin: 0mm !important; }
+    @page :right { margin: 0mm !important; }
+    @page :first { margin: 0mm !important; }
+
+    *, *:before, *:after {
+      box-sizing: border-box !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    html {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      min-width: 100% !important;
+      height: 100% !important;
+      background-color: #030712 !important;
+      background: #030712 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    html, body {
-      margin: 0;
-      padding: 0;
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      min-width: 100% !important;
+      min-height: 100% !important;
       background-color: #030712 !important;
+      background: #030712 !important;
       color: #f8fafc !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       font-size: 11px;
       line-height: 1.35;
-      width: 210mm;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .a4-page {
-      width: 210mm;
-      height: 297mm;
+      width: 100% !important;
+      max-width: 210mm;
       min-height: 297mm;
+      height: 297mm;
       max-height: 297mm;
-      box-sizing: border-box;
-      padding: 12mm 14mm;
-      background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%);
+      box-sizing: border-box !important;
+      margin: 0 auto !important;
+      padding: 10mm 13mm;
+      background-color: #030712 !important;
+      background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
       color: #f8fafc;
       position: relative;
-      page-break-after: always;
-      break-after: page;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      overflow: hidden;
+      page-break-after: always !important;
+      break-after: page !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      overflow: hidden !important;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .a4-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
+      page-break-after: auto !important;
+      break-after: auto !important;
     }
     .corner-decor {
       position: absolute;
@@ -531,6 +557,41 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       color: #fbbf24;
       letter-spacing: 0.05em;
     }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0mm !important;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: #030712 !important;
+        background: #030712 !important;
+      }
+      .a4-page {
+        width: 100vw !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 297mm !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
+        margin: 0 !important;
+        padding: 10mm 12mm !important;
+        background-color: #030712 !important;
+        background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .a4-page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -543,7 +604,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     <div class="corner-decor bot-r"></div>
 
     <div>
-      {/* Header bar */}
       <div class="header-bar">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
@@ -558,13 +618,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <span class="pill pill-gold">${isFr ? 'DOSSIER MÉDICAL CERTIFIÉ' : 'CERTIFIED CLINICAL RECORD'}</span>
       </div>
 
-      {/* Title */}
       <div class="title-box">
         <h1>${isFr ? 'Dossier Clinique & Rapport Somatique' : 'Clinical Sobriety & Somatic Report'}</h1>
-        <p>${isFr ? 'Bilan officiel d\'abstinence, consommations et régénération neurochimique (Page 1/2)' : 'Official record of abstinence, intake events, and biological recovery (Page 1/2)'}</p>
+        <p>${isFr ? 'Bilan officiel d\'abstinence, consommations et régénération neurochimique' : 'Official record of abstinence, intake events, and biological recovery'}</p>
       </div>
 
-      {/* Recipient Ribbon */}
       <div class="glass-bubble-gold patient-ribbon">
         <div>
           <div style="font-size: 9px; text-transform: uppercase; color: #fbbf24; font-weight: 800; letter-spacing: 0.05em;">
@@ -577,12 +635,10 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </div>
         <div style="text-align: right; font-size: 9.5px; color: #cbd5e1; line-height: 1.4;">
           <div><b style="color: #ffffff;">${isFr ? 'Date de Début :' : 'Start Date:'}</b> ${startDateStr}</div>
-          <div><b style="color: #ffffff;">${isFr ? 'Date d\'Émission :' : 'Issue Date:'}</b> ${currentDateStr}</div>
           <div><span class="pill pill-emerald" style="margin-top: 3px;">${isFr ? 'Protocole Actif' : 'Active Protocol'}</span></div>
         </div>
       </div>
 
-      {/* 4 Key Pillars KPI Grid */}
       <div class="grid-4">
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: #34d399;">${stats.days}j ${stats.hours}h</div>
@@ -604,7 +660,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </div>
       </div>
 
-      {/* Substance Consumption Detail Banner */}
       <div class="${totalSubstancesTakenDoses > 0 ? 'glass-bubble' : 'glass-bubble-emerald'}" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-color: ${totalSubstancesTakenDoses > 0 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(52, 211, 153, 0.4)'};">
         <span style="font-weight: 700; color: ${totalSubstancesTakenDoses > 0 ? '#fca5a5' : '#6ee7b7'};">
           ${isFr ? 'Bilan des substances consommées sur la période :' : 'Substances consumed in period:'} <b style="color: #ffffff;">${substancesTakenSummaryStr}</b>
@@ -612,7 +667,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <span class="pill ${totalSubstancesTakenDoses > 0 ? 'pill-rose' : 'pill-emerald'}">${timeRangeLabel}</span>
       </div>
 
-      {/* Somatic Diagnostic */}
       <div class="section-title">
         <span>${isFr ? '1. Diagnostic Somatique & Niveau de Récupération' : '1. Somatic Diagnostic & Recovery Status'}</span>
         <span class="pill pill-emerald">Rang ${stats.level.tier.toUpperCase()} — Niv. ${stats.level.levelNumber}</span>
@@ -624,13 +678,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Temps de vie estimé regagné : +${lifeSavedHours} h` : `Estimated life regained: +${lifeSavedHours} h`}</span>` : ''}
       </div>
 
-      {/* Sleep & Circadian Quality + 7-Day Trend Graph */}
       <div class="section-title">
         <span>${isFr ? '2. Qualité du Sommeil & Tendance sur 7 Jours' : '2. Sleep Quality & 7-Day Trend'}</span>
         <span class="pill pill-indigo">${isFr ? `Sommeil Moyen: ${avgSleep}/10 • Énergie: ${avgEnergy}/10` : `Avg Sleep: ${avgSleep}/10 • Energy: ${avgEnergy}/10`}</span>
       </div>
       
-      {/* 7-Day Sleep & Energy Trend Graph */}
       <div class="sleep-trend-grid">
         ${sleepTrendList
           .map((item) => {
@@ -642,7 +694,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">${dayName}</div>
               <div style="font-size: 7.5px; color: #64748b;">${item.date.slice(5)}</div>
               
-              {/* Dual Bar Gauge */}
               <div style="height: 32px; display: flex; align-items: flex-end; justify-content: center; gap: 3px; margin: 4px 0; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 2px;">
                 <div style="width: 7px; height: ${item.sleepRating * 10}%; background: linear-gradient(to top, #4338ca, #818cf8); border-radius: 3px;" title="Sommeil: ${item.sleepRating}/10"></div>
                 <div style="width: 7px; height: ${item.energyRating * 10}%; background: linear-gradient(to top, #059669, #34d399); border-radius: 3px;" title="Énergie: ${item.energyRating}/10"></div>
@@ -659,14 +710,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           .join('')}
       </div>
 
-      {/* Clinical Sleep Correlation Insight */}
       <div class="glass-bubble" style="margin-top: 6px; font-size: 9px; color: #cbd5e1; line-height: 1.35; border-color: rgba(99, 102, 241, 0.3);">
         <b style="color: #a5b4fc;">${isFr ? 'Corrélation Clinique Démontrée :' : 'Clinical Correlation Insight:'}</b> ${isFr
           ? 'Les nuits sans toxines inhalées affichent un sommeil profond supérieur de +32%, une réduction de 45% des réveils nocturnes et une vigueur cognitive maximale au réveil.'
           : 'Nights without inhaled toxins exhibit +32% deeper restorative sleep, 45% fewer nocturnal awakenings, and complete cognitive vitality upon waking.'}
       </div>
 
-      {/* Observed Nights Table */}
       <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; margin-top: 6px; text-transform: uppercase;">
         ${isFr ? 'Détail des Dernières Nuits Observées' : 'Recent Observed Nights Detail'} :
       </div>
@@ -694,9 +743,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </table>
     </div>
 
-    {/* Footer Bar */}
     <div class="footer-bar">
-      <div><b>PuffinLess Clinical Dossier</b> • Ref: <span class="seal-box">${verificationHash}</span></div>
+      <div><b>PUFFINLESS</b> • <span class="seal-box">${verificationHash}</span></div>
       <div>Page <b>1 / 2</b></div>
     </div>
   </div>
@@ -709,7 +757,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     <div class="corner-decor bot-r"></div>
 
     <div>
-      {/* Header bar */}
       <div class="header-bar">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
@@ -721,10 +768,9 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <span style="font-size: 9px; color: #fbbf24; font-weight: 700; margin-left: 6px;">${isFr ? 'JOURNAL DES CONSOMMATIONS, DÉCLENCHEURS & ACTIONS' : 'INTAKE, TRIGGERS & CORRECTIVE ACTIONS'}</span>
           </div>
         </div>
-        <span class="pill pill-gold">${isFr ? 'PAGE 2 / 2' : 'PAGE 2 / 2'}</span>
+        <span class="pill pill-gold">${isFr ? 'RAPPORT CLINIQUE SÉCURISÉ' : 'SECURE CLINICAL RECORD'}</span>
       </div>
 
-      {/* Activity Recap Summary */}
       <div class="glass-bubble" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
         <span>
           <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan">${timeRangeLabel}</span> • 
@@ -738,7 +784,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </span>
       </div>
 
-      {/* Intake & Event Table with Take Number, Trigger & Corrective Protocol */}
       <div class="section-title">
         <span>${isFr ? '3. Journal Détaillé des Prises & Protocole Correctif' : '3. Intake Journal & Corrective Protocols'}</span>
         <span style="color: #94a3b8; font-size: 8.5px;">${displayedEvents.length} ${isFr ? 'événements enregistrés' : 'events logged'}</span>
@@ -790,7 +835,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </tbody>
       </table>
 
-      {/* Behavioral Trigger Radar Breakdown */}
       <div class="section-title" style="margin-top: 10px;">
         <span>${isFr ? '4. Radar Comportemental & Répartition des Déclencheurs' : '4. Behavioral Radar & Trigger Distribution'}</span>
         <span class="pill pill-gold">${isFr ? 'Analyse Prédictive IA' : 'AI Analysis'}</span>
@@ -816,7 +860,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         }
       </div>
 
-      {/* Legal & Clinical Security Seal */}
       <div class="glass-bubble" style="padding: 10px 14px; margin-top: 6px; border-color: rgba(245, 158, 11, 0.3);">
         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
           <div>
@@ -825,7 +868,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             </div>
             <div class="seal-box" style="font-size: 12px; margin-top: 3px;">${verificationHash}</div>
             <div style="font-size: 8px; color: #64748b; margin-top: 2px;">
-              ${isFr ? `Stockage Local Chiffré AES-256 • Rapport émis le ${currentDateStr}` : `Local AES-256 Encryption • Generated on ${currentDateStr}`}
+              ${isFr ? 'Protocole Médical PuffinLess • Chiffrement Matériel AES-256' : 'PuffinLess Medical Protocol • AES-256 Hardware Encryption'}
             </div>
           </div>
           <div style="text-align: right;">
@@ -839,9 +882,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
     </div>
 
-    {/* Footer Bar */}
     <div class="footer-bar">
-      <div><b>PuffinLess Clinical Dossier</b> • Ref: <span class="seal-box">${verificationHash}</span> • 100% Obsidian Theme</div>
+      <div><b>PUFFINLESS</b> • <span class="seal-box">${verificationHash}</span></div>
       <div>Page <b>2 / 2</b></div>
     </div>
   </div>
@@ -862,11 +904,13 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       iframe = document.createElement('iframe');
       iframe.id = 'puffinless-print-iframe';
       iframe.style.position = 'fixed';
-      iframe.style.right = '100vw';
-      iframe.style.bottom = '100vh';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.top = '0';
+      iframe.style.left = '-10000px';
+      iframe.style.width = '210mm';
+      iframe.style.height = '297mm';
       iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
       document.body.appendChild(iframe);
     }
 
@@ -879,7 +923,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       setTimeout(() => {
         iframe?.contentWindow?.focus();
         iframe?.contentWindow?.print();
-      }, 300);
+      }, 350);
     } else {
       window.print();
     }
@@ -955,6 +999,18 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Helpful Tip for 100% Full-bleed Print without browser URL or date */}
+        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-2 flex items-center justify-between text-[11px] text-amber-200">
+          <div className="flex items-center gap-1.5">
+            <span className="text-amber-400 font-black">💡 {isFr ? 'Astuce Export 100% Plein Écran :' : '100% Full-bleed Export Tip:'}</span>
+            <span>
+              {isFr
+                ? 'Dans la boîte d\'impression, réglez Marges sur "Aucune" et cochez "Graphiques d\'arrière-plan" pour un rendu sans bordure blanche ni URL.'
+                : 'In the print dialog, set Margins to "None" and check "Background graphics" for zero white borders and no browser URLs.'}
+            </span>
           </div>
         </div>
 
