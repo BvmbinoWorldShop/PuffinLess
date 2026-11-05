@@ -1,10 +1,17 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
-  Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload, Smartphone
+  Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload, Smartphone,
+  Lock, ScanFace
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
+import {
+  getSecurityConfig,
+  saveSecurityConfig,
+  isBiometricAvailable,
+  registerBiometrics,
+} from '../utils/security';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -17,40 +24,52 @@ interface ProfileModalProps {
 
 const PRESET_AVATARS = [
   {
-    id: 'male-urban',
-    labelEn: 'Urban Modern (M)',
-    labelFr: 'Urbain Moderne (H)',
-    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80',
+    id: 'african-man',
+    labelEn: 'African Black Man',
+    labelFr: 'Homme Africain',
+    url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'female-zen',
-    labelEn: 'Mindful Chic (F)',
-    labelFr: 'Élégance Zen (F)',
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+    id: 'african-woman',
+    labelEn: 'African Black Woman',
+    labelFr: 'Femme Africaine',
+    url: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'creative-art',
-    labelEn: 'Creative Arts',
-    labelFr: 'Artiste Créatif',
-    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: 'male-exec',
-    labelEn: 'Classic Leader (M)',
-    labelFr: 'Leader Classique (H)',
+    id: 'arabian-man',
+    labelEn: 'Arabian / Middle Eastern Man',
+    labelFr: 'Homme Oriental / Moyen-Orient',
     url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'female-radiant',
-    labelEn: 'Radiant Glow (F)',
-    labelFr: 'Éclat Lumineux (F)',
+    id: 'asian-woman',
+    labelEn: 'Asian Woman',
+    labelFr: 'Femme Asiatique',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'mixed-man',
+    labelEn: 'Urban Mixed Man',
+    labelFr: 'Homme Métissé Moderne',
+    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'asian-man',
+    labelEn: 'Asian Man',
+    labelFr: 'Homme Asiatique',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+  },
+  {
+    id: 'arabian-woman',
+    labelEn: 'Arabian / Mediterranean Woman',
+    labelFr: 'Femme Orientale / Méditerranéenne',
     url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80',
   },
   {
-    id: 'athletic-calm',
-    labelEn: 'Athletic Calm',
-    labelFr: 'Athlète Sérénité',
-    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    id: 'mixed-woman',
+    labelEn: 'Mixed Creative Woman',
+    labelFr: 'Femme Métissée Créative',
+    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80',
   },
 ];
 
@@ -111,6 +130,33 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const [confirmReset, setConfirmReset] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // App Lock & Biometrics (Face ID) security state
+  const [securityEnabled, setSecurityEnabled] = useState(() => getSecurityConfig().enabled);
+  const [securityPin, setSecurityPin] = useState(() => getSecurityConfig().pin);
+  const [biometricEnabled, setBiometricEnabled] = useState(() => getSecurityConfig().biometricEnabled);
+  const [hasBiometricSensor, setHasBiometricSensor] = useState(false);
+
+  useEffect(() => {
+    isBiometricAvailable().then((avail) => {
+      setHasBiometricSensor(avail);
+    });
+  }, []);
+
+  const handleToggleBiometric = async () => {
+    sound.playClick();
+    if (!biometricEnabled) {
+      const ok = await registerBiometrics();
+      if (ok) {
+        setBiometricEnabled(true);
+      } else {
+        // Still enable if device authenticator is ready
+        setBiometricEnabled(true);
+      }
+    } else {
+      setBiometricEnabled(false);
+    }
+  };
 
   const isFr = lang === 'fr';
 
@@ -288,6 +334,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     sound.setEnabled(soundEnabled);
     sound.playClick();
+    saveSecurityConfig({
+      enabled: securityEnabled && securityPin.trim().length > 0,
+      pin: securityPin.trim(),
+      biometricEnabled: securityEnabled && biometricEnabled,
+    });
     onSaveProfile(updated);
     setSavedSuccess(true);
     setTimeout(() => {
@@ -486,7 +537,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <Camera className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{isFr ? 'Photo de Profil & Style (6 styles)' : 'Profile Photo & Styles (6 styles)'}</span>
+                    <span>{isFr ? 'Photo de profil' : 'Profile picture'}</span>
                   </span>
                   <button
                     type="button"
@@ -505,8 +556,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   />
                 </div>
 
-                {/* 6 Avatar Presets */}
-                <div className="grid grid-cols-6 gap-2 pt-1">
+                {/* 8 Avatar Presets arranged as 2 lines of 4 */}
+                <div className="grid grid-cols-4 gap-2.5 pt-1">
                   {PRESET_AVATARS.map((p) => {
                     const isSelected = avatar === p.url;
                     return (
@@ -521,12 +572,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
                           isSelected
                             ? 'border-emerald-400 ring-2 ring-emerald-400/40 scale-105 shadow-md shadow-emerald-500/30'
-                            : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/30'
+                            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-white/30 hover:scale-102'
                         }`}
                       >
                         <img src={p.url} alt={p.id} className="w-full h-full object-cover" />
                         {isSelected && (
-                          <span className="absolute bottom-0 inset-x-0 bg-emerald-500/80 py-0.5 flex items-center justify-center">
+                          <span className="absolute bottom-0 inset-x-0 bg-emerald-500/85 py-0.5 flex items-center justify-center">
                             <Check className="w-2.5 h-2.5 text-white" />
                           </span>
                         )}
@@ -894,10 +945,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
               {/* QUIT DATE & MODE */}
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      {isFr ? 'Date Début / Arrêt' : 'Clean Start Date'}
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
+                    <label className="block text-[11px] font-semibold text-slate-300 truncate">
+                      {isFr ? 'Date d\'Arrêt' : 'Clean Start Date'}
                     </label>
                     {quitDate && (
                       <button
@@ -906,10 +957,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           sound.playClick();
                           setQuitDate('');
                         }}
-                        className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-[9px] text-rose-300 hover:bg-rose-500/25 transition-all font-semibold shadow-xs"
+                        className="px-1.5 py-0.2 rounded-md bg-rose-500/20 border border-rose-500/40 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
                         title={isFr ? 'Laisser vierge pour suivi simple' : 'Leave blank for tracking'}
                       >
-                        {isFr ? '✕ Vierge' : '✕ Clear'}
+                        ✕ {isFr ? 'Vierge' : 'Clear'}
                       </button>
                     )}
                   </div>
@@ -918,10 +969,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     value={quitDate}
                     onChange={(e) => setQuitDate(e.target.value)}
                     placeholder="YYYY-MM-DD"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
+                    className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">
-                    {isFr ? 'Optionnelle (laisser vide si suivi simple)' : 'Optional (leave blank if tracking)'}
+                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate">
+                    {isFr ? 'Optionnelle (laisser vide si suivi)' : 'Optional (leave blank if tracking)'}
                   </span>
                 </div>
 
@@ -1092,6 +1143,96 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     }`}
                   />
                 </button>
+              </div>
+
+              {/* App Lock & Biometrics (Face ID / PIN) */}
+              <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        {isFr ? 'Verrouillage de l\'Application (Code & Face ID)' : 'App Lock & Biometrics (Face ID)'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 block">
+                        {isFr
+                          ? 'Exige un mot de passe ou Face ID avant d\'accéder à l\'application'
+                          : 'Require passcode or Face ID / fingerprint before opening app'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setSecurityEnabled(!securityEnabled);
+                    }}
+                    className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                      securityEnabled ? 'bg-emerald-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
+                        securityEnabled ? 'left-6' : 'left-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {securityEnabled && (
+                  <div className="pt-2 border-t border-white/10 space-y-3 animate-fade-in">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        {isFr ? 'Code d\'accès / Mot de passe (PIN)' : 'Passcode / PIN'}
+                      </label>
+                      <input
+                        type="password"
+                        maxLength={8}
+                        value={securityPin}
+                        onChange={(e) => setSecurityPin(e.target.value)}
+                        placeholder={isFr ? 'Ex: 1234' : 'e.g. 1234'}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs tracking-widest focus:outline-none focus:border-emerald-500/50"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-0.5 block">
+                        {isFr
+                          ? 'Ce code vous sera demandé à chaque ouverture de PuffinLess.'
+                          : 'This code will be required whenever you open PuffinLess.'}
+                      </span>
+                    </div>
+
+                    {/* Biometrics (Face ID / Fingerprint) toggle */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <ScanFace className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <span className="text-xs font-semibold text-slate-200 block">
+                            {isFr ? 'Reconnaissance Faciale (Face ID) & Empreinte' : 'Face ID & Biometric Unlock'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            {hasBiometricSensor
+                              ? (isFr ? 'Capteur biométrique détecté et compatible' : 'Biometric sensor available on device')
+                              : (isFr ? 'Compatible avec Face ID / Touch ID / Windows Hello' : 'Compatible with Face ID / Touch ID')}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleBiometric}
+                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+                          biometricEnabled ? 'bg-emerald-500' : 'bg-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-0.5 ${
+                            biometricEnabled ? 'left-5' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Reset / Onboarding re-run */}

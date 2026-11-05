@@ -77,7 +77,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     puff_vape: {
       label: t('substancePuff', lang),
       unit: t('unitPuff', lang),
-      counts: [5, 10, 15, 20],
+      counts: [5, 10, 20],
       icon: Wind,
       box: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
       text: 'text-cyan-400',

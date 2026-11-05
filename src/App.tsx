@@ -10,6 +10,8 @@ import { RewardsView } from './components/RewardsView';
 import { SosModal } from './components/SosModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProfileModal } from './components/ProfileModal';
+import { AppLockScreen } from './components/AppLockScreen';
+import { isSecurityEnabled } from './utils/security';
 import { formatDuration } from './utils/dates';
 import { t } from './utils/i18n';
 
@@ -19,6 +21,7 @@ export function App() {
   const lang = profile.language || 'en';
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
+  const [isUnlocked, setIsUnlocked] = useState(() => !isSecurityEnabled());
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(!profile.isOnboarded);
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
@@ -51,6 +54,10 @@ export function App() {
     setCurrentTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (!isUnlocked) {
+    return <AppLockScreen onUnlock={() => setIsUnlocked(true)} language={lang} />;
+  }
 
   return (
     <div className="min-h-screen w-full flex justify-center bg-slate-950 sm:bg-slate-950/85 transition-colors">
