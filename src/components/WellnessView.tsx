@@ -17,7 +17,7 @@ import { WeeklyTrendChart } from './WeeklyTrendChart';
 import { CalendarTrendCard } from './CalendarTrendCard';
 import { sound } from '../utils/audio';
 import { Wellness3DIcon } from './Wellness3DIcon';
-import { getRotatingWeeklyQuote, DAILY_QUOTES, DAILY_QUOTES_FR } from '../utils/storage';
+import { getRotatingDailyQuote, DAILY_QUOTES, DAILY_QUOTES_FR } from '../utils/storage';
 
 type Technique = '4-7-8' | 'box' | 'calm';
 type WellnessTab = 'mind' | 'library' | 'sleep' | 'breathe' | 'quotes';
@@ -673,30 +673,30 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
       {/* QUOTES & LITERATURE */}
       {tab === 'quotes' && (
         <div className="space-y-4">
-          {/* Weekly Spotlight Wisdom Card with Real Author & Book */}
+          {/* Daily Spotlight Wisdom Card with Real Author & Book */}
           {(() => {
-            const weeklyQuote = getRotatingWeeklyQuote(isFr ? 'fr' : 'en');
+            const dailyQuote = getRotatingDailyQuote(isFr ? 'fr' : 'en');
             return (
               <div className="p-4 rounded-3xl glass-panel-gold border border-amber-500/35 shadow-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Wellness3DIcon type="quotes" size={26} />
                     <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                      {isFr ? 'Citation Phare de la Semaine' : 'Weekly Spotlight Wisdom'}
+                      {isFr ? 'Citation Phare du Jour' : 'Daily Spotlight Wisdom'}
                     </span>
                   </div>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 border border-amber-500/30">
-                    {weeklyQuote.category}
+                    {dailyQuote.category}
                   </span>
                 </div>
                 <p className="text-sm italic text-white font-medium leading-relaxed">
-                  « {weeklyQuote.quote} »
+                  « {dailyQuote.quote} »
                 </p>
                 <div className="flex items-center justify-between pt-1 border-t border-amber-500/20 text-xs flex-wrap gap-2">
-                  <span className="font-bold text-white">— {weeklyQuote.author}</span>
-                  {weeklyQuote.book && (
+                  <span className="font-bold text-white">— {dailyQuote.author}</span>
+                  {dailyQuote.book && (
                     <span className="text-[11px] text-amber-400 font-medium italic">
-                      📖 {weeklyQuote.book}
+                      📖 {dailyQuote.book}
                     </span>
                   )}
                 </div>

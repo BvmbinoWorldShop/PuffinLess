@@ -127,6 +127,9 @@ export function App() {
             language={lang}
             profile={profile}
             report={report}
+            substanceLogs={store.substanceLogs}
+            cravings={store.cravings}
+            sleepLogs={store.sleepLogs}
           />
         )}
       </main>

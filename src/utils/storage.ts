@@ -554,15 +554,15 @@ export const DAILY_QUOTES_FR: Quote[] = [
   },
 ];
 
-/** Returns dynamically rotating quote based on day and week of the year */
+/** Returns dynamically rotating quote based on calendar day (increments cleanly every single day) */
 export function getRotatingDailyQuote(lang: Language = 'fr'): Quote {
   const list = lang === 'fr' ? DAILY_QUOTES_FR : DAILY_QUOTES;
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const diff = now.getTime() - start.getTime();
-  const oneDay = 1000 * 60 * 60 * 24;
-  const dayOfYear = Math.floor(diff / oneDay);
-  const idx = dayOfYear % list.length;
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const epochDays = Math.floor(Date.UTC(y, m, d) / (1000 * 60 * 60 * 24));
+  const idx = Math.abs(epochDays) % list.length;
   return list[idx];
 }
 
