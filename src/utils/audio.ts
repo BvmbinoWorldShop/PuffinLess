@@ -21,9 +21,8 @@ class SoundManager {
     return this.enabled;
   }
 
-  // Native Web Haptic Vibration
-  public vibrate(pattern: number | number[] = 12) {
-    if (!this.enabled) return;
+  // Native Web Haptic Vibration (Tactile return for mobile and desktop)
+  public vibrate(pattern: number | number[] = 24) {
     if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(pattern);
@@ -35,15 +34,19 @@ class SoundManager {
 
   // Pre-configured tactile feedback patterns
   public hapticTick() {
-    this.vibrate(12); // subtle 12ms tap
+    this.vibrate(24); // crisp 24ms mechanical tap feel
   }
 
   public hapticSelect() {
-    this.vibrate(18); // distinct 18ms selector tap
+    this.vibrate(30); // distinct 30ms selector tap
+  }
+
+  public hapticToggle() {
+    this.vibrate([18, 35, 22]); // tactile double-impulse for switches and toggles
   }
 
   public hapticSuccess() {
-    this.vibrate([30, 45, 60]); // celebratory triple pulse
+    this.vibrate([35, 45, 65]); // celebratory triple pulse
   }
 
   public hapticWarning() {
@@ -185,11 +188,33 @@ class SoundManager {
     }
   }
 
-  // Global listener ensuring ANY interactive input/button triggers haptics & audio
+  // Global listener ensuring ANY interactive button, toggle & input triggers tactile haptics & audio
   private attachGlobalInteractions() {
     if (typeof window === 'undefined') return;
 
-    // Listen to button clicks, toggles, selectors
+    // Instant tactile vibration on finger touch / pointerdown (zero latency tactile return)
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const interactive = target.closest(
+          'button, [role="button"], [role="tab"], [role="switch"], a, input[type="checkbox"], input[type="radio"], select, .glass-button'
+        );
+        if (interactive) {
+          if (interactive.matches('input[type="checkbox"], input[type="radio"], [role="switch"]')) {
+            this.hapticToggle();
+          } else if (interactive.matches('[role="tab"]')) {
+            this.hapticSelect();
+          } else {
+            this.hapticTick();
+          }
+        }
+      },
+      { capture: true, passive: true }
+    );
+
+    // Listen to button clicks, toggles, selectors for audio synthesis
     window.addEventListener(
       'click',
       (e) => {
@@ -197,7 +222,7 @@ class SoundManager {
         const target = e.target as HTMLElement | null;
         if (!target) return;
         const interactive = target.closest(
-          'button, [role="button"], a, input[type="checkbox"], input[type="radio"], input[type="range"], select'
+          'button, [role="button"], [role="tab"], [role="switch"], a, input[type="checkbox"], input[type="radio"], input[type="range"], select'
         );
         if (interactive) {
           this.playClick();
@@ -210,12 +235,14 @@ class SoundManager {
     window.addEventListener(
       'input',
       (e) => {
-        if (!this.enabled) return;
         const target = e.target as HTMLElement | null;
         if (!target) return;
         const isInputField = target.matches('input, textarea, select');
         if (isInputField) {
-          this.playClick();
+          this.hapticTick();
+          if (this.enabled) {
+            this.playClick();
+          }
         }
       },
       { capture: true, passive: true }

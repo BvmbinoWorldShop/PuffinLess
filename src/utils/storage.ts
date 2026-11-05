@@ -45,8 +45,8 @@ export function saveStreaks(streaks: StreakRecord[]): void {
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
-  name: 'Champion',
-  avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
+  name: '',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
   quitDate: '',
   createdAt: '',
   customQuitDate: false,
@@ -65,12 +65,12 @@ export const DEFAULT_PROFILE: UserProfile = {
   soundEnabled: true,
   theme: 'dark',
   language: 'en',
-  age: 26,
+  age: 0,
   gender: 'Prefer not to say',
-  ethnicity: 'Mixed / Global',
-  religion: 'Spiritual / Personal',
+  ethnicity: '',
+  religion: '',
   job: '',
-  monthlyIncome: 3000,
+  monthlyIncome: 0,
   primarySubstance: 'cigarette',
   habits: [],
   smokingHabitByDay: {

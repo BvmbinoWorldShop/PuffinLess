@@ -87,17 +87,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [theme, setTheme] = useState<AppTheme>(profile.theme || 'dark');
   const [soundEnabled, setSoundEnabled] = useState(profile.soundEnabled);
 
-  // Identity & Life Context
-  const [avatar, setAvatar] = useState(profile.avatar || PRESET_AVATARS[1].url);
+  // Identity & Life Context - Default avatar is the neutral artistic portrait; fields start blank
+  const [avatar, setAvatar] = useState(
+    profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(profile.name || '');
-  const [age, setAge] = useState<number | ''>(profile.age ?? 28);
+  const [age, setAge] = useState<number | ''>(profile.age ? profile.age : '');
   const [gender, setGender] = useState(profile.gender || 'Prefer not to say');
-  const [ethnicity, setEthnicity] = useState(profile.ethnicity || 'Global / Mixed');
-  const [religion, setReligion] = useState(profile.religion || 'Spiritual / Personal');
-  const [job, setJob] = useState(profile.job || 'Creative & Tech Professional');
-  const [monthlyIncome, setMonthlyIncome] = useState<number | ''>(profile.monthlyIncome ?? 3500);
+  const [ethnicity, setEthnicity] = useState(profile.ethnicity || '');
+  const [religion, setReligion] = useState(profile.religion || '');
+  const [job, setJob] = useState(profile.job || '');
+  const [monthlyIncome, setMonthlyIncome] = useState<number | ''>(profile.monthlyIncome ? profile.monthlyIncome : '');
   const [currency, setCurrency] = useState(profile.currency || '$');
   const [quitGoal, setQuitGoal] = useState<QuitGoal>(profile.quitGoal || 'want_to_quit');
 
@@ -290,11 +292,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       soundEnabled,
       currency,
       quitGoal,
-      age: Number(age) || 28,
+      age: Number(age) || 0,
       gender,
-      ethnicity,
-      religion,
-      job,
+      ethnicity: ethnicity.trim(),
+      religion: religion.trim(),
+      job: job.trim(),
       monthlyIncome: Number(monthlyIncome) || 0,
       habits,
       primarySubstance,
@@ -583,7 +585,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Alex"
+                  placeholder={isFr ? 'Ex: Thomas, Sarah...' : 'e.g. Alex, Jordan...'}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
@@ -599,6 +601,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     max="100"
                     value={age}
                     onChange={(e) => setAge(e.target.value ? Number(e.target.value) : '')}
+                    placeholder={isFr ? 'Ex: 28' : 'e.g. 28'}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
@@ -690,7 +693,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         step="100"
                         value={monthlyIncome}
                         onChange={(e) => setMonthlyIncome(e.target.value ? Number(e.target.value) : '')}
-                        placeholder="3500"
+                        placeholder={isFr ? 'Ex: 2500' : 'e.g. 2500'}
                         className="flex-1 px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
                       />
                     </div>
