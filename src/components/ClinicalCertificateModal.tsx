@@ -280,13 +280,19 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   <style>
     @page {
       size: A4 portrait;
-      margin: 0mm !important;
+      margin: 0;
     }
-    @page :left { margin: 0mm !important; }
-    @page :right { margin: 0mm !important; }
-    @page :first { margin: 0mm !important; }
+    @page :left {
+      margin: 0;
+    }
+    @page :right {
+      margin: 0;
+    }
+    @page :first {
+      margin: 0;
+    }
 
-    *, *:before, *:after {
+    * {
       box-sizing: border-box !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -298,8 +304,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       width: 100% !important;
       min-width: 100% !important;
       height: 100% !important;
-      background-color: #030712 !important;
       background: #030712 !important;
+      background-color: #030712 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
@@ -309,8 +315,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       width: 100% !important;
       min-width: 100% !important;
       min-height: 100% !important;
-      background-color: #030712 !important;
       background: #030712 !important;
+      background-color: #030712 !important;
       color: #f8fafc !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       font-size: 11px;
@@ -327,6 +333,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       box-sizing: border-box !important;
       margin: 0 auto !important;
       padding: 10mm 13mm;
+      background: #030712 !important;
       background-color: #030712 !important;
       background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
       color: #f8fafc;
@@ -551,25 +558,25 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       font-size: 8.5px;
       color: #94a3b8;
     }
-    .seal-box {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-weight: 800;
-      color: #fbbf24;
-      letter-spacing: 0.05em;
-    }
 
     @media print {
       @page {
         size: A4 portrait;
-        margin: 0mm !important;
+        margin: 0;
+      }
+      *, *:before, *:after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
       }
       html, body {
         margin: 0 !important;
         padding: 0 !important;
+        width: 100vw !important;
         width: 100% !important;
         height: 100% !important;
-        background-color: #030712 !important;
         background: #030712 !important;
+        background-color: #030712 !important;
       }
       .a4-page {
         width: 100vw !important;
@@ -580,11 +587,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         max-height: 297mm !important;
         margin: 0 !important;
         padding: 10mm 12mm !important;
+        background: #030712 !important;
         background-color: #030712 !important;
         background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
         page-break-after: always !important;
         break-after: page !important;
-        page-inside: avoid !important;
+        page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .a4-page:last-child {
@@ -744,7 +752,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     </div>
 
     <div class="footer-bar">
-      <div><b>PUFFINLESS</b> • <span class="seal-box">${verificationHash}</span></div>
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Dossier Somatique & Récupération' : 'Somatic Record & Recovery'}</div>
       <div>Page <b>1 / 2</b></div>
     </div>
   </div>
@@ -793,7 +801,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <thead>
           <tr>
             <th style="width: 10%;">${isFr ? 'N° Prise' : 'Take #'}</th>
-            <th style="width: 16%;">${isFr ? 'Date & Heure' : 'Date & Time'}</th>
+            <th style="width: 16%;">${isFr ? 'Date' : 'Date'}</th>
             <th style="width: 17%;">${isFr ? 'Substance / Dose' : 'Substance / Dose'}</th>
             <th style="width: 18%;">${isFr ? 'Déclencheur Identifié' : 'Identified Trigger'}</th>
             <th style="width: 27%;">${isFr ? 'Comment Neutraliser (Action Clinique)' : 'How to Fix (Clinical Action)'}</th>
@@ -810,13 +818,9 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                       day: '2-digit',
                       month: '2-digit',
                     });
-                    const formattedTime = d.toLocaleTimeString(isFr ? 'fr-FR' : 'en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
                     return `<tr>
                   <td><span class="pill pill-gold" style="font-size: 8px;">#${ev.takeNumber}</span></td>
-                  <td style="font-family: monospace; color: #94a3b8;">${formattedDate} à ${formattedTime}</td>
+                  <td style="font-family: monospace; color: #94a3b8;">${formattedDate}</td>
                   <td><b style="color: #ffffff;">${ev.type}</b> <span style="color: #38bdf8; font-size: 8.5px;">(${ev.dose})</span></td>
                   <td style="color: #fbbf24; font-weight: 700;">${ev.trigger}</td>
                   <td style="font-size: 8.5px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
@@ -863,12 +867,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       <div class="glass-bubble" style="padding: 10px 14px; margin-top: 6px; border-color: rgba(245, 158, 11, 0.3);">
         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
           <div>
-            <div style="font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em;">
-              ${isFr ? 'AUTHENTICITÉ & VALIDATION NUMÉRIQUE SÉCURISÉE' : 'AUTHENTICITY & SECURE DIGITAL VALIDATION'}
+            <div style="font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
+              ${isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
             </div>
-            <div class="seal-box" style="font-size: 12px; margin-top: 3px;">${verificationHash}</div>
-            <div style="font-size: 8px; color: #64748b; margin-top: 2px;">
-              ${isFr ? 'Protocole Médical PuffinLess • Chiffrement Matériel AES-256' : 'PuffinLess Medical Protocol • AES-256 Hardware Encryption'}
+            <div style="font-size: 11px; font-weight: 800; color: #ffffff; margin-top: 3px;">PUFFINLESS CLINICAL INSTITUTE</div>
+            <div style="font-size: 8.5px; color: #34d399; margin-top: 2px;">
+              ✓ ${isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
             </div>
           </div>
           <div style="text-align: right;">
@@ -876,14 +880,14 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               ${isFr ? 'Direction Scientifique & Clinique' : 'Clinical & Scientific Direction'}
             </div>
             <div style="font-weight: 900; font-size: 13px; color: #ffffff; margin-top: 2px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
-            <div style="font-size: 8px; color: #34d399; font-weight: 800; margin-top: 1px;">✓ ${isFr ? 'VALIDÉ NUMÉRIQUEMENT' : 'DIGITALLY VERIFIED'}</div>
+            <div style="font-size: 8px; color: #34d399; font-weight: 800; margin-top: 1px;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
           </div>
         </div>
       </div>
     </div>
 
     <div class="footer-bar">
-      <div><b>PUFFINLESS</b> • <span class="seal-box">${verificationHash}</span></div>
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan Clinique & Suivi des Prises' : 'Clinical Report & Intake Log'}</div>
       <div>Page <b>2 / 2</b></div>
     </div>
   </div>
@@ -943,6 +947,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     URL.revokeObjectURL(url);
   };
 
+  // Open full-page standalone view in clean new tab
+  const handleOpenFullscreen = () => {
+    sound.vibrate(35);
+    sound.playClick();
+    const htmlContent = generatePrintableDocumentHtml();
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/95 backdrop-blur-2xl p-2 sm:p-5 flex items-center justify-center animate-fade-in print:hidden">
       <div className="relative w-full max-w-4xl rounded-3xl glass-panel-elevated border border-white/20 shadow-2xl p-4 sm:p-6 my-auto max-h-[96vh] flex flex-col bg-slate-950/95 text-white">
@@ -968,7 +982,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={handlePrint}
@@ -976,7 +990,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               title={isFr ? 'Imprimer ou Enregistrer en PDF (2 pages A4 nettes)' : 'Print or Save as PDF (Clean 2-page A4)'}
             >
               <Printer className="w-4 h-4" />
-              <span>{isFr ? 'Imprimer / Exporter en PDF' : 'Print / Export PDF'}</span>
+              <span>{isFr ? 'Imprimer / Exporter PDF' : 'Print / Export PDF'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenFullscreen}
+              className="px-3 py-2.5 rounded-xl glass-button text-xs font-bold text-amber-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
+              title={isFr ? 'Ouvrir le rapport plein écran dans un nouvel onglet' : 'Open fullscreen report in new tab'}
+            >
+              <span>{isFr ? 'Plein Écran' : 'Fullscreen'}</span>
             </button>
 
             <button
@@ -1002,15 +1025,37 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           </div>
         </div>
 
-        {/* Helpful Tip for 100% Full-bleed Print without browser URL or date */}
-        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-2 flex items-center justify-between text-[11px] text-amber-200">
-          <div className="flex items-center gap-1.5">
-            <span className="text-amber-400 font-black">💡 {isFr ? 'Astuce Export 100% Plein Écran :' : '100% Full-bleed Export Tip:'}</span>
-            <span>
-              {isFr
-                ? 'Dans la boîte d\'impression, réglez Marges sur "Aucune" et cochez "Graphiques d\'arrière-plan" pour un rendu sans bordure blanche ni URL.'
-                : 'In the print dialog, set Margins to "None" and check "Background graphics" for zero white borders and no browser URLs.'}
-            </span>
+        {/* Crucial Tip for 0 White Border & 0 Browser URL */}
+        <div className="p-3 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 mb-2.5 flex items-start gap-2.5 text-xs text-amber-200">
+          <div className="p-1 rounded-lg bg-amber-500/20 text-amber-400 font-black shrink-0 mt-0.5 text-base">
+            ⚠️
+          </div>
+          <div className="space-y-1 text-[11px] leading-snug">
+            <div className="font-black text-amber-300">
+              {isFr ? 'POUR SUPPRIMER L\'ADRESSE URL, LA DATE ET LA BORDURE BLANCHE :' : 'TO REMOVE THE URL ADDRESS, DATE AND WHITE BORDER:'}
+            </div>
+            <div className="text-slate-200">
+              {isFr ? (
+                <>
+                  Dans la fenêtre d'impression qui s'affiche, réglez simplement :
+                  <br />
+                  <b>1. Marges :</b> choisir <b>« Aucune »</b> (ou décocher <i>« En-têtes et pieds de page »</i>).
+                  <br />
+                  <b>2. Graphiques d'arrière-plan :</b> cocher la case.
+                </>
+              ) : (
+                <>
+                  In the print window that opens, simply set:
+                  <br />
+                  <b>1. Margins:</b> choose <b>"None"</b> (or uncheck <i>"Headers and footers"</i>).
+                  <br />
+                  <b>2. Background graphics:</b> check the box.
+                </>
+              )}
+            </div>
+            <div className="text-emerald-300 font-bold text-[10.5px]">
+              ✓ {isFr ? 'Résultat : Fond 100% noir Obsidian bord à bord, sans aucune mention d\'URL ni de date/heure.' : 'Result: 100% edge-to-edge obsidian black theme, zero URLs, and zero timestamps.'}
+            </div>
           </div>
         </div>
 
