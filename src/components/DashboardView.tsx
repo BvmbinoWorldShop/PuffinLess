@@ -13,6 +13,7 @@ import { localDateStr, formatDuration } from '../utils/dates';
 import { t, TRIGGER_OPTIONS, getTriggerLabel } from '../utils/i18n';
 import { MorphicCard } from './MorphicCard';
 import { ObsidianCoreCard } from './ObsidianCoreCard';
+import { CravingPredictionCard } from './CravingPredictionCard';
 import { DailyRealityCard } from './DailyRealityCard';
 import { WeeklyTrendChart } from './WeeklyTrendChart';
 import { CalendarTrendCard } from './CalendarTrendCard';
@@ -235,6 +236,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 3. Obsidian Core */}
       <ObsidianCoreCard report={report} language={lang} />
+
+      {/* 3b. Predictive Craving Peak Forecast */}
+      <CravingPredictionCard
+        cravings={cravings}
+        substanceLogs={substanceLogs}
+        profile={profile}
+        language={lang}
+        onOpenSos={onOpenSos}
+        onNavigateToWellness={() => onNavigateToTab('wellness')}
+      />
 
       {/* 4. Intake counter */}
       <MorphicCard variant="elevated" className="space-y-4">

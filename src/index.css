@@ -534,3 +534,73 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(150, 150, 150, 0.45);
 }
+
+/* =========================================================
+   OFFICIAL CLINICAL CERTIFICATE & PDF EXPORT PRINT STYLES
+   Ensures window.print() prints an immaculate A4 certificate
+   ========================================================= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #puffinless-official-certificate,
+  #puffinless-official-certificate * {
+    visibility: visible;
+  }
+
+  #puffinless-official-certificate {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 3px double #d97706 !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    page-break-inside: avoid;
+  }
+
+  #puffinless-official-certificate .text-white,
+  #puffinless-official-certificate .text-slate-100,
+  #puffinless-official-certificate .text-slate-200,
+  #puffinless-official-certificate .text-slate-300 {
+    color: #0f172a !important;
+  }
+
+  #puffinless-official-certificate .text-slate-400 {
+    color: #475569 !important;
+  }
+
+  #puffinless-official-certificate .bg-slate-900\/80,
+  #puffinless-official-certificate .bg-slate-950\/80,
+  #puffinless-official-certificate .bg-slate-900\/90,
+  #puffinless-official-certificate .bg-slate-950\/60,
+  #puffinless-official-certificate .bg-black\/30 {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  #puffinless-official-certificate .border-white\/10,
+  #puffinless-official-certificate .border-white\/15,
+  #puffinless-official-certificate .border-white\/20 {
+    border-color: #e2e8f0 !important;
+  }
+}

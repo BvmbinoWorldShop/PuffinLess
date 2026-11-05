@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { Award, Trophy, Tag, Lock } from 'lucide-react';
-import type { Badge, Language } from '../types';
+import { Award, Trophy, Tag, Lock, FileText, Download, Sparkles } from 'lucide-react';
+import type { Badge, Language, UserProfile } from '../types';
+import type { CoreReport } from '../core/obsidianCore';
 import { getBadges } from '../utils/healthMilestones';
 import type { CalculatedStats } from '../utils/calculations';
 import { MorphicCard } from './MorphicCard';
 import { LevelLadder } from './LevelLadder';
+import { ClinicalCertificateModal } from './ClinicalCertificateModal';
 import { sound } from '../utils/audio';
 
 interface RewardsViewProps {
   stats: CalculatedStats;
   currency: string;
   language?: Language;
+  profile?: UserProfile;
+  report?: CoreReport;
 }
 
 interface Perk {
@@ -23,9 +27,16 @@ interface Perk {
   code: string;
 }
 
-export const RewardsView: React.FC<RewardsViewProps> = ({ stats, currency, language = 'en' }) => {
+export const RewardsView: React.FC<RewardsViewProps> = ({
+  stats,
+  currency,
+  language = 'en',
+  profile,
+  report,
+}) => {
   const isFr = language === 'fr';
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+  const [isCertificateOpen, setIsCertificateOpen] = useState(false);
 
   const perks: Perk[] = [
     {
@@ -84,6 +95,52 @@ export const RewardsView: React.FC<RewardsViewProps> = ({ stats, currency, langu
   return (
     <div className="space-y-6 pb-24 animate-fade-in">
       <LevelLadder stats={stats} language={language} />
+
+      {/* Official Clinical Certificate & Victory Report (Export PDF) */}
+      <MorphicCard
+        variant="elevated"
+        className="relative overflow-hidden border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-slate-900/60 to-emerald-950/20 shadow-xl"
+      >
+        <div className="absolute -top-12 -right-12 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-md">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {isFr ? 'Rapport Certifié PuffinLess' : 'Certified PuffinLess Report'}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
+                    <Sparkles className="w-3 h-3" /> A4 & PDF
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight mt-0.5">
+                  {isFr ? 'Certificat Clinique & Rapport de Victoire' : 'Clinical Certificate & Victory Report'}
+                </h3>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+              {isFr
+                ? "Exportez votre diplôme de sevrage haute résolution officiel au format A4 avec sceau cryptographique de validation, jours d'abstinence et économies certifiées."
+                : 'Export your high-resolution official recovery diploma in A4 format with cryptographic validation seal, smoke-free days, and certified savings.'}
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              sound.vibrate(35);
+              setIsCertificateOpen(true);
+            }}
+            className="flex items-center justify-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all whitespace-nowrap self-stretch sm:self-auto cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isFr ? 'Générer mon Certificat (PDF)' : 'Generate Certificate (PDF)'}</span>
+          </button>
+        </div>
+      </MorphicCard>
 
       {/* 1. Prestige Rank Summary */}
       <MorphicCard variant="gold" className="relative overflow-hidden">
@@ -273,6 +330,17 @@ export const RewardsView: React.FC<RewardsViewProps> = ({ stats, currency, langu
           </div>
         </div>
       )}
+
+      {/* Official Certificate Modal */}
+      <ClinicalCertificateModal
+        isOpen={isCertificateOpen}
+        onClose={() => setIsCertificateOpen(false)}
+        stats={stats}
+        profile={profile}
+        report={report}
+        currency={currency}
+        language={language}
+      />
     </div>
   );
 };

@@ -120,7 +120,15 @@ export function App() {
             language={lang}
           />
         )}
-        {currentTab === 'rewards' && <RewardsView stats={stats} currency={profile.currency} language={lang} />}
+        {currentTab === 'rewards' && (
+          <RewardsView
+            stats={stats}
+            currency={profile.currency}
+            language={lang}
+            profile={profile}
+            report={report}
+          />
+        )}
       </main>
 
       <Navigation currentTab={currentTab} onSelectTab={goTab} language={lang} isVisible={showBottomNav} />
