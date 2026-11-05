@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Calendar as CalendarIcon, BarChart3, ChevronLeft, ChevronRight,
   Sparkles, AlertTriangle, CheckCircle, Info, Moon, BatteryCharging,
-  TrendingDown, TrendingUp, Minus
+  TrendingDown, TrendingUp, Minus, Clock
 } from 'lucide-react';
 import type { SubstanceLog, SleepEnergyEntry, CravingEntry, Language } from '../types';
 import { MorphicCard } from './MorphicCard';
@@ -253,6 +253,18 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
   }, [dailyData, isFr]);
 
   const selectedDayInfo = dailyData.get(selectedDate);
+
+  const selectedDateLogs = useMemo(() => {
+    return substanceLogs
+      .filter((l) => l.timestamp.startsWith(selectedDate))
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  }, [substanceLogs, selectedDate]);
+
+  const selectedDateCravings = useMemo(() => {
+    return cravings
+      .filter((c) => c.timestamp.startsWith(selectedDate))
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  }, [cravings, selectedDate]);
   const weekDayHeaders = isFr
     ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -485,6 +497,108 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                   ))}
                 </div>
               )}
+
+              {/* Detailed Chronological Day Logs: Time, Type, Quantity, and Triggers */}
+              <div className="pt-2 border-t border-white/5 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-teal-400" />
+                    <span>{isFr ? 'Journal détaillé des prises & pulsions' : 'Detailed intake & craving log'}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedDateLogs.length + selectedDateCravings.length} {isFr ? 'entrées' : 'entries'}
+                  </span>
+                </div>
+
+                {selectedDateLogs.length === 0 && selectedDateCravings.length === 0 ? (
+                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-[11px] text-emerald-300">
+                    ✨ {isFr ? 'Aucune consommation ni pulsion enregistrée ce jour.' : 'No consumption or cravings logged on this day.'}
+                  </div>
+                ) : (
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-0.5">
+                    {selectedDateLogs.map((log) => {
+                      const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const isCig = log.substance === 'cigarette';
+                      const isVape = log.substance === 'puff_vape';
+
+                      const badgeStyle = isCig
+                        ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                        : isVape
+                        ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
+                        : 'bg-lime-500/15 border-lime-500/30 text-lime-300';
+
+                      const unitLabel = isCig
+                        ? (isFr ? 'cig' : 'cig')
+                        : isVape
+                        ? (isFr ? 'puffs' : 'puffs')
+                        : (isFr ? 'joint' : 'joint');
+
+                      const nameLabel = isCig
+                        ? (isFr ? 'Cigarette' : 'Cigarette')
+                        : isVape
+                        ? (isFr ? 'Vape / Puff' : 'Vape / Puff')
+                        : (isFr ? 'Cannabis / CBD' : 'Cannabis / CBD');
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="p-1.5 rounded-xl bg-slate-900/70 border border-white/5 flex items-center justify-between text-[11px]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] text-slate-400 tabular-nums">{timeStr}</span>
+                            <span className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${badgeStyle}`}>
+                              {nameLabel}
+                            </span>
+                            <span className="font-bold text-white tabular-nums">
+                              +{log.count} {unitLabel}
+                            </span>
+                          </div>
+
+                          {log.trigger && (
+                            <span className="text-[10px] font-medium text-rose-300 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-md">
+                              🎯 {log.trigger}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {selectedDateCravings.map((craving) => {
+                      const timeStr = new Date(craving.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      return (
+                        <div
+                          key={craving.id}
+                          className="p-1.5 rounded-xl bg-slate-900/70 border border-white/5 flex items-center justify-between text-[11px]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] text-slate-400 tabular-nums">{timeStr}</span>
+                            <span
+                              className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${
+                                craving.resisted
+                                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                                  : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                              }`}
+                            >
+                              {craving.resisted
+                                ? (isFr ? '🛡️ Crave Résisté' : '🛡️ Craving Resisted')
+                                : (isFr ? '⚡ Crave Fumé' : '⚡ Craving Smoked')}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {isFr ? 'Intensité' : 'Intensity'} <b className="text-white">{craving.intensity}/10</b>
+                            </span>
+                          </div>
+
+                          {craving.trigger && (
+                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                              🎯 {craving.trigger}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

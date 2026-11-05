@@ -60,7 +60,10 @@ export function calculateStats(
   streaks: StreakRecord[]
 ): CalculatedStats {
   const now = Date.now();
-  const elapsedSeconds = Math.max(0, Math.floor((now - new Date(profile.quitDate).getTime()) / 1000));
+  const hasValidQuitDate = Boolean(profile.quitDate && !isNaN(new Date(profile.quitDate).getTime()));
+  const elapsedSeconds = hasValidQuitDate
+    ? Math.max(0, Math.floor((now - new Date(profile.quitDate).getTime()) / 1000))
+    : 0;
 
   const days = Math.floor(elapsedSeconds / 86400);
   const hours = Math.floor((elapsedSeconds % 86400) / 3600);

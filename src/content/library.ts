@@ -53,22 +53,31 @@ export interface ResourceItem {
   creator: string;
   year?: number;
   why: string;
+  youtubeId?: string; // YouTube Video ID for embedded in-app mini player
+  url?: string;
 }
 
 export const RESOURCES: ResourceItem[] = [
-  { id: 'r1', type: 'Talk', title: 'A simple way to break a bad habit', creator: 'Judson Brewer, TED', year: 2015, why: 'A Yale psychiatrist shows how curiosity about a craving can replace willpower.' },
-  { id: 'r2', type: 'Talk', title: 'Everything you think you know about addiction is wrong', creator: 'Johann Hari, TED', year: 2015, why: 'Explores why connection and meaning protect people from addiction.' },
-  { id: 'r3', type: 'Talk', title: 'Sleep is your superpower', creator: 'Matthew Walker, TED', year: 2019, why: 'Why deep sleep matters for willpower, mood and health, and how substances disturb it.' },
+  { id: 'r1', type: 'Talk', title: 'A simple way to break a bad habit', creator: 'Dr. Judson Brewer, TED', year: 2015, why: 'A Brown & Yale psychiatrist shows how curiosity about a craving can replace willpower and break the habit loop.', youtubeId: '_MO-xxQdMtE' },
+  { id: 'r2', type: 'Talk', title: 'Everything you think you know about addiction is wrong', creator: 'Johann Hari, TED', year: 2015, why: 'Explores why authentic connection, meaning, and lifestyle protect the human brain from chemical addiction.', youtubeId: 'PY9DcIMGxMs' },
+  { id: 'r3', type: 'Talk', title: 'Sleep is your superpower', creator: 'Dr. Matthew Walker, TED', year: 2019, why: 'Why Stage-4 deep sleep matters for prefrontal willpower, neuroplasticity, and how nicotine steals it.', youtubeId: '5MuIMqhT8DM' },
+  { id: 'r18', type: 'Talk', title: 'Nicotine\'s Effects on the Brain & Body & How to Quit', creator: 'Dr. Andrew Huberman, Huberman Lab', year: 2022, why: 'Stanford neurobiology breakdown of acetylcholine, dopamine circuits, withdrawal peaks, and clinical cessation tools.', youtubeId: 'uXqDDoqGoY8' },
+  { id: 'r19', type: 'Talk', title: 'The Effects of Cannabis on the Brain & Body', creator: 'Dr. Andrew Huberman, Huberman Lab', year: 2022, why: 'Clinical analysis of CB1 receptors, memory retrieval, dopamine reward baselines, and THC detox timelines.', youtubeId: 'gXvuJuEDDL4' },
+  { id: 'r20', type: 'Talk', title: 'Understanding Dopamine & The Addiction Spectrum', creator: 'Dr. Anna Lembke (Stanford)', year: 2021, why: 'How the neurochemical pleasure-pain balance operates and how 30-day dopamine resets restore natural vitality.', youtubeId: 'p3JLaF_4Tz8' },
+  { id: 'r21', type: 'Talk', title: 'The Science of Trauma & The Roots of Addiction', creator: 'Dr. Gabor Maté', year: 2020, why: 'Deep psychological exploration of why substances temporarily soothe inner pain and how self-compassion unlocks freedom.', youtubeId: 'BVg2bfqblGI' },
   { id: 'r4', type: 'Documentary', title: 'Merchants of Doubt', creator: 'Robert Kenner', year: 2014, why: 'How industries, including tobacco, manufactured doubt about health science.' },
   { id: 'r5', type: 'Documentary', title: 'Addiction (HBO series with the NIH)', creator: 'HBO / NIDA', year: 2007, why: 'A science-led series on how addiction changes the brain and how recovery works.' },
   { id: 'r6', type: 'Documentary', title: 'The Insider', creator: 'Michael Mann (film)', year: 1999, why: 'A dramatised true story of the tobacco whistleblower who exposed nicotine manipulation.' },
-  { id: 'r7', type: 'Book', title: 'The Easy Way to Stop Smoking', creator: 'Allen Carr', why: 'Reframes quitting as escaping a trap rather than a sacrifice. Many people quit with it.' },
-  { id: 'r8', type: 'Book', title: 'The Craving Mind', creator: 'Judson Brewer', year: 2017, why: 'The neuroscience of craving and how mindfulness interrupts the habit loop.' },
-  { id: 'r9', type: 'Book', title: 'Atomic Habits', creator: 'James Clear', year: 2018, why: 'Practical systems for replacing routines, including cue-and-reward design.' },
+  { id: 'r7', type: 'Book', title: 'The Easy Way to Stop Smoking', creator: 'Allen Carr', why: 'Reframes quitting as escaping a trap rather than a sacrifice. Millions have successfully broken free with it.' },
+  { id: 'r8', type: 'Book', title: 'The Craving Mind', creator: 'Dr. Judson Brewer', year: 2017, why: 'The neuroscience of craving and how mindfulness interrupts the habit loop.' },
+  { id: 'r9', type: 'Book', title: 'Atomic Habits', creator: 'James Clear', year: 2018, why: 'Practical systems for replacing routines, identity reframing, and habit friction architecture.' },
   { id: 'r10', type: 'Book', title: 'The Power of Habit', creator: 'Charles Duhigg', year: 2012, why: 'The cue, routine, reward loop and how to rewrite it.' },
-  { id: 'r11', type: 'Book', title: 'Dopamine Nation', creator: 'Anna Lembke', year: 2021, why: 'Why pleasure and pain balance in the brain, and how to reset after heavy use.' },
-  { id: 'r12', type: 'Book', title: 'Why We Sleep', creator: 'Matthew Walker', year: 2017, why: 'A deep dive into how sleep drives recovery and self-control.' },
-  { id: 'r13', type: 'Book', title: 'Breath', creator: 'James Nestor', year: 2020, why: 'How the way you breathe affects stress, sleep and lung health.' },
+  { id: 'r11', type: 'Book', title: 'Dopamine Nation', creator: 'Dr. Anna Lembke', year: 2021, why: 'Why pleasure and pain balance in the brain, and how to reset neurotransmitter baselines.' },
+  { id: 'r12', type: 'Book', title: 'Why We Sleep', creator: 'Dr. Matthew Walker', year: 2017, why: 'A deep dive into how restorative REM and slow-wave sleep drives willpower and emotional stability.' },
+  { id: 'r13', type: 'Book', title: 'Breath: The New Science of a Lost Art', creator: 'James Nestor', year: 2020, why: 'How conscious nasal breathing resets the autonomic nervous system and relieves chronic stress.' },
+  { id: 'r22', type: 'Book', title: 'The Body Keeps the Score', creator: 'Dr. Bessel van der Kolk', year: 2014, why: 'Groundbreaking book on how stress is stored in neurobiology and how physical breath rewires trauma.' },
+  { id: 'r23', type: 'Book', title: 'Man\'s Search for Meaning', creator: 'Viktor E. Frankl', year: 1946, why: 'Between stimulus and response lies human freedom. The timeless classic on choosing sovereignty over circumstance.' },
+  { id: 'r24', type: 'Book', title: 'In the Realm of Hungry Ghosts', creator: 'Dr. Gabor Maté', year: 2008, why: 'Compassionate medical exploration of addiction, attachment biology, and lasting emotional healing.' },
   { id: 'r14', type: 'Free help', title: 'Smokefree.gov (US National Cancer Institute)', creator: 'Free quit plan, text programmes and tips', why: 'Free, evidence-based tools and text-message support.' },
   { id: 'r15', type: 'Free help', title: '1-800-QUIT-NOW (US)', creator: 'Free quitline', why: 'Free confidential coaching from trained counsellors in the US.' },
   { id: 'r16', type: 'Free help', title: 'NHS Better Health: Quit Smoking (UK)', creator: 'Free support and tools', why: 'Free quit plan and local stop-smoking services in the UK.' },

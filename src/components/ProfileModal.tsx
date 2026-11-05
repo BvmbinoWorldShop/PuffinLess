@@ -93,20 +93,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   );
 
   // Daily Habits
-  const [cigsPerDay, setCigsPerDay] = useState(profile.cigarettesPerDay || 15);
-  const [pricePerPack, setPricePerPack] = useState(profile.pricePerPack || 12.5);
-  const [puffsPerDay, setPuffsPerDay] = useState(profile.puffsPerDay || 80);
-  const [podPrice, setPodPrice] = useState(profile.podPrice ?? 18);
-  const [cannabisGrams, setCannabisGrams] = useState(profile.cannabisGramsPerWeek || 3.5);
-  const [pricePerGram, setPricePerGram] = useState(profile.pricePerGram ?? 10);
-  const [yearsSmoking, setYearsSmoking] = useState(profile.smokingHabitByDay?.yearsSmoking ?? 6);
+  const [cigsPerDay, setCigsPerDay] = useState<number | ''>(profile.cigarettesPerDay || '');
+  const [pricePerPack, setPricePerPack] = useState<number | ''>(profile.pricePerPack || '');
+  const [puffsPerDay, setPuffsPerDay] = useState<number | ''>(profile.puffsPerDay || '');
+  const [podPrice, setPodPrice] = useState<number | ''>(profile.podPrice ?? '');
+  const [cannabisGrams, setCannabisGrams] = useState<number | ''>(profile.cannabisGramsPerWeek || '');
+  const [pricePerGram, setPricePerGram] = useState<number | ''>(profile.pricePerGram ?? '');
+  const [yearsSmoking, setYearsSmoking] = useState<number | ''>(profile.smokingHabitByDay?.yearsSmoking ?? '');
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>(
     profile.smokingHabitByDay?.peakTriggers || ['Stress', 'After meal', 'Work break']
   );
 
   const [quitMode, setQuitMode] = useState<QuitMode>(profile.quitMode || 'cold_turkey');
   const [quitDate, setQuitDate] = useState(() =>
-    profile.quitDate ? profile.quitDate.substring(0, 10) : new Date().toISOString().substring(0, 10)
+    profile.quitDate ? profile.quitDate.substring(0, 10) : ''
   );
 
   const [confirmReset, setConfirmReset] = useState(false);
@@ -239,6 +239,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Preserve exact quitDate timestamp if untouched; allow blank if just tracking
+    let finalQuitDate = profile.quitDate || '';
+    if (quitDate === '') {
+      finalQuitDate = quitGoal === 'just_tracking' ? '' : (profile.quitDate || '');
+    } else if (profile.quitDate && profile.quitDate.startsWith(quitDate)) {
+      // Date part hasn't changed; preserve exact ISO timestamp including time!
+      finalQuitDate = profile.quitDate;
+    } else {
+      // User explicitly changed or set a new date
+      finalQuitDate = new Date(quitDate + 'T00:00:00').toISOString();
+    }
+
     const updated: UserProfile = {
       ...profile,
       name: name.trim() || 'Champion',
@@ -270,7 +283,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         peakTriggers: selectedTriggers,
       },
       quitMode,
-      quitDate: new Date(quitDate).toISOString(),
+      quitDate: finalQuitDate,
     };
 
     sound.setEnabled(soundEnabled);
@@ -388,10 +401,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Section Navigation Tabs */}
         <div className="flex items-center gap-1 p-1 bg-slate-900/60 rounded-xl border border-white/10 mb-4 shrink-0 overflow-x-auto scrollbar-none">
           {[
-            { id: 'identity', label: isFr ? '1. Identité' : '1. Identity', icon: User },
-            { id: 'habits', label: isFr ? '2. Habitudes' : '2. Habits', icon: Flame },
-            { id: 'coach', label: isFr ? '3. Coach IA' : '3. AI Coach', icon: Brain },
-            { id: 'app', label: isFr ? '4. Système' : '4. App', icon: Activity },
+            { id: 'identity', label: isFr ? 'Identité' : 'Identity', icon: User },
+            { id: 'habits', label: isFr ? 'Habitudes' : 'Habits', icon: Flame },
+            { id: 'coach', label: isFr ? 'Coach IA' : 'AI Coach', icon: Brain },
+            { id: 'app', label: isFr ? 'Système' : 'System', icon: Activity },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeSection === tab.id;
@@ -758,7 +771,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           type="number"
                           min="0"
                           value={cigsPerDay}
-                          onChange={(e) => setCigsPerDay(Number(e.target.value))}
+                          onChange={(e) => setCigsPerDay(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="15"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -769,7 +783,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           step="0.5"
                           min="1"
                           value={pricePerPack}
-                          onChange={(e) => setPricePerPack(Number(e.target.value))}
+                          onChange={(e) => setPricePerPack(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="12.5"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -788,7 +803,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           min="0"
                           step="10"
                           value={puffsPerDay}
-                          onChange={(e) => setPuffsPerDay(Number(e.target.value))}
+                          onChange={(e) => setPuffsPerDay(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="80"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -799,7 +815,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           step="0.5"
                           min="1"
                           value={podPrice}
-                          onChange={(e) => setPodPrice(Number(e.target.value))}
+                          onChange={(e) => setPodPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="18"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -818,7 +835,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           step="0.5"
                           min="0"
                           value={cannabisGrams}
-                          onChange={(e) => setCannabisGrams(Number(e.target.value))}
+                          onChange={(e) => setCannabisGrams(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="3.5"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -829,7 +847,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           step="0.5"
                           min="1"
                           value={pricePerGram}
-                          onChange={(e) => setPricePerGram(Number(e.target.value))}
+                          onChange={(e) => setPricePerGram(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="10"
                           className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-xs"
                         />
                       </div>
@@ -876,15 +895,31 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               {/* QUIT DATE & MODE */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {isFr ? 'Date de Début / Arrêt' : 'Clean Start Date'}
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      {isFr ? 'Date Début / Arrêt' : 'Clean Start Date'}
+                    </label>
+                    {quitDate && (
+                      <button
+                        type="button"
+                        onClick={() => setQuitDate('')}
+                        className="text-[10px] text-teal-400 hover:text-teal-300 underline font-semibold"
+                        title={isFr ? 'Laisser vierge pour suivi simple' : 'Leave blank for tracking'}
+                      >
+                        {isFr ? 'Vierge' : 'Clear'}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="date"
                     value={quitDate}
                     onChange={(e) => setQuitDate(e.target.value)}
+                    placeholder="YYYY-MM-DD"
                     className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
+                  <span className="text-[9px] text-slate-400 mt-0.5 block">
+                    {isFr ? 'Optionnelle (laisser vide si suivi simple)' : 'Optional (leave blank if tracking)'}
+                  </span>
                 </div>
 
                 <div>
@@ -895,7 +930,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     type="number"
                     min="0"
                     value={yearsSmoking}
-                    onChange={(e) => setYearsSmoking(Number(e.target.value))}
+                    onChange={(e) => setYearsSmoking(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="6"
                     className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
                 </div>

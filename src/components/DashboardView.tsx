@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Activity, CheckCircle, ChevronRight, Wind, ShieldCheck, Cigarette, Leaf, Plus, Moon,
+  Activity, CheckCircle, ChevronRight, Wind, ShieldCheck, Cigarette, Leaf, Plus, Minus, Moon,
   BatteryCharging, Sparkles, AlertCircle, Zap, Trophy, TrendingUp, TrendingDown, X, RotateCcw,
 } from 'lucide-react';
 import type { UserProfile, CravingEntry, SubstanceType, SleepEnergyEntry, SubstanceLog } from '../types';
@@ -153,7 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <button
             onClick={() => { sound.playClick(); onNavigateToTab('rewards'); }}
-            className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+            className="text-[10px] sm:text-[11px] font-bold px-3.5 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors inline-flex items-center justify-center shadow-sm"
           >
             {levelChip}
           </button>
@@ -254,30 +254,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const o = LOG_OPTIONS[s];
             const Icon = o.icon;
             const val = today[s];
-            const isCurrentlySelected = pending === s;
+            const step = s === 'puff_vape' ? 5 : 1;
             return (
               <div
                 key={s}
-                className={`p-3 rounded-2xl glass-panel flex flex-col items-center text-center transition-all ${
-                  isCurrentlySelected ? 'ring-2 ring-amber-400/80 bg-amber-500/15 shadow-md shadow-amber-500/20 scale-[1.02]' : ''
-                }`}
+                className="p-2.5 sm:p-3 rounded-2xl glass-panel flex flex-col items-center justify-between text-center transition-all h-full"
               >
-                <div className={`p-2 rounded-xl mb-1.5 border ${o.box}`}>
+                {/* 1. Graphic Icon - Harmonized level */}
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${o.box}`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                <span className="text-[11px] font-bold text-white">{o.label}</span>
-                <span className={`text-xl font-extrabold my-0.5 tabular-nums ${o.text}`}>{val}</span>
-                <button
-                  onClick={() => openLog(s)}
-                  className={`mt-1 w-full py-1.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
-                    isCurrentlySelected
-                      ? 'bg-amber-500 text-white keep-white shadow-sm'
-                      : `glass-button ${o.text} hover:scale-105 active:scale-95`
-                  }`}
-                >
-                  <Plus className="w-3 h-3" />
-                  {isCurrentlySelected ? (lang === 'fr' ? 'Fermer' : 'Close') : t('logButton', lang)}
-                </button>
+
+                {/* 2. Substance Title - Harmonized level */}
+                <span className="text-[11px] font-bold text-white mt-1.5 h-4 flex items-center justify-center truncate w-full px-0.5">
+                  {o.label}
+                </span>
+
+                {/* 3. Number / Graphic Letter - Harmonized level */}
+                <div className="my-1 h-7 flex items-center justify-center">
+                  <span className={`text-xl font-extrabold tabular-nums ${o.text}`}>
+                    {val}
+                  </span>
+                </div>
+
+                {/* 4. Harmonized Smoother Pills: Only Bouton + (Ajouter) & Bouton - (Diminuer) */}
+                <div className="w-full flex items-center gap-1 pt-1.5 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      sound.vibrate(15);
+                      if (onRemoveSubstance) {
+                        onRemoveSubstance(s, step);
+                      }
+                    }}
+                    disabled={val <= 0}
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+                      val > 0
+                        ? 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/30 hover:scale-105 active:scale-95 shadow-sm'
+                        : 'border border-white/5 bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-30'
+                    }`}
+                    title={lang === 'fr' ? `Diminuer (-${step} ${o.unit})` : `Decrease (-${step} ${o.unit})`}
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      sound.vibrate(25);
+                      onLogSubstance(s, step, 'Habitude');
+                    }}
+                    className={`flex-1 h-7 px-1.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-0.5 border shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      s === 'cigarette'
+                        ? 'border-amber-400/40 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+                        : s === 'puff_vape'
+                        ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
+                        : 'border-lime-400/40 bg-lime-500/20 text-lime-300 hover:bg-lime-500/30'
+                    }`}
+                    title={lang === 'fr' ? `Ajouter (+${step} ${o.unit})` : `Add (+${step} ${o.unit})`}
+                  >
+                    <Plus className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{lang === 'fr' ? 'Ajouter' : 'Add'}</span>
+                  </button>
+                </div>
               </div>
             );
           })}
