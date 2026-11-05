@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Activity, CheckCircle, ChevronRight, Wind, ShieldCheck, Cigarette, Leaf, Plus, Minus, Moon,
+  Activity, CheckCircle, ChevronRight, Wind, ShieldCheck, Cigarette, Leaf, Plus, Moon,
   BatteryCharging, Sparkles, AlertCircle, Zap, Trophy, TrendingUp, TrendingDown, X, RotateCcw,
 } from 'lucide-react';
 import type { UserProfile, CravingEntry, SubstanceType, SleepEnergyEntry, SubstanceLog } from '../types';
@@ -8,7 +8,7 @@ import type { CalculatedStats } from '../utils/calculations';
 import type { CoreReport } from '../core/obsidianCore';
 import { getTierMeta } from '../core/levels';
 import { getHealthMilestones } from '../utils/healthMilestones';
-import { SUBSTANCE_DATABASE } from '../utils/substanceScience';
+import { getSubstanceDetails } from '../utils/substanceScience';
 import { localDateStr, formatDuration } from '../utils/dates';
 import { t, TRIGGER_OPTIONS, getTriggerLabel } from '../utils/i18n';
 import { MorphicCard } from './MorphicCard';
@@ -69,7 +69,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     cigarette: {
       label: t('substanceCigarette', lang),
       unit: t('unitCigarette', lang),
-      counts: [1, 2, 3],
+      counts: [1, 2, 3, 5],
       icon: Cigarette,
       box: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
       text: 'text-amber-400',
@@ -77,7 +77,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     puff_vape: {
       label: t('substancePuff', lang),
       unit: t('unitPuff', lang),
-      counts: [5, 10, 20],
+      counts: [5, 10, 15, 20],
       icon: Wind,
       box: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
       text: 'text-cyan-400',
@@ -85,7 +85,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     cannabis: {
       label: t('substanceCannabis', lang),
       unit: t('unitJoint', lang),
-      counts: [1, 2],
+      counts: [1, 2, 3],
       icon: Leaf,
       box: 'bg-lime-500/15 text-lime-400 border-lime-500/25',
       text: 'text-lime-400',
@@ -105,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const achieved = milestones.filter((m) => m.timeSeconds <= stats.elapsedSeconds);
   const upcoming = milestones.filter((m) => m.timeSeconds > stats.elapsedSeconds);
   const nextMilestone = upcoming[0] ?? milestones[milestones.length - 1];
-  const sub = SUBSTANCE_DATABASE[activeSubstance];
+  const sub = getSubstanceDetails(activeSubstance, lang);
   const recentCravings = cravings.slice(0, 3);
 
   const openLog = (s: SubstanceType) => {
@@ -254,7 +254,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const o = LOG_OPTIONS[s];
             const Icon = o.icon;
             const val = today[s];
-            const step = s === 'puff_vape' ? 5 : 1;
             return (
               <div
                 key={s}
@@ -277,46 +276,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </span>
                 </div>
 
-                {/* 4. Harmonized Smoother Pills: Only Bouton + (Ajouter) & Bouton - (Diminuer) */}
-                <div className="w-full flex items-center gap-1 pt-1.5 border-t border-white/5">
+                {/* 4. Action: ONLY + Ajouter to open options window */}
+                <div className="w-full pt-1.5 border-t border-white/5">
                   <button
                     type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      sound.vibrate(15);
-                      if (onRemoveSubstance) {
-                        onRemoveSubstance(s, step);
-                      }
-                    }}
-                    disabled={val <= 0}
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0 ${
-                      val > 0
-                        ? 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/30 hover:scale-105 active:scale-95 shadow-sm'
-                        : 'border border-white/5 bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-30'
-                    }`}
-                    title={lang === 'fr' ? `Diminuer (-${step} ${o.unit})` : `Decrease (-${step} ${o.unit})`}
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      sound.vibrate(25);
-                      onLogSubstance(s, step, 'Habitude');
-                    }}
-                    className={`flex-1 h-7 px-1.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-0.5 border shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                      s === 'cigarette'
+                    onClick={() => openLog(s)}
+                    className={`w-full h-7 px-1.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 border shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      pending === s
+                        ? 'bg-amber-500 border-amber-400 text-white shadow-md'
+                        : s === 'cigarette'
                         ? 'border-amber-400/40 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
                         : s === 'puff_vape'
                         ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
                         : 'border-lime-400/40 bg-lime-500/20 text-lime-300 hover:bg-lime-500/30'
                     }`}
-                    title={lang === 'fr' ? `Ajouter (+${step} ${o.unit})` : `Add (+${step} ${o.unit})`}
                   >
                     <Plus className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{lang === 'fr' ? 'Ajouter' : 'Add'}</span>
+                    <span>{pending === s ? (lang === 'fr' ? 'Fermer' : 'Close') : (lang === 'fr' ? '+ Ajouter' : '+ Add')}</span>
                   </button>
                 </div>
               </div>
@@ -372,30 +348,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {/* Quantity Selector */}
+            {/* Quantity Selector: +1, +2, +3, -1 etc */}
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[10px] font-semibold text-slate-300">
                   {t('selectQuantity', lang)}
                 </span>
-                {today[pending] > 0 && onRemoveSubstance && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      onRemoveSubstance(pending, pending === 'puff_vape' ? 5 : 1);
-                    }}
-                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 transition-all flex items-center gap-1 shadow-sm"
-                    title={lang === 'fr' ? 'Corriger une erreur (-1)' : 'Correct an entry (-1)'}
-                  >
-                    <span>-1 {LOG_OPTIONS[pending].unit}</span>
-                    <span className="text-[9px] opacity-75">({lang === 'fr' ? 'Corriger' : 'Undo'})</span>
-                  </button>
-                )}
+                <span className="text-[10px] text-slate-400">
+                  {lang === 'fr' ? 'Consommé aujourd\'hui :' : 'Logged today:'} <b className="text-amber-400">{today[pending]}</b> {LOG_OPTIONS[pending].unit}
+                </span>
               </div>
               <div className="flex gap-1.5">
+                {/* Immediate -1 / -5 correction button */}
+                {onRemoveSubstance && (
+                  <button
+                    type="button"
+                    disabled={today[pending] <= 0}
+                    onClick={() => {
+                      sound.playClick();
+                      sound.vibrate(20);
+                      onRemoveSubstance(pending, pending === 'puff_vape' ? 5 : 1);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition-all ${
+                      today[pending] > 0
+                        ? 'border-rose-500/50 bg-rose-500/20 text-rose-300 hover:bg-rose-500/35 active:scale-95 shadow-sm'
+                        : 'border-white/5 bg-slate-900/40 text-slate-600 opacity-40 cursor-not-allowed'
+                    }`}
+                    title={lang === 'fr' ? 'Corriger ou diminuer une prise (-1)' : 'Undo an entry (-1)'}
+                  >
+                    <span>-{pending === 'puff_vape' ? 5 : 1}</span>
+                    <span className="text-[10px] opacity-75">{lang === 'fr' ? 'Diminuer' : 'Undo'}</span>
+                  </button>
+                )}
+
+                {/* +1, +2, +3, etc */}
                 {LOG_OPTIONS[pending].counts.map((n) => (
                   <button
                     key={n}
+                    type="button"
                     onClick={() => {
                       sound.playClick();
                       setPendingCount(n);
@@ -477,9 +467,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         profile={profile}
         reality={report.reality}
         todayIntake={today}
-        onOpenLog={openLog}
-        onLogSubstance={onLogSubstance}
-        onRemoveSubstance={onRemoveSubstance}
       />
 
       {/* 6. Sleep & energy check-in + weekly trend */}

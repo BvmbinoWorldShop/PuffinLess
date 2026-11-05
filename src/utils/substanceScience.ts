@@ -1,4 +1,4 @@
-import type { SubstanceType } from '../types';
+import type { SubstanceType, Language } from '../types';
 
 export interface SubstanceDetails {
   name: string;
@@ -67,6 +67,64 @@ export const SUBSTANCE_DATABASE: Record<SubstanceType, SubstanceDetails> = {
     clinicalStudyReference: 'Sleep Medicine Reviews (2020): Chronic cannabinoid use leads to REM sleep deprivation, daytime grogginess, and rebound insomnia upon withdrawal.',
   },
 };
+
+export const SUBSTANCE_DATABASE_FR: Record<SubstanceType, SubstanceDetails> = {
+  cigarette: {
+    name: 'Cigarettes & Tabac à Rouler',
+    tagline: 'Combustion toxique libérant 7 000 composés chimiques dont 69 cancérigènes avérés',
+    activeAgents: ['Nicotine', 'Monoxyde de carbone (CO)', 'Goudrons', 'Benzène', 'Formaldéhyde'],
+    unitLabel: 'Cigarettes',
+    defaultQuickStep: 1,
+    healthEffects: {
+      organs: ['Système cardiovasculaire', 'Voies respiratoires & alvéoles', 'Cerveau & récepteurs nicotiniques', 'Peau & gencives'],
+      summary: 'Chaque cigarette libère du monoxyde de carbone qui prend la place de l\'oxygène sur l\'hémoglobine 200 fois plus fortement, asphyxiant vos mitochondries cellulaires.',
+      cardiovascular: 'Accélère les pulsations de 15 à 25 BPM, durcit la paroi artérielle et multiplie par 3 le risque de thrombose et d\'infarctus.',
+      pulmonary: 'Paralyse les cils bronchiques protecteurs pendant 48 h par paquet, laissant les goudrons s\'incruster au cœur des alvéoles et étouffant votre capacité vitale.',
+      neuroSleep: 'Le manque de nicotine toutes les 90 minutes provoque des micro-réveils invisibles la nuit, amputant le sommeil paradoxal (REM) de 24 % et causant l\'épuisement matinal.',
+    },
+    financialImpactTip: 'À 12 € le paquet, fumer 1 paquet par jour coûte plus de 4 380 € par an. Réinvesti à 8 % annuel, c\'est plus de 63 000 € de patrimoine vaporisé sur 10 ans.',
+    clinicalStudyReference: 'British Medical Journal (BMJ) Doctors Study : 1 cigarette fumée = 11 minutes d\'espérance de vie biologique perdue en moyenne.',
+  },
+  puff_vape: {
+    name: 'Puffs & Cigarettes Électroniques',
+    tagline: 'Sels de nicotine synthétiques ultra-concentrés & aérosols chimiques chauffés',
+    activeAgents: ['Sels de nicotine (20-50 mg)', 'Propylène glycol', 'Acroléine', 'Métaux lourds (Nickel, Plomb)'],
+    unitLabel: 'Bouffées (Puffs)',
+    defaultQuickStep: 10,
+    healthEffects: {
+      organs: ['Épithélium bronchique', 'Endothélium vasculaire', 'Circuit dopaminergique mésolimbique'],
+      summary: 'Les sels de nicotine synthétiques pénètrent le système nerveux central en seulement 7 secondes, générant un pic dopaminergique artificiel violent qui verrouille l\'addiction.',
+      cardiovascular: 'Engendre une dysfonction endothéliale immédiate et une vasoconstriction artérielle mesurable identique à la fumée de tabac.',
+      pulmonary: 'L\'acroléine et les arômes de synthèse chauffés irritent les bronchioles profondes, déclenchant toux sèche réflexe et inflammation persistante des macrophages.',
+      neuroSleep: 'La surstimulation nicotinique maintient un taux élevé de cortisol et de température corporelle la nuit, amputant de 28 % le sommeil profond réparateur.',
+    },
+    financialImpactTip: 'Une puff jetable coûte de 9 à 20 €. Les vapoteurs réguliers consomment entre 150 et 320 € par mois en pods ou recharges jetables.',
+    clinicalStudyReference: 'American Heart Association (AHA) : L\'aérosol de cigarette électronique induit un stress oxydatif cellulaire et une rigidification artérielle en 5 minutes.',
+  },
+  cannabis: {
+    name: 'Cannabis / CBD, Herbe & Joints',
+    tagline: 'Herbe en combustion, cannabinoïdes THC/CBD, feuilles à rouler et résine',
+    activeAgents: ['Delta-9-THC', 'Goudrons de combustion', 'Terpènes', 'Monoxyde de carbone'],
+    unitLabel: 'Joints / Grammes',
+    defaultQuickStep: 1,
+    healthEffects: {
+      organs: ['Récepteurs endocannabinoïdes CB1', 'Cortex préfrontal', 'Arbre respiratoire', 'Sommeil paradoxal'],
+      summary: 'Fumé avec du tabac ou en feuille sans filtre, la fumée génère 3 fois plus de dépôts goudronneux dans les poumons qu\'une cigarette industrielle avec filtre.',
+      cardiovascular: 'Déclenche une tachycardie immédiate (le cœur s\'accélère de 20 à 50 BPM pendant 2 à 3 heures), augmentant dangereusement la consommation d\'oxygène du myocarde.',
+      pulmonary: 'L\'inhalation profonde et prolongée cause une métaplasie de la muqueuse bronchique, à l\'origine des glaires épaisses et de l\'oppression matinale.',
+      neuroSleep: 'Élimine jusqu\'à 40 % du sommeil paradoxal (REM). Même s\'il accélère l\'endormissement, le cerveau est privé de consolidation émotionnelle et mnésique.',
+    },
+    financialImpactTip: 'Un fumeur moyen dépense entre 150 et 450 € par mois en fleurs, résines et accessoires. Sur 5 ans, c\'est 18 000 à 35 000 € brûlés.',
+    clinicalStudyReference: 'Sleep Medicine Reviews (2020) : L\'exposition chronique aux cannabinoïdes cause une dette chronique de sommeil paradoxal, brouillard mental diurne et insomnie rebelle au sevrage.',
+  },
+};
+
+export function getSubstanceDetails(substance: SubstanceType, lang: Language = 'en'): SubstanceDetails {
+  if (lang === 'fr') {
+    return SUBSTANCE_DATABASE_FR[substance] || SUBSTANCE_DATABASE[substance];
+  }
+  return SUBSTANCE_DATABASE[substance];
+}
 
 export interface HealthExpenseLossReport {
   totalSpentCash: number;

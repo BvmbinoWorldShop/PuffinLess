@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Plus, Sparkles, Minus } from 'lucide-react';
+import { Eye, Flame, Clock, HeartCrack, Wallet, Wind, Cigarette, Leaf, Sparkles } from 'lucide-react';
 import type { UserProfile, SubstanceType } from '../types';
 import type { DailyReality } from '../core/obsidianCore';
 import { MorphicCard } from './MorphicCard';
@@ -12,9 +12,6 @@ interface Props {
   profile: UserProfile;
   reality: DailyReality;
   todayIntake?: { cigarette: number; puff_vape: number; cannabis: number };
-  onOpenLog?: (substance: SubstanceType) => void;
-  onLogSubstance?: (substance: SubstanceType, count: number, trigger: string, note?: string) => void;
-  onRemoveSubstance?: (substance: SubstanceType, count?: number) => void;
 }
 
 const SUBSTANCES_CONFIG: Record<
@@ -74,8 +71,6 @@ export const DailyRealityCard: React.FC<Props> = ({
   profile,
   reality,
   todayIntake,
-  onLogSubstance,
-  onRemoveSubstance,
 }) => {
   const isFr = profile.language === 'fr';
   const [period, setPeriod] = useState<Period>('day');
@@ -129,15 +124,6 @@ export const DailyRealityCard: React.FC<Props> = ({
     const h = minutes / 60;
     if (h < 48) return `${h.toFixed(1)} ${isFr ? 'h' : 'hrs'}`;
     return `${(h / 24).toFixed(1)} ${isFr ? 'jours' : 'days'}`;
-  };
-
-  const handleQuickUndo = (s: SubstanceType, stepCount?: number) => {
-    sound.playClick();
-    sound.vibrate(15);
-    if (onRemoveSubstance) {
-      const step = stepCount ?? SUBSTANCES_CONFIG[s].quickUndoStep;
-      onRemoveSubstance(s, step);
-    }
   };
 
   return (
@@ -238,45 +224,22 @@ export const DailyRealityCard: React.FC<Props> = ({
                 </div>
                 <div className="text-lg font-extrabold text-white tabular-nums">{countDisplay}</div>
                 <div className="text-[10px] text-slate-400 truncate">{isFr ? cfg.labelFr : cfg.labelEn}</div>
-                {todayIntake && sourceMode === 'today' && (
-                  <div className="text-[9px] text-slate-400 mt-0.5 tabular-nums">
-                    {isFr ? 'Aujourd\'hui :' : 'Today:'} <b className={todayCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>{todayCount}</b>
-                  </div>
-                )}
               </div>
 
-              {/* Clean Action Buttons: Only + (Ajouter) & - (Diminuer) to clear the view */}
-              <div className="mt-2.5 flex items-center justify-center gap-2 w-full pt-1.5 border-t border-white/5">
-                {onRemoveSubstance && (
-                  <button
-                    type="button"
-                    onClick={() => handleQuickUndo(s, cfg.quickUndoStep)}
-                    disabled={todayCount <= 0}
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                      todayCount > 0
-                        ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/35 hover:scale-105 active:scale-95 shadow-sm'
-                        : 'border border-white/5 bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-30'
-                    }`}
-                    title={isFr ? `Diminuer immédiat (-${cfg.quickUndoStep} ${cfg.unitFr})` : `Decrease immediate (-${cfg.quickUndoStep} ${cfg.unitEn})`}
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    sound.vibrate(25);
-                    if (onLogSubstance) {
-                      onLogSubstance(s, cfg.quickUndoStep, 'Habitude');
-                    }
-                  }}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm transition-all hover:scale-105 active:scale-95 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText} hover:bg-white/10`}
-                  title={isFr ? `Ajouter immédiat (+${cfg.quickUndoStep} ${cfg.unitFr})` : `Add immediate (+${cfg.quickUndoStep} ${cfg.unitEn})`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+              {/* Clear, effortless comparative view: Today vs Baseline Settings (No + or - buttons) */}
+              <div className="w-full mt-2.5 pt-2 border-t border-white/5 space-y-1 text-[10px]">
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>{isFr ? 'Aujourd\'hui :' : 'Today:'}</span>
+                  <b className={todayCount > 0 ? 'text-amber-400 font-extrabold' : 'text-emerald-400 font-extrabold'}>
+                    {todayCount} {cfg.unitFr}
+                  </b>
+                </div>
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>{isFr ? 'Profil de base :' : 'Base habit:'}</span>
+                  <b className="text-slate-300">
+                    {s === 'cigarette' ? reality.cigarettes : s === 'puff_vape' ? reality.puffs : reality.joints} {cfg.unitFr}
+                  </b>
+                </div>
               </div>
             </div>
           );

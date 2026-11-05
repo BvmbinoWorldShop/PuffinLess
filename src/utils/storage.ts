@@ -12,6 +12,7 @@ import type {
   StreakRecord,
   Language,
 } from '../types';
+import { encryptData, decryptData } from './crypto';
 
 const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -28,7 +29,7 @@ const STORAGE_KEYS = {
 export function loadStreaks(): StreakRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.STREAKS);
-    if (raw) return JSON.parse(raw);
+    return decryptData<StreakRecord[]>(raw, []);
   } catch (e) {
     console.error('Error loading streaks', e);
   }
@@ -37,7 +38,7 @@ export function loadStreaks(): StreakRecord[] {
 
 export function saveStreaks(streaks: StreakRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.STREAKS, JSON.stringify(streaks));
+    localStorage.setItem(STORAGE_KEYS.STREAKS, encryptData(streaks));
   } catch (e) {
     console.error('Error saving streaks', e);
   }
@@ -46,8 +47,8 @@ export function saveStreaks(streaks: StreakRecord[]): void {
 export const DEFAULT_PROFILE: UserProfile = {
   name: '',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-  quitDate: new Date().toISOString(),
-  cigarettesPerDay: 10,
+  quitDate: '',
+  cigarettesPerDay: 0,
   pricePerPack: 12.0,
   cigarettesInPack: 20,
   puffsPerDay: 0,
@@ -56,7 +57,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   pricePerGram: 10,
   currency: '$',
   quitMode: 'cold_turkey',
-  gradualDailyTarget: 5,
+  gradualDailyTarget: 0,
   motivators: ['My Health & Stamina', 'Financial Freedom', 'Fresh Breath & Skin'],
   isOnboarded: false,
   soundEnabled: true,
@@ -69,12 +70,12 @@ export const DEFAULT_PROFILE: UserProfile = {
   job: '',
   monthlyIncome: 3000,
   primarySubstance: 'cigarette',
-  habits: ['cigarette'],
+  habits: [],
   smokingHabitByDay: {
-    cigarettes: 10,
+    cigarettes: 0,
     puffs: 0,
     cannabis: 0,
-    yearsSmoking: 3,
+    yearsSmoking: 0,
     peakTriggers: ['Stress', 'After meal'],
   },
   customCoachGoal: 'Reclaim my lung capacity, save my money to invest, and achieve peak cognitive performance.',
@@ -444,20 +445,23 @@ export const DEFAULT_FORUM_POSTS: ForumPost[] = [
   },
 ];
 
-// Helper functions for persistent storage
+// Helper functions for persistent storage with local AES-256 encryption at rest
 export function loadProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
-    if (raw) return { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = decryptData<Partial<UserProfile>>(raw, {});
+      return { ...DEFAULT_PROFILE, ...parsed };
+    }
   } catch (e) {
     console.error('Error loading profile', e);
   }
-  return { ...DEFAULT_PROFILE, quitDate: new Date().toISOString() };
+  return { ...DEFAULT_PROFILE, quitDate: '' };
 }
 
 export function saveProfile(profile: UserProfile): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+    localStorage.setItem(STORAGE_KEYS.PROFILE, encryptData(profile));
   } catch (e) {
     console.error('Error saving profile', e);
   }
@@ -466,7 +470,7 @@ export function saveProfile(profile: UserProfile): void {
 export function loadExpenses(): PurchaseExpense[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    if (raw) return JSON.parse(raw);
+    return decryptData<PurchaseExpense[]>(raw, []);
   } catch (e) {
     console.error('Error loading expenses', e);
   }
@@ -475,7 +479,7 @@ export function loadExpenses(): PurchaseExpense[] {
 
 export function saveExpenses(expenses: PurchaseExpense[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, encryptData(expenses));
   } catch (e) {
     console.error('Error saving expenses', e);
   }
@@ -484,7 +488,7 @@ export function saveExpenses(expenses: PurchaseExpense[]): void {
 export function loadSubstanceLogs(): SubstanceLog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG);
-    if (raw) return JSON.parse(raw);
+    return decryptData<SubstanceLog[]>(raw, []);
   } catch (e) {
     console.error('Error loading substance logs', e);
   }
@@ -493,7 +497,7 @@ export function loadSubstanceLogs(): SubstanceLog[] {
 
 export function saveSubstanceLogs(logs: SubstanceLog[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, JSON.stringify(logs));
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, encryptData(logs));
   } catch (e) {
     console.error('Error saving substance logs', e);
   }
@@ -502,7 +506,7 @@ export function saveSubstanceLogs(logs: SubstanceLog[]): void {
 export function loadSleepEnergy(): SleepEnergyEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY);
-    if (raw) return JSON.parse(raw);
+    return decryptData<SleepEnergyEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading sleep energy', e);
   }
@@ -511,7 +515,7 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
 
 export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, JSON.stringify(entries));
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, encryptData(entries));
   } catch (e) {
     console.error('Error saving sleep energy', e);
   }
@@ -520,7 +524,7 @@ export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {
 export function loadSavingsGoals(): SavingsGoal[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS);
-    if (raw) return JSON.parse(raw);
+    return decryptData<SavingsGoal[]>(raw, []);
   } catch (e) {
     console.error('Error loading goals', e);
   }
@@ -529,7 +533,7 @@ export function loadSavingsGoals(): SavingsGoal[] {
 
 export function saveSavingsGoals(goals: SavingsGoal[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, JSON.stringify(goals));
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, encryptData(goals));
   } catch (e) {
     console.error('Error saving goals', e);
   }
@@ -538,7 +542,7 @@ export function saveSavingsGoals(goals: SavingsGoal[]): void {
 export function loadCravings(): CravingEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CRAVINGS);
-    if (raw) return JSON.parse(raw);
+    return decryptData<CravingEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading cravings', e);
   }
@@ -547,7 +551,7 @@ export function loadCravings(): CravingEntry[] {
 
 export function saveCravings(cravings: CravingEntry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, JSON.stringify(cravings));
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, encryptData(cravings));
   } catch (e) {
     console.error('Error saving cravings', e);
   }
@@ -556,7 +560,7 @@ export function saveCravings(cravings: CravingEntry[]): void {
 export function loadSmokeLog(): SmokeLogEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SMOKE_LOG);
-    if (raw) return JSON.parse(raw);
+    return decryptData<SmokeLogEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading smoke log', e);
   }
@@ -565,7 +569,7 @@ export function loadSmokeLog(): SmokeLogEntry[] {
 
 export function saveSmokeLog(logs: SmokeLogEntry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, JSON.stringify(logs));
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, encryptData(logs));
   } catch (e) {
     console.error('Error saving smoke log', e);
   }
@@ -574,7 +578,7 @@ export function saveSmokeLog(logs: SmokeLogEntry[]): void {
 export function loadForumPosts(): ForumPost[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.FORUM_POSTS);
-    if (raw) return JSON.parse(raw);
+    return decryptData<ForumPost[]>(raw, DEFAULT_FORUM_POSTS);
   } catch (e) {
     console.error('Error loading forum posts', e);
   }
@@ -583,7 +587,7 @@ export function loadForumPosts(): ForumPost[] {
 
 export function saveForumPosts(posts: ForumPost[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.FORUM_POSTS, JSON.stringify(posts));
+    localStorage.setItem(STORAGE_KEYS.FORUM_POSTS, encryptData(posts));
   } catch (e) {
     console.error('Error saving forum posts', e);
   }

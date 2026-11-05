@@ -902,11 +902,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     {quitDate && (
                       <button
                         type="button"
-                        onClick={() => setQuitDate('')}
-                        className="text-[10px] text-teal-400 hover:text-teal-300 underline font-semibold"
+                        onClick={() => {
+                          sound.playClick();
+                          setQuitDate('');
+                        }}
+                        className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-[9px] text-rose-300 hover:bg-rose-500/25 transition-all font-semibold shadow-xs"
                         title={isFr ? 'Laisser vierge pour suivi simple' : 'Leave blank for tracking'}
                       >
-                        {isFr ? 'Vierge' : 'Clear'}
+                        {isFr ? '✕ Vierge' : '✕ Clear'}
                       </button>
                     )}
                   </div>
