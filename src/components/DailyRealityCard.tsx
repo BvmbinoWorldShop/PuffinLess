@@ -89,6 +89,11 @@ export const DailyRealityCard: React.FC<Props> = ({
   const allowsPuff = habits.includes('puff_vape');
   const allowsCannabis = habits.includes('cannabis');
 
+  // Filter only the substances actively selected in profile habits
+  const displayedSubstances = (['cigarette', 'puff_vape', 'cannabis'] as SubstanceType[]).filter(
+    (s) => habits.includes(s)
+  );
+
   const rawCigs = sourceMode === 'today' && todayIntake ? todayIntake.cigarette : reality.cigarettes;
   const rawPuffs = sourceMode === 'today' && todayIntake ? todayIntake.puff_vape : reality.puffs;
   const rawJoints = sourceMode === 'today' && todayIntake ? todayIntake.cannabis : reality.joints;
@@ -198,44 +203,147 @@ export const DailyRealityCard: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* Projected Counts: Clean data view without modification buttons */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {(['cigarette', 'puff_vape', 'cannabis'] as SubstanceType[]).map((s) => {
-          const cfg = SUBSTANCES_CONFIG[s];
-          const Icon = cfg.icon;
-          const allowed = habits.length === 0 || habits.includes(s);
-          const rawCount =
-            s === 'cigarette' ? (activeCigs * d) :
-            s === 'puff_vape' ? (activePuffs * d) :
-            (activeJoints * d);
-          const countDisplay = allowed ? Math.round(rawCount).toLocaleString() : '0';
-          const todayCount = todayIntake ? todayIntake[s] : 0;
+      {/* Projected Counts: Dynamic Adaptive Layout (1 big & long pill, 2 medium-big pills, or 3 medium pills) */}
+      {displayedSubstances.length === 1 && (
+        <div className="w-full">
+          {displayedSubstances.map((s) => {
+            const cfg = SUBSTANCES_CONFIG[s];
+            const Icon = cfg.icon;
+            const rawCount =
+              s === 'cigarette' ? (activeCigs * d) :
+              s === 'puff_vape' ? (activePuffs * d) :
+              (activeJoints * d);
+            const countDisplay = Math.round(rawCount).toLocaleString();
+            const todayCount = todayIntake ? todayIntake[s] : 0;
 
-          return (
-            <div
-              key={s}
-              className={`p-3 rounded-2xl glass-panel flex flex-col items-center justify-center transition-all ${
-                !allowed ? 'opacity-40' : ''
-              }`}
-            >
-              <div className="w-full">
-                <div className={`w-8 h-8 rounded-xl mx-auto flex items-center justify-center border mb-1.5 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText}`}>
-                  <Icon className="w-4 h-4" />
+            return (
+              <div
+                key={s}
+                className="p-4 sm:p-5 rounded-2xl glass-panel flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left transition-all border border-white/10 shadow-lg"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText} shadow-md`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      {isFr ? cfg.labelFr : cfg.labelEn}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {isFr ? `Projection ${labels[period].toLowerCase()}` : `${labels[period]} projection`}
+                    </div>
+                    {todayIntake && sourceMode === 'today' && (
+                      <div className="text-xs text-slate-300 mt-1 tabular-nums">
+                        {isFr ? 'Aujourd\'hui :' : 'Today:'}{' '}
+                        <b className={todayCount > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
+                          {todayCount} {isFr ? cfg.unitFr : cfg.unitEn}
+                        </b>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-lg font-extrabold text-white tabular-nums">{countDisplay}</div>
-                <div className="text-[10px] sm:text-[11px] font-bold text-slate-300 whitespace-nowrap tracking-tight">
+
+                <div className="text-center sm:text-right">
+                  <div className={`text-3xl sm:text-4xl font-extrabold tabular-nums ${cfg.colorText}`}>
+                    {countDisplay}
+                  </div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {isFr ? cfg.unitFr : cfg.unitEn}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {displayedSubstances.length === 2 && (
+        <div className="grid grid-cols-2 gap-3 text-center">
+          {displayedSubstances.map((s) => {
+            const cfg = SUBSTANCES_CONFIG[s];
+            const Icon = cfg.icon;
+            const rawCount =
+              s === 'cigarette' ? (activeCigs * d) :
+              s === 'puff_vape' ? (activePuffs * d) :
+              (activeJoints * d);
+            const countDisplay = Math.round(rawCount).toLocaleString();
+            const todayCount = todayIntake ? todayIntake[s] : 0;
+
+            return (
+              <div
+                key={s}
+                className="p-3.5 sm:p-4 rounded-2xl glass-panel flex flex-col items-center justify-center transition-all border border-white/10 shadow-md"
+              >
+                <div className={`w-10 h-10 rounded-xl mx-auto flex items-center justify-center border mb-2 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className={`text-2xl font-extrabold tabular-nums ${cfg.colorText}`}>
+                  {countDisplay}
+                </div>
+                <div className="text-xs font-bold text-white mt-1 whitespace-nowrap tracking-tight">
                   {isFr ? cfg.labelFr : cfg.labelEn}
                 </div>
+                <div className="text-[10px] text-slate-400">
+                  {isFr ? cfg.unitFr : cfg.unitEn}
+                </div>
                 {todayIntake && sourceMode === 'today' && (
-                  <div className="text-[9px] text-slate-400 mt-1 tabular-nums">
-                    {isFr ? 'Aujourd\'hui :' : 'Today:'} <b className={todayCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>{todayCount}</b>
+                  <div className="text-[10px] text-slate-400 mt-1.5 pt-1.5 border-t border-white/5 w-full tabular-nums">
+                    {isFr ? 'Aujourd\'hui :' : 'Today:'}{' '}
+                    <b className={todayCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>
+                      {todayCount}
+                    </b>
                   </div>
                 )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {displayedSubstances.length >= 3 && (
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {displayedSubstances.map((s) => {
+            const cfg = SUBSTANCES_CONFIG[s];
+            const Icon = cfg.icon;
+            const rawCount =
+              s === 'cigarette' ? (activeCigs * d) :
+              s === 'puff_vape' ? (activePuffs * d) :
+              (activeJoints * d);
+            const countDisplay = Math.round(rawCount).toLocaleString();
+            const todayCount = todayIntake ? todayIntake[s] : 0;
+
+            return (
+              <div
+                key={s}
+                className="p-3 rounded-2xl glass-panel flex flex-col items-center justify-center transition-all border border-white/5 shadow-sm"
+              >
+                <div className="w-full">
+                  <div className={`w-8 h-8 rounded-xl mx-auto flex items-center justify-center border mb-1.5 ${cfg.colorBg} ${cfg.colorBorder} ${cfg.colorText}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="text-lg font-extrabold text-white tabular-nums">{countDisplay}</div>
+                  <div className="text-[10px] sm:text-[11px] font-bold text-slate-300 whitespace-nowrap tracking-tight">
+                    {isFr ? cfg.labelFr : cfg.labelEn}
+                  </div>
+                  {todayIntake && sourceMode === 'today' && (
+                    <div className="text-[9px] text-slate-400 mt-1 tabular-nums">
+                      {isFr ? 'Aujourd\'hui :' : 'Today:'} <b className={todayCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>{todayCount}</b>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {displayedSubstances.length === 0 && (
+        <div className="p-4 rounded-2xl glass-panel text-center text-xs text-slate-400 border border-white/10">
+          {isFr
+            ? 'Aucune substance active. Sélectionnez vos habitudes dans les Paramètres pour activer les projections.'
+            : 'No active substance. Select your habits in Settings to enable projections.'}
+        </div>
+      )}
 
       {/* Consequences & Projections */}
       <div className="grid grid-cols-1 gap-2">
@@ -277,6 +385,22 @@ export const DailyRealityCard: React.FC<Props> = ({
             <b className="text-white">{Math.round(packs).toLocaleString()} {isFr ? 'paquets' : 'packs'}</b>)
             {isFr ? `, formant une ligne ininterrompue de ` : `, forming an unbroken line of `}
             <b className="text-white">{lineMeters} m</b> {isFr ? `de long (~${wakingShare}% de temps d'éveil passé à fumer).` : `long (~${wakingShare}% of waking hours spent smoking).`}
+          </p>
+        ) : activePuffs > 0 ? (
+          <p>
+            {isFr
+              ? `À ce rythme journalier, vous inhalez environ `
+              : `At this daily rate, you inhale about `}
+            <b className="text-white">{Math.round(activePuffs * d).toLocaleString()} {isFr ? 'bouffées de vape' : 'vape puffs'}</b>
+            {isFr ? ` (~${wakingShare}% de votre temps d'éveil).` : ` (~${wakingShare}% of waking hours).`}
+          </p>
+        ) : activeJoints > 0 ? (
+          <p>
+            {isFr
+              ? `À ce rythme journalier, vous consommez environ `
+              : `At this daily rate, you consume about `}
+            <b className="text-white">{Math.round(activeJoints * d).toLocaleString()} {isFr ? 'joints / prises de cannabis' : 'cannabis sessions'}</b>
+            {isFr ? ` (~${wakingShare}% de votre temps d'éveil).` : ` (~${wakingShare}% of waking hours).`}
           </p>
         ) : (
           <p className="text-emerald-400 font-medium">
