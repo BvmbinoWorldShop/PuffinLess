@@ -264,8 +264,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Icon className="w-4 h-4" />
                 </div>
 
-                {/* 2. Substance Title - Harmonized level */}
-                <span className="text-[11px] font-bold text-white mt-1.5 h-4 flex items-center justify-center truncate w-full px-0.5">
+                {/* 2. Substance Title - Harmonized level & clearly legible */}
+                <span className="text-[10px] sm:text-[11px] font-bold text-white mt-1.5 h-4 flex items-center justify-center text-center whitespace-nowrap tracking-tight w-full px-0.5">
                   {o.label}
                 </span>
 
@@ -430,6 +430,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 })}
               </div>
             </div>
+
+            {/* Chrono tip */}
+            <p className="text-[10px] text-slate-400 italic text-center pt-0.5 leading-tight">
+              ⏱️ {lang === 'fr'
+                ? 'Pensez à enregistrer votre prise à la fin de votre consommation pour synchroniser votre chrono au moment exact de l\'arrêt.'
+                : 'Log right at the end of your consumption to start the timer at your exact stop moment.'}
+            </p>
 
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2 pt-1">

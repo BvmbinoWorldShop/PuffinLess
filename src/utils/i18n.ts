@@ -63,7 +63,7 @@ export const TRANSLATIONS = {
     // Substances
     substanceCigarette: 'Cigarette',
     substancePuff: 'Puff / Vape',
-    substanceCannabis: 'Cannabis',
+    substanceCannabis: 'Cannabis / CBD',
     unitCigarette: 'cig',
     unitPuff: 'puffs',
     unitJoint: 'joint',

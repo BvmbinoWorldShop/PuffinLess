@@ -522,6 +522,41 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* Confidentialité & Protection de type militaire */}
+              <div className="p-3.5 rounded-2xl glass-panel border border-teal-500/30 bg-teal-950/20 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-teal-200 flex items-center gap-1.5">
+                    <span>{isFr ? 'Confidentialité Client & Protection Militaire' : 'Client Privacy & Military-Grade Protection'}</span>
+                    <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-200 font-bold">100% Local</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                    {isFr
+                      ? 'Vos données personnelles et habitudes sont strictement confidentielles. Elles demeurent exclusivement sur votre appareil avec un système de protection autonome de type militaire : aucun serveur distant, aucun cloud externe, confidentialité absolue.'
+                      : 'Your personal data and logs are strictly confidential, protected locally on your device with autonomous military-grade security. No remote servers, no third-party tracking, absolute privacy.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Règle d'or du chronomètre */}
+              <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/30 bg-rose-950/20 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-rose-500/20 text-rose-300">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-rose-200">
+                    {isFr ? 'Règle Fondamentale pour le Chronomètre' : 'Core Rule for the Sobriety Timer'}
+                  </h4>
+                  <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                    {isFr
+                      ? 'Pour une précision clinique, enregistrez toujours votre prise à la fin exacte de votre consommation. Le chronomètre démarrera ainsi au moment réel de votre arrêt définitif.'
+                      : 'For clinical accuracy, always log your intake right at the end of consumption so the sobriety timer starts at the exact moment you actually stop.'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

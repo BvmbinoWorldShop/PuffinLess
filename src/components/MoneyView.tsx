@@ -578,7 +578,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             </button>
 
             <h3 className="text-lg font-bold text-white mb-1">
-              {isFr ? 'Enregistrer une Dépense Tabac / Vape' : 'Log Smoking Purchase'}
+              {isFr ? 'Enregistrer une dépense' : 'Log an Expense'}
             </h3>
             <p className="text-xs text-slate-400 mb-4">
               {isFr
