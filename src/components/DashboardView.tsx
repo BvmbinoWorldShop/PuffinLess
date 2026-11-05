@@ -467,6 +467,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         profile={profile}
         reality={report.reality}
         todayIntake={today}
+        onOpenLog={openLog}
+        onLogSubstance={onLogSubstance}
+        onRemoveSubstance={onRemoveSubstance}
       />
 
       {/* 6. Sleep & energy check-in + weekly trend */}

@@ -44,7 +44,6 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
   const [resourceType, setResourceType] = useState<string>('All');
   const [timelineKind, setTimelineKind] = useState<'nicotine' | 'cannabis'>('nicotine');
   const [selectedLesson, setSelectedLesson] = useState<PsychologyLesson | null>(null);
-  const [activeVideo, setActiveVideo] = useState<{ id: string; title: string; creator: string } | null>(null);
 
   // breathing
   const [technique, setTechnique] = useState<Technique>('4-7-8');
@@ -389,31 +388,6 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
                   <h4 className="text-sm font-bold text-white">{r.title}</h4>
                   <p className="text-[11px] text-emerald-400 font-semibold">{r.creator}</p>
                   <p className="text-xs text-slate-300 leading-relaxed">{r.why}</p>
-
-                  {/* Watch Video In-App or External Link */}
-                  {r.youtubeId ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playClick();
-                        setActiveVideo({ id: r.youtubeId!, title: r.title, creator: r.creator });
-                      }}
-                      className="mt-2.5 w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-400 text-white keep-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-500/25 hover:scale-[1.01] active:scale-[0.99] transition-all"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>{isFr ? 'Regarder la Conférence (Lecteur Intégré)' : 'Watch Conference (In-App Player)'}</span>
-                    </button>
-                  ) : r.url ? (
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 w-full py-1.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 border border-white/10 transition-colors"
-                    >
-                      <span>{isFr ? 'Consulter la ressource' : 'View Resource'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </a>
-                  ) : null}
                 </MorphicCard>
               ))}
             </div>
@@ -745,69 +719,6 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
             <div className="mt-5 pt-3 border-t border-white/10 flex justify-end">
               <button onClick={() => setSelectedLesson(null)} className="px-5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-semibold">
                 {isFr ? 'J\'ai compris' : 'Got it'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MINI YOUTUBE POP-UP PLAYER MODAL */}
-      {activeVideo && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-          onClick={() => setActiveVideo(null)}
-        >
-          <div
-            className="relative w-full max-w-2xl bg-slate-950 border border-red-500/40 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-red-600/30">
-                  <Play className="w-4 h-4 fill-current ml-0.5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-sm font-bold text-white truncate">{activeVideo.title}</h4>
-                  <p className="text-[11px] text-red-400 font-semibold truncate">{activeVideo.creator}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setActiveVideo(null);
-                }}
-                className="w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white shrink-0"
-                aria-label="Close video player"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Responsive 16:9 Video Player */}
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0&modestbranding=1`}
-                title={activeVideo.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="w-full h-full border-0"
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <span className="text-slate-400 text-[11px]">
-                {isFr ? 'Lecture intégrée directe sans quitter PuffinLess' : 'Direct playback inside PuffinLess'}
-              </span>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setActiveVideo(null);
-                }}
-                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-white/10 transition-colors"
-              >
-                {isFr ? 'Fermer' : 'Close'}
               </button>
             </div>
           </div>
