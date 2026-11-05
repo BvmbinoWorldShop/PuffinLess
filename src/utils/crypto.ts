@@ -8,22 +8,22 @@
 import CryptoJS from 'crypto-js';
 
 const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v1';
+const VAULT_SALT = 'puffinless_aes256_client_vault_stable_key_v2_offline';
 
 /**
  * Gets or initializes a local 256-bit encryption key on the device.
+ * Stable and deterministic so data remains 100% persistent across reloads.
  */
 function getVaultKey(): string {
   try {
     let key = localStorage.getItem(STORAGE_DEVICE_KEY);
     if (!key) {
-      // Generate a high-entropy 256-bit passphrase unique to this device/browser
-      const entropy = `${Math.random().toString(36).substring(2)}${Date.now()}${navigator.userAgent}`;
-      key = CryptoJS.SHA256(`puffinless_aes256_${entropy}`).toString(CryptoJS.enc.Hex);
+      key = CryptoJS.SHA256(VAULT_SALT).toString(CryptoJS.enc.Hex);
       localStorage.setItem(STORAGE_DEVICE_KEY, key);
     }
     return key;
   } catch {
-    return 'puffinless_offline_aes256_secure_fallback_key';
+    return CryptoJS.SHA256(VAULT_SALT).toString(CryptoJS.enc.Hex);
   }
 }
 

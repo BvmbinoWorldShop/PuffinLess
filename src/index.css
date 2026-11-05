@@ -83,10 +83,13 @@
   font-weight: 500;
 }
 
-/* LIGHT MODE SETTINGS & PROFILE MODAL - 100% BLACK/DARK CRISP READABLE TEXT */
+/* LIGHT MODE SETTINGS & GUIDE / ONBOARDING MODALS - 100% BLACK/DARK CRISP READABLE TEXT */
 .theme-light .settings-modal,
 .theme-light .settings-modal form,
-.theme-light .settings-modal [class*="glass-panel"] {
+.theme-light .settings-modal [class*="glass-panel"],
+.theme-light .guide-modal,
+.theme-light .guide-modal form,
+.theme-light .guide-modal [class*="glass-panel"] {
   background: #ffffff !important;
   color: #0f172a !important;
 }
@@ -97,19 +100,37 @@
 .theme-light .settings-modal label,
 .theme-light .settings-modal p,
 .theme-light .settings-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]),
-.theme-light .settings-modal .text-white {
+.theme-light .settings-modal .text-white,
+.theme-light .guide-modal h2,
+.theme-light .guide-modal h3,
+.theme-light .guide-modal h4,
+.theme-light .guide-modal label,
+.theme-light .guide-modal p,
+.theme-light .guide-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]),
+.theme-light .guide-modal .text-white,
+.theme-light .guide-modal .text-teal-200,
+.theme-light .guide-modal .text-rose-200,
+.theme-light .guide-modal .guide-main-heading {
   color: #0f172a !important;
+  background: none !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
 .theme-light .settings-modal .text-slate-400,
 .theme-light .settings-modal .text-slate-300,
-.theme-light .settings-modal .text-slate-500 {
+.theme-light .settings-modal .text-slate-500,
+.theme-light .guide-modal .text-slate-400,
+.theme-light .guide-modal .text-slate-300,
+.theme-light .guide-modal .text-slate-500 {
   color: #334155 !important;
 }
 
 .theme-light .settings-modal input,
 .theme-light .settings-modal select,
-.theme-light .settings-modal textarea {
+.theme-light .settings-modal textarea,
+.theme-light .guide-modal input,
+.theme-light .guide-modal select,
+.theme-light .guide-modal textarea {
   background-color: #f8fafc !important;
   border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
@@ -117,7 +138,10 @@
 
 .theme-light .settings-modal input:focus,
 .theme-light .settings-modal select:focus,
-.theme-light .settings-modal textarea:focus {
+.theme-light .settings-modal textarea:focus,
+.theme-light .guide-modal input:focus,
+.theme-light .guide-modal select:focus,
+.theme-light .guide-modal textarea:focus {
   border-color: #10b981 !important;
   background-color: #ffffff !important;
   color: #000000 !important;
@@ -125,15 +149,29 @@
 
 .theme-light .settings-modal [class*="bg-slate-900"],
 .theme-light .settings-modal [class*="bg-slate-950"],
-.theme-light .settings-modal [class*="bg-black/"] {
+.theme-light .settings-modal [class*="bg-black/"],
+.theme-light .guide-modal [class*="bg-slate-900"],
+.theme-light .guide-modal [class*="bg-slate-950"],
+.theme-light .guide-modal [class*="bg-black/"] {
   background-color: #f1f5f9 !important;
   border-color: #cbd5e1 !important;
 }
 
-/* Ensure selected primary button in settings keeps white text */
+.theme-light .guide-modal [class*="bg-emerald-950/"],
+.theme-light .guide-modal [class*="bg-teal-950/"],
+.theme-light .guide-modal [class*="bg-rose-950/"] {
+  background-color: #ffffff !important;
+}
+
+/* Ensure selected primary button in settings and guide keeps white text */
 .theme-light .settings-modal button[type="submit"],
-.theme-light .settings-modal button[type="submit"] * {
+.theme-light .settings-modal button[type="submit"] *,
+.theme-light .guide-modal button[type="submit"],
+.theme-light .guide-modal button[type="submit"] *,
+.theme-light .guide-modal [class*="bg-gradient-to-"] span,
+.theme-light .guide-modal [class*="bg-emerald-500"] span {
   color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* ULTRA-READABLE HIGH CONTRAST ON YELLOW, GOLD & AMBER SURFACES IN LIGHT MODE */

@@ -60,9 +60,11 @@ export function calculateStats(
   streaks: StreakRecord[]
 ): CalculatedStats {
   const now = Date.now();
-  const hasValidQuitDate = Boolean(profile.quitDate && !isNaN(new Date(profile.quitDate).getTime()));
-  const elapsedSeconds = hasValidQuitDate
-    ? Math.max(0, Math.floor((now - new Date(profile.quitDate).getTime()) / 1000))
+  // As default, the app starts the count from the day it is used unless a specific date is entered
+  const effectiveQuitDate = profile.quitDate || profile.createdAt;
+  const hasValidQuitDate = Boolean(effectiveQuitDate && !isNaN(new Date(effectiveQuitDate).getTime()));
+  const elapsedSeconds = hasValidQuitDate && effectiveQuitDate
+    ? Math.max(0, Math.floor((now - new Date(effectiveQuitDate).getTime()) / 1000))
     : 0;
 
   const days = Math.floor(elapsedSeconds / 86400);

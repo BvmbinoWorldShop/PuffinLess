@@ -45,9 +45,11 @@ export function saveStreaks(streaks: StreakRecord[]): void {
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
-  name: '',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+  name: 'Champion',
+  avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
   quitDate: '',
+  createdAt: '',
+  customQuitDate: false,
   cigarettesPerDay: 0,
   pricePerPack: 12.0,
   cigarettesInPack: 20,
@@ -661,16 +663,27 @@ export const DEFAULT_FORUM_POSTS: ForumPost[] = [
 
 // Helper functions for persistent storage with local AES-256 encryption at rest
 export function loadProfile(): UserProfile {
+  const nowIso = new Date().toISOString();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
     if (raw) {
       const parsed = decryptData<Partial<UserProfile>>(raw, {});
-      return { ...DEFAULT_PROFILE, ...parsed };
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        const merged: UserProfile = { ...DEFAULT_PROFILE, ...parsed };
+        if (!merged.createdAt) {
+          merged.createdAt = merged.quitDate || nowIso;
+        }
+        // As default the app starts the count from the day it is used unless a specific date is entered by the user
+        if (!merged.quitDate) {
+          merged.quitDate = merged.createdAt;
+        }
+        return merged;
+      }
     }
   } catch (e) {
     console.error('Error loading profile', e);
   }
-  return { ...DEFAULT_PROFILE, quitDate: '' };
+  return { ...DEFAULT_PROFILE, createdAt: nowIso, quitDate: nowIso };
 }
 
 export function saveProfile(profile: UserProfile): void {

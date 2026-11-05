@@ -122,8 +122,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   );
 
   const [quitMode, setQuitMode] = useState<QuitMode>(profile.quitMode || 'cold_turkey');
+  // Default clean start date is blank unless user explicitly entered a custom date
   const [quitDate, setQuitDate] = useState(() =>
-    profile.quitDate ? profile.quitDate.substring(0, 10) : ''
+    profile.customQuitDate && profile.quitDate ? profile.quitDate.substring(0, 10) : ''
   );
 
   const [confirmReset, setConfirmReset] = useState(false);
@@ -261,16 +262,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Preserve exact quitDate timestamp if untouched; allow blank if just tracking
-    let finalQuitDate = profile.quitDate || '';
-    if (quitDate === '') {
-      finalQuitDate = quitGoal === 'just_tracking' ? '' : (profile.quitDate || '');
-    } else if (profile.quitDate && profile.quitDate.startsWith(quitDate)) {
-      // Date part hasn't changed; preserve exact ISO timestamp including time!
-      finalQuitDate = profile.quitDate;
+    // Fundamental Rule: Every save DOES NOT change the started timer.
+    // As default the app starts the count from the day it is used unless a specific date is entered by the user.
+    let finalQuitDate = profile.quitDate || profile.createdAt || new Date().toISOString();
+    let finalCustomQuitDate = Boolean(profile.customQuitDate);
+
+    if (quitDate.trim() === '') {
+      // User left date blank or clicked "✕ Vierge"
+      // Keep existing started timer untouched; do not reset progress!
+      finalCustomQuitDate = false;
     } else {
-      // User explicitly changed or set a new date
-      finalQuitDate = new Date(quitDate + 'T00:00:00').toISOString();
+      // User entered an explicit specific date
+      if (profile.quitDate && profile.quitDate.startsWith(quitDate)) {
+        finalQuitDate = profile.quitDate; // Keep exact time of day if date was unchanged
+      } else {
+        finalQuitDate = new Date(quitDate + 'T00:00:00').toISOString();
+      }
+      finalCustomQuitDate = true;
     }
 
     const updated: UserProfile = {
@@ -305,6 +313,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       },
       quitMode,
       quitDate: finalQuitDate,
+      customQuitDate: finalCustomQuitDate,
+      createdAt: profile.createdAt || finalQuitDate,
+      updatedAt: new Date().toISOString(),
     };
 
     sound.setEnabled(soundEnabled);
@@ -922,7 +933,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="relative">
                   <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
                     <label className="block text-[11px] font-semibold text-slate-300 truncate">
-                      {isFr ? 'Date d\'Arrêt' : 'Clean Start Date'}
+                      {isFr ? 'Date d\'Arrêt Spécifique' : 'Custom Clean Date'}
                     </label>
                     {quitDate && (
                       <button
@@ -931,8 +942,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           sound.playClick();
                           setQuitDate('');
                         }}
-                        className="px-1.5 py-0.2 rounded-md bg-rose-500/20 border border-rose-500/40 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
-                        title={isFr ? 'Laisser vierge pour suivi simple' : 'Leave blank for tracking'}
+                        className="px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
+                        title={isFr ? 'Laisser vierge pour compter depuis le 1er jour' : 'Leave blank to count from 1st day'}
                       >
                         ✕ {isFr ? 'Vierge' : 'Clear'}
                       </button>
@@ -945,8 +956,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     placeholder="YYYY-MM-DD"
                     className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate">
-                    {isFr ? 'Optionnelle (laisser vide si suivi)' : 'Optional (leave blank if tracking)'}
+                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate" title={isFr ? 'Vierge par défaut : compte depuis le 1er jour d\'utilisation' : 'Blank by default: counts from first day of use'}>
+                    {isFr ? 'Vierge par défaut (compte dès le 1er jour)' : 'Blank by default (counts from 1st day)'}
                   </span>
                 </div>
 

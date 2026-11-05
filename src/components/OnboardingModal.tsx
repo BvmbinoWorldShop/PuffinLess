@@ -151,7 +151,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-6 flex items-center justify-center min-h-screen">
-      <div className="relative w-full max-w-lg rounded-3xl glass-panel-elevated border border-white/15 shadow-2xl shadow-emerald-950/40 text-left my-auto max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="guide-modal relative w-full max-w-lg rounded-3xl glass-panel-elevated border border-white/15 shadow-2xl shadow-emerald-950/40 text-left my-auto max-h-[92vh] flex flex-col overflow-hidden">
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -227,7 +227,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </div>
 
               <div className="text-center space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-emerald-200 bg-clip-text text-transparent">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white guide-main-heading">
                   {isFr ? 'Bienvenue sur PuffinLess' : 'Welcome to PuffinLess'}
                 </h2>
                 <p className="text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">

@@ -147,21 +147,24 @@ export function App() {
         }}
       />
 
-      <ProfileModal
-        isOpen={isProfileOpen}
-        profile={profile}
-        onClose={() => setIsProfileOpen(false)}
-        onSaveProfile={actions.updateProfile}
-        onRerunOnboarding={(step = 1) => {
-          setOnboardingStep(step);
-          setIsOnboardingOpen(true);
-        }}
-        onResetData={() => {
-          actions.resetAll();
-          setOnboardingStep(1);
-          setIsOnboardingOpen(true);
-        }}
-      />
+      {isProfileOpen && (
+        <ProfileModal
+          key={`profile-${profile.updatedAt || profile.quitDate || 'modal'}`}
+          isOpen={isProfileOpen}
+          profile={profile}
+          onClose={() => setIsProfileOpen(false)}
+          onSaveProfile={actions.updateProfile}
+          onRerunOnboarding={(step = 1) => {
+            setOnboardingStep(step);
+            setIsOnboardingOpen(true);
+          }}
+          onResetData={() => {
+            actions.resetAll();
+            setOnboardingStep(1);
+            setIsOnboardingOpen(true);
+          }}
+        />
+      )}
     </div>
   </div>
 );

@@ -76,6 +76,9 @@ export interface UserProfile {
   name: string;
   avatar: string;
   quitDate: string; // ISO date string
+  createdAt?: string; // ISO timestamp of when user first used/onboarded the app
+  customQuitDate?: boolean; // Whether user entered an explicit custom quit date
+  updatedAt?: string;
   cigarettesPerDay: number;
   pricePerPack: number;
   cigarettesInPack: number;
