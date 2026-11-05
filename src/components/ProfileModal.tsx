@@ -476,8 +476,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
                   {isFr
-                    ? 'Ces informations restent 100% privées sur votre appareil. Elles permettent au moteur Obsidian Core de calibrer des conseils psychologiques et financiers adaptés à votre réalité.'
-                    : 'This information stays 100% private on your device. It allows the Obsidian Core to personalize psychological and financial coaching to your exact life.'}
+                    ? 'Ces informations restent 100% privées sur votre appareil. Elles permettent au Centre de Contrôle de calibrer des conseils psychologiques et financiers adaptés à votre réalité.'
+                    : 'This information stays 100% private on your device. It allows the Control Center to personalize psychological and financial coaching to your exact life.'}
                 </span>
               </div>
 
@@ -1005,7 +1005,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white tracking-tight">{coachAnalysis.title}</h4>
-                    <span className="text-[11px] text-emerald-400 font-semibold">Obsidian Life Adaptation Engine</span>
+                    <span className="text-[11px] text-emerald-400 font-semibold">
+                      {isFr ? 'Moteur du Centre de Contrôle' : 'Control Center Engine'}
+                    </span>
                   </div>
                 </div>
 

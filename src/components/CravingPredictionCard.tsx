@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Radar, Clock, ShieldAlert, Wind } from 'lucide-react';
+import { Radar, Clock, ShieldAlert } from 'lucide-react';
 import type { CravingEntry, SubstanceLog, UserProfile, Language } from '../types';
 import { MorphicCard } from './MorphicCard';
-import { sound } from '../utils/audio';
 
 interface CravingPredictionCardProps {
   cravings: CravingEntry[];
   substanceLogs: SubstanceLog[];
   profile: UserProfile;
   language?: Language;
-  onOpenSos?: () => void;
-  onNavigateToWellness?: () => void;
 }
 
 interface RiskWindow {
@@ -29,8 +26,6 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
   substanceLogs,
   profile,
   language = 'en',
-  onOpenSos,
-  onNavigateToWellness,
 }) => {
   const isFr = language === 'fr';
   const [currentHour] = useState(() => new Date().getHours());
@@ -162,10 +157,10 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                {isFr ? 'Radar Obsidian IA' : 'Obsidian AI Radar'}
+                {isFr ? 'Radar IA' : 'AI Radar'}
               </span>
               <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                {isFr ? 'Chronobiologie' : 'Predictive'}
+                {isFr ? 'Chronobiologie Prédictive' : 'Predictive Chronobiology'}
               </span>
             </div>
             <h4 className="text-xs font-bold text-white tracking-tight">
@@ -212,8 +207,8 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
             <Clock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <p>
               {isFr
-                ? `L'Obsidian Core anticipe vos 3 moments charnières de la journée d'après votre rythme. Préparez votre parade mentale 15 minutes avant l'échéance.`
-                : `The Obsidian engine maps your 3 daily habit peaks. Stay ahead of cravings by arming your sensory replacement 15 minutes early.`}
+                ? "Le Radar IA anticipe vos 3 moments charnières de la journée d'après votre rythme. Anticipez votre parade mentale 15 minutes avant l'échéance."
+                : "The AI Radar maps your 3 daily habit peaks. Stay ahead of cravings by arming your sensory replacement 15 minutes early."}
             </p>
           </div>
         )}
@@ -249,40 +244,6 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Quick Action Button to deploy prevention */}
-      <div className="flex items-center gap-2 pt-1">
-        {onOpenSos && (
-          <button
-            type="button"
-            onClick={() => {
-              sound.vibrate(45);
-              sound.playClick();
-              onOpenSos();
-            }}
-            className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-rose-500/25 to-amber-500/25 border border-rose-500/40 text-rose-200 text-xs font-bold hover:bg-rose-500/35 transition-all flex items-center justify-center gap-1.5"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-            <span>{isFr ? 'Désamorcer une Pulsion (SOS)' : 'De-escalate Craving (SOS)'}</span>
-          </button>
-        )}
-
-        {onNavigateToWellness && (
-          <button
-            type="button"
-            onClick={() => {
-              sound.vibrate(45);
-              sound.playClick();
-              onNavigateToWellness();
-            }}
-            className="py-2 px-3 rounded-xl bg-slate-900/80 border border-white/10 text-emerald-300 text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-1"
-            title={isFr ? 'Studio de Respiration' : 'Breathing Studio'}
-          >
-            <Wind className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isFr ? 'Respirer' : 'Breathe'}</span>
-          </button>
-        )}
       </div>
     </MorphicCard>
   );

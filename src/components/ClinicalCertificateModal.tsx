@@ -221,7 +221,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </span>
                 {report && (
                   <span className="text-[9px] text-emerald-400 print:text-emerald-700 block font-semibold">
-                    {isFr ? `Synthèse Obsidian : ${report.headline}` : `Obsidian Synthesis: ${report.headline}`}
+                    {isFr ? `Centre de Contrôle : ${report.headline}` : `Control Center: ${report.headline}`}
                   </span>
                 )}
               </div>

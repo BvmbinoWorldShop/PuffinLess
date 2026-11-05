@@ -234,17 +234,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         );
       })()}
 
-      {/* 3. Obsidian Core */}
+      {/* 3. Control Center / Centre de Contrôle */}
       <ObsidianCoreCard report={report} language={lang} />
 
-      {/* 3b. Predictive Craving Peak Forecast */}
+      {/* 3b. AI Radar / Radar IA */}
       <CravingPredictionCard
         cravings={cravings}
         substanceLogs={substanceLogs}
         profile={profile}
         language={lang}
-        onOpenSos={onOpenSos}
-        onNavigateToWellness={() => onNavigateToTab('wellness')}
       />
 
       {/* 4. Intake counter */}

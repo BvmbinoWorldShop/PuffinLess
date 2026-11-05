@@ -56,9 +56,11 @@ export const ObsidianCoreCard: React.FC<Props> = ({ report, language = 'en' }) =
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400">Obsidian Core</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400">
+              {isFr ? 'Centre de Contrôle' : 'Control Center'}
+            </span>
             <span className="text-[10px] text-slate-400">
-              {isFr ? `mémorise ${habit.memoryEvents} événements` : `remembers ${habit.memoryEvents} moments`}
+              {isFr ? `• ${habit.memoryEvents} événements analysés` : `• ${habit.memoryEvents} moments analyzed`}
             </span>
           </div>
           <h3 className="text-base font-extrabold text-white tracking-tight leading-tight mt-0.5">{report.greeting}</h3>
