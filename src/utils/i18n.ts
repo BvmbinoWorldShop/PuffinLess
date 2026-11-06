@@ -333,8 +333,10 @@ export const SUBSTANCE_LABELS: Record<Language, Record<SubstanceType, string>> =
 export const TRIGGER_OPTIONS: { id: string; labelEn: string; labelFr: string }[] = [
   { id: 'Stress', labelEn: 'Stress', labelFr: 'Stress' },
   { id: 'Habit', labelEn: 'Habit', labelFr: 'Habitude' },
-  { id: 'After Meal', labelEn: 'After meal', labelFr: 'Après repas' },
-  { id: 'Coffee/Drink', labelEn: 'Coffee / Drink', labelFr: 'Café / Verre' },
+  { id: 'Avant/Après repas', labelEn: 'Before / After meal', labelFr: 'Avant / Après repas' },
+  { id: 'Café/Matin', labelEn: 'Coffee / Morning', labelFr: 'Café / Matin' },
+  { id: 'Soirée détente', labelEn: 'Relaxing Evening', labelFr: 'Soirée détente' },
+  { id: 'Sport', labelEn: 'Workout / Sport', labelFr: 'Sport' },
   { id: 'Boredom', labelEn: 'Boredom', labelFr: 'Ennui' },
   { id: 'Social', labelEn: 'Social', labelFr: 'En soirée / Amis' },
   { id: 'Fatigue', labelEn: 'Fatigue', labelFr: 'Fatigue' },
@@ -342,7 +344,17 @@ export const TRIGGER_OPTIONS: { id: string; labelEn: string; labelFr: string }[]
 ];
 
 export function getTriggerLabel(triggerId: string, lang: Language = 'en'): string {
-  const found = TRIGGER_OPTIONS.find((t) => t.id === triggerId || t.labelEn.toLowerCase() === triggerId.toLowerCase());
+  let lookupId = triggerId;
+  if (triggerId === 'After Meal' || triggerId === 'Après repas') lookupId = 'Avant/Après repas';
+  if (triggerId === 'Coffee/Drink' || triggerId === 'Café / Verre') lookupId = 'Café/Matin';
+
+  const found = TRIGGER_OPTIONS.find(
+    (t) =>
+      t.id === lookupId ||
+      t.id === triggerId ||
+      t.labelEn.toLowerCase() === triggerId.toLowerCase() ||
+      t.labelFr.toLowerCase() === triggerId.toLowerCase()
+  );
   if (found) {
     return lang === 'fr' ? found.labelFr : found.labelEn;
   }

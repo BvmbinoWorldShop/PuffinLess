@@ -293,16 +293,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     ev.takeNumber = idx + 1;
   });
 
-  // Base layout: up to 40 rows on Page 2 to ensure having max data in the first 2 pages
-  const firstPageEvents = unifiedEvents.slice(0, 40);
-  const remainingEvents = unifiedEvents.slice(40);
+  // Base layout: up to 30 rows on Page 2 and per continuation page for optimal visual breathing room
+  const firstPageEvents = unifiedEvents.slice(0, 30);
+  const remainingEvents = unifiedEvents.slice(30);
 
-  // Dynamic pagination: if there are more than 40 logs (e.g. for week or month), chunk remaining events (40 per continuation page)
+  // Dynamic pagination: if there are more than 30 logs (e.g. for week or month), chunk remaining events (30 per continuation page max)
   const continuationChunks: ActivityEvent[][] = [];
   if (remainingEvents.length > 0) {
     let cur = 0;
     while (cur < remainingEvents.length) {
-      const chunkSize = 40;
+      const chunkSize = 30;
       continuationChunks.push(remainingEvents.slice(cur, cur + chunkSize));
       cur += chunkSize;
     }
@@ -527,7 +527,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       max-height: 297mm;
       box-sizing: border-box !important;
       margin: 0 auto !important;
-      padding: 7mm 9mm;
+      padding: 10mm 13mm;
       background: #030712 !important;
       background-color: #030712 !important;
       background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
@@ -735,9 +735,9 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      font-size: 7.5px;
-      margin-top: 3px;
-      border-radius: 10px;
+      font-size: 8.5px;
+      margin-top: 4px;
+      border-radius: 12px;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(15, 23, 42, 0.85);
@@ -746,20 +746,50 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       background: rgba(30, 41, 59, 0.85);
       color: #94a3b8;
       text-align: left;
-      padding: 3px 5px;
+      padding: 5px 8px;
       font-weight: 800;
       text-transform: uppercase;
-      font-size: 7px;
-      letter-spacing: 0.04em;
+      font-size: 8px;
+      letter-spacing: 0.05em;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     .data-table td {
-      padding: 1.5px 5px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 4px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       color: #e2e8f0;
-      line-height: 1.15;
     }
     .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .log-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 8px;
+      margin-top: 3px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(15, 23, 42, 0.85);
+    }
+    .log-table th {
+      background: rgba(30, 41, 59, 0.85);
+      color: #94a3b8;
+      text-align: left;
+      padding: 4px 6px;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 7.5px;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .log-table td {
+      padding: 2.5px 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      line-height: 1.2;
+    }
+    .log-table tr:last-child td {
       border-bottom: none;
     }
     .sleep-trend-grid {
@@ -812,7 +842,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         height: 297mm !important;
         max-height: 297mm !important;
         margin: 0 !important;
-        padding: 7mm 9mm !important;
+        padding: 10mm 12mm !important;
         background: #030712 !important;
         background-color: #030712 !important;
         background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
@@ -1080,7 +1110,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         }</span>
       </div>
 
-      <table class="data-table">
+      <table class="log-table">
         <thead>
           <tr>
             <th style="width: 6%;">${isFr ? 'N°' : '#'}</th>
@@ -1220,7 +1250,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <span style="color: #94a3b8; font-size: 7.5px;">${chunk.length} ${isFr ? 'événements' : 'events'}</span>
       </div>
 
-      <table class="data-table">
+      <table class="log-table">
         <thead>
           <tr>
             <th style="width: 6%;">${isFr ? 'N°' : '#'}</th>
@@ -1252,27 +1282,52 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 </html>`;
   };
 
-  // Ultra-reliable print execution via isolated invisible iframe
+  // Ultra-reliable print execution via isolated invisible iframe with popup fallback
   const handlePrint = () => {
     sound.vibrate(45);
     sound.playCelebration();
 
     const htmlContent = generatePrintableDocumentHtml();
 
-    let iframe = document.getElementById('puffinless-print-iframe') as HTMLIFrameElement | null;
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'puffinless-print-iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '-10000px';
-      iframe.style.width = '210mm';
-      iframe.style.height = '297mm';
-      iframe.style.border = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
-      document.body.appendChild(iframe);
+    // Clean up any existing iframe to prevent browser print queue lock
+    const existingIframe = document.getElementById('puffinless-print-iframe');
+    if (existingIframe) {
+      existingIframe.remove();
     }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'puffinless-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '210mm';
+    iframe.style.height = '297mm';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    document.body.appendChild(iframe);
+
+    let printed = false;
+    const triggerPrint = (targetWindow: Window | null) => {
+      if (!targetWindow || printed) return;
+      try {
+        printed = true;
+        targetWindow.focus();
+        targetWindow.print();
+      } catch {
+        // Fallback to standalone popup if iframe is blocked by security context
+        const printWin = window.open('', '_blank');
+        if (printWin) {
+          printWin.document.open();
+          printWin.document.write(htmlContent);
+          printWin.document.close();
+          setTimeout(() => {
+            printWin.focus();
+            printWin.print();
+          }, 300);
+        }
+      }
+    };
 
     const doc = iframe.contentWindow?.document;
     if (doc) {
@@ -1281,11 +1336,19 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       doc.close();
 
       setTimeout(() => {
-        iframe?.contentWindow?.focus();
-        iframe?.contentWindow?.print();
+        triggerPrint(iframe.contentWindow);
       }, 350);
     } else {
-      window.print();
+      const printWin = window.open('', '_blank');
+      if (printWin) {
+        printWin.document.open();
+        printWin.document.write(htmlContent);
+        printWin.document.close();
+        setTimeout(() => {
+          printWin.focus();
+          printWin.print();
+        }, 300);
+      }
     }
   };
 
@@ -1298,7 +1361,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `PuffinLess-Dossier-Clinique-Obsidian-2Pages-${timeRange}-${stats.days}Jours.html`;
+    link.download = `PuffinLess-Dossier-Clinique-${timeRange}-${stats.days}Jours.html`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1324,11 +1387,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                <span>{isFr ? 'Dossier Clinique & Rapport Somatique' : 'Official Clinical Report'}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                  {isFr ? 'Thème Black Obsidian • 2 Pages A4 Pleines' : 'Black Obsidian • Full 2-Page A4'}
-                </span>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                {isFr ? 'Dossier Clinique & Rapport Somatique' : 'Official Clinical Report'}
               </h3>
               <p className="text-[11px] text-slate-400">
                 {isFr

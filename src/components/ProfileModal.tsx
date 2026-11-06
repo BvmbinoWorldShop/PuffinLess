@@ -336,12 +336,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const triggerOptions = [
     { id: 'Stress', labelEn: 'Stress & Pressure', labelFr: 'Stress & Pression' },
-    { id: 'After meal', labelEn: 'After Meals', labelFr: 'Après le repas' },
-    { id: 'Morning coffee', labelEn: 'Morning Coffee', labelFr: 'Café du matin' },
+    { id: 'Avant / Après repas', labelEn: 'Before / After Meals', labelFr: 'Avant / Après repas' },
+    { id: 'Café / Matin', labelEn: 'Coffee / Morning', labelFr: 'Café / Matin' },
+    { id: 'Soirée détente', labelEn: 'Relaxing Evening', labelFr: 'Soirée détente' },
+    { id: 'Sport', labelEn: 'Workout / Sport', labelFr: 'Sport' },
     { id: 'Work break', labelEn: 'Work & Screen Break', labelFr: 'Pause travail' },
     { id: 'Social drinks', labelEn: 'Social / Alcohol', labelFr: 'Soirées / Alcool' },
     { id: 'Boredom', labelEn: 'Boredom / Driving', labelFr: 'Ennui / Conduite' },
-    { id: 'Evening relax', labelEn: 'Evening Wind-down', labelFr: 'Détente du soir' },
+    { id: 'Autre', labelEn: 'Other', labelFr: 'Autre' },
   ];
 
   return (

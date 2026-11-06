@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldAlert, Sparkles, CheckCircle2, AlertTriangle, Wind, Compass, Cigarette, Leaf } from 'lucide-react';
+import { X, ShieldAlert, Sparkles, CheckCircle2, AlertTriangle, Wind, Compass } from 'lucide-react';
 import { sound } from '../utils/audio';
 import confetti from 'canvas-confetti';
 import type { SubstanceType, Language } from '../types';
@@ -34,7 +34,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [isBreathingActive, setIsBreathingActive] = useState<boolean>(false);
   const [craveIntensity, setCraveIntensity] = useState<number>(7);
-  const [selectedSubstance, setSelectedSubstance] = useState<SubstanceType>(() => defaultSubstance || 'cigarette');
+  const selectedSubstance: SubstanceType = defaultSubstance || 'puff_vape';
   const [selectedTrigger, setSelectedTrigger] = useState<string>('Stress');
   const [showSlipConfirm, setShowSlipConfirm] = useState<boolean>(false);
 
@@ -97,12 +97,6 @@ export const SosModal: React.FC<SosModalProps> = ({
     setShowSlipConfirm(false);
     onClose();
   };
-
-  const substanceOptions: { id: SubstanceType; label: string; icon: React.ElementType }[] = [
-    { id: 'cigarette', label: t('substanceCigarette', language), icon: Cigarette },
-    { id: 'puff_vape', label: t('substancePuff', language), icon: Wind },
-    { id: 'cannabis', label: t('substanceCannabis', language), icon: Leaf },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl overflow-y-auto animate-fade-in">
@@ -292,39 +286,8 @@ export const SosModal: React.FC<SosModalProps> = ({
           </div>
         )}
 
-        {/* Substance & Motivation Selectors */}
+        {/* Trigger / Motivation & Intensity Selectors */}
         <div className="mt-4 pt-3.5 border-t border-white/10 space-y-3">
-          {/* Substance selector */}
-          <div>
-            <label className="text-xs font-medium text-slate-300 mb-1.5 block">
-              {t('sosCravedSubstance', language)}
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {substanceOptions.map((opt) => {
-                const Icon = opt.icon;
-                const isSelected = selectedSubstance === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      setSelectedSubstance(opt.id);
-                    }}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      isSelected
-                        ? 'bg-rose-500/30 border-rose-400 text-rose-200 shadow-md shadow-rose-500/20'
-                        : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span className="truncate">{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Trigger / Motivation selector */}
           <div>
             <label className="text-xs font-medium text-slate-300 mb-1.5 block">
@@ -373,50 +336,26 @@ export const SosModal: React.FC<SosModalProps> = ({
 
         {/* Main CTAs: Resist vs Smoked */}
         {(() => {
-          const isWeed = selectedSubstance === 'cannabis';
-          const isPuff = selectedSubstance === 'puff_vape';
-          const subBadgeClass = isWeed
-            ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-emerald-500/20'
-            : isPuff
-            ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-cyan-500/20'
-            : 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-amber-500/20';
-          const subEmoji = isWeed ? '🟢' : isPuff ? '🔵' : '🟡';
-          const subName = isWeed
-            ? (language === 'fr' ? 'Weed (Cannabis)' : 'Weed / Cannabis')
-            : isPuff
-            ? (language === 'fr' ? 'Puff / Vape' : 'Puff / Vape')
-            : (language === 'fr' ? 'Cigarette' : 'Cigarette');
-
           return (
             <div className="mt-4 space-y-2">
               {!showSlipConfirm ? (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={handleVictory}
-                    className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1"
+                    className="py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
-                      <span>{language === 'fr' ? "J'ai résisté !" : "I Resisted!"}</span>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${subBadgeClass}`}>
-                      {subEmoji} {subName} {language === 'fr' ? 'surmontée' : 'resisted'}
-                    </span>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-200 shrink-0" />
+                    <span>{language === 'fr' ? "J'ai résisté !" : "I Resisted!"}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowSlipConfirm(true)}
-                    className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-600/30 border border-rose-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1"
+                    className="py-3 px-4 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-600/30 border border-rose-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <div className="flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
-                      <span>{language === 'fr' ? "J'ai fumé" : "I Smoked"}</span>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${subBadgeClass}`}>
-                      {subEmoji} {subName}
-                    </span>
+                    <AlertTriangle className="w-5 h-5 text-rose-200 shrink-0" />
+                    <span>{language === 'fr' ? "J'ai fumé" : "I Smoked"}</span>
                   </button>
                 </div>
               ) : (

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Award, Trophy, Tag, Lock, FileText, Download, Sparkles } from 'lucide-react';
 import type { Badge, Language, UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, PurchaseExpense } from '../types';
 import type { CoreReport } from '../core/obsidianCore';
@@ -304,10 +305,16 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
         </div>
       </div>
 
-      {/* Badge Modal Inspection */}
-      {selectedBadge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-sm rounded-3xl glass-panel-elevated p-6 text-center border border-white/20 shadow-2xl">
+      {/* Badge Modal Inspection - Portaled directly to body to ensure viewport centering regardless of scroll position */}
+      {selectedBadge && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setSelectedBadge(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-sm rounded-3xl glass-panel-elevated p-6 text-center border border-white/20 shadow-2xl bg-slate-950/95"
+          >
             <div
               className={`w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-xl border my-2 ${
                 stats.unlockedBadgeIds.includes(selectedBadge.id)
@@ -330,13 +337,14 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
             <div className="mt-6 pt-4 border-t border-white/10">
               <button
                 onClick={() => setSelectedBadge(null)}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors cursor-pointer"
               >
                 {isFr ? 'Fermer' : 'Close'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Official Certificate Modal */}
