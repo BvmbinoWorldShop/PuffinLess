@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const distDir = path.resolve('dist');
 const distHtmlPath = path.join(distDir, 'index.html');
@@ -21,13 +22,39 @@ if (cssMatch && cssMatch[1]) {
   }
 }
 
-// Find JS file in dist/assets
+// Find JS file in dist/assets & apply advanced anti-reverse engineering obfuscation
 const jsMatch = html.match(/<script type="module"[^>]*src="\.\/assets\/([^"]+)"[^>]*><\/script>/);
 if (jsMatch && jsMatch[1]) {
   const jsPath = path.join(distDir, 'assets', jsMatch[1]);
   if (fs.existsSync(jsPath)) {
-    const jsContent = fs.readFileSync(jsPath, 'utf8');
-    html = html.replace(jsMatch[0], `<script>\n${jsContent}\n</script>`);
+    console.log('🔒 Applying anti-reverse engineering & AI code protection (Control Flow Flattening, Base64 String Tables, Hex Mangles)...');
+    const rawJs = fs.readFileSync(jsPath, 'utf8');
+    const startTime = Date.now();
+
+    const obfuscationResult = JavaScriptObfuscator.obfuscate(rawJs, {
+      compact: true,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.15,
+      numbersToExpressions: true,
+      simplify: true,
+      stringArray: true,
+      stringArrayEncoding: ['base64'],
+      stringArrayThreshold: 0.75,
+      splitStrings: true,
+      splitStringsChunkLength: 6,
+      identifierNamesGenerator: 'hexadecimal',
+      renameGlobals: false
+    });
+
+    const protectedJs = obfuscationResult.getObfuscatedCode();
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✅ Protection applied in ${duration}s. Size: ${(rawJs.length / 1024).toFixed(0)} KB -> ${(protectedJs.length / 1024).toFixed(0)} KB (obfuscated)`);
+
+    // Update the dist asset so web deployment is also protected
+    fs.writeFileSync(jsPath, protectedJs, 'utf8');
+
+    // Embed into standalone single-file HTML
+    html = html.replace(jsMatch[0], `<script>\n${protectedJs}\n</script>`);
   }
 }
 
@@ -42,7 +69,19 @@ if (fs.existsSync(desktopFolder)) {
   try {
     fs.writeFileSync(path.join(desktopFolder, 'PuffinLess_App.html'), html, 'utf8');
     fs.writeFileSync(path.join(desktopFolder, 'standalone.html'), html, 'utf8');
-    console.log('Synchronized standalone app (PuffinLess_App.html & standalone.html) to Desktop folder:', desktopFolder);
+    
+    // Also sync index.html and assets directory to Desktop
+    fs.copyFileSync(distHtmlPath, path.join(desktopFolder, 'index.html'));
+    const desktopAssetsDir = path.join(desktopFolder, 'assets');
+    if (!fs.existsSync(desktopAssetsDir)) {
+      fs.mkdirSync(desktopAssetsDir, { recursive: true });
+    }
+    const distAssetsDir = path.join(distDir, 'assets');
+    for (const f of fs.readdirSync(distAssetsDir)) {
+      fs.copyFileSync(path.join(distAssetsDir, f), path.join(desktopAssetsDir, f));
+    }
+
+    console.log('Synchronized protected app (PuffinLess_App.html, standalone.html & assets) to Desktop folder:', desktopFolder);
   } catch (err) {
     console.warn('Could not sync to desktop:', err);
   }
