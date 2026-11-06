@@ -293,16 +293,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     ev.takeNumber = idx + 1;
   });
 
-  // Base layout: up to 9 rows on Page 2 for standard/daily fit
-  const firstPageEvents = unifiedEvents.slice(0, 9);
-  const remainingEvents = unifiedEvents.slice(9);
+  // Base layout: up to 40 rows on Page 2 to ensure having max data in the first 2 pages
+  const firstPageEvents = unifiedEvents.slice(0, 40);
+  const remainingEvents = unifiedEvents.slice(40);
 
-  // Dynamic pagination: if there are many logs (>9, e.g. for week or month), chunk remaining events
+  // Dynamic pagination: if there are more than 40 logs (e.g. for week or month), chunk remaining events (40 per continuation page)
   const continuationChunks: ActivityEvent[][] = [];
   if (remainingEvents.length > 0) {
     let cur = 0;
     while (cur < remainingEvents.length) {
-      const chunkSize = 14;
+      const chunkSize = 40;
       continuationChunks.push(remainingEvents.slice(cur, cur + chunkSize));
       cur += chunkSize;
     }
@@ -372,7 +372,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     const renderTableRowsHtml = (events: ActivityEvent[]) => {
       if (events.length === 0) {
         return `<tr>
-          <td colspan="7" style="text-align: center; padding: 18px; color: #34d399; font-weight: 800; font-size: 11px;">
+          <td colspan="7" style="text-align: center; padding: 14px; color: #34d399; font-weight: 800; font-size: 9.5px;">
             ✓ ${isFr ? 'Aucune consommation enregistrée sur cette période — 100% de sobriété validée' : 'Zero consumption events logged in this period — 100% clean verified'}
           </td>
         </tr>`;
@@ -403,42 +403,41 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           }
 
           return `<tr>
-        <td><span class="pill pill-gold" style="font-size: 8px;">#${ev.takeNumber}</span></td>
-        <td style="font-family: monospace; color: #94a3b8; font-size: 8.5px;"><b>${formattedTime}</b> <span style="font-size: 7.5px; color: #64748b;">(${formattedDate})</span></td>
+        <td><span class="pill pill-gold" style="font-size: 7.5px; padding: 1px 4px;">#${ev.takeNumber}</span></td>
+        <td style="font-family: monospace; color: #94a3b8; font-size: 8px; white-space: nowrap;"><b>${formattedTime}</b> <span style="font-size: 6.5px; color: #64748b;">(${formattedDate})</span></td>
         <td>
-          <span class="pill ${badgeClass}" style="font-size: 8px; padding: 2px 6px;">
+          <span class="pill ${badgeClass}" style="font-size: 7.5px; padding: 1px 5px;">
             ${iconEmoji} ${ev.type}
           </span>
           ${
             ev.cravedSubstance
-              ? `<div style="margin-top: 2px;">
+              ? `<div style="margin-top: 1px;">
               <span class="pill ${
                 ev.cravedSubstance === 'cannabis'
                   ? 'pill-sub-weed'
                   : ev.cravedSubstance === 'puff_vape'
                   ? 'pill-sub-puff'
                   : 'pill-sub-cig'
-              }" style="font-size: 7px; padding: 1px 4px;">
+              }" style="font-size: 6.5px; padding: 0.5px 3px;">
                 ${
                   ev.cravedSubstance === 'cannabis'
-                    ? '🟢 Weed / Cannabis'
+                    ? '🟢 Weed'
                     : ev.cravedSubstance === 'puff_vape'
-                    ? '🔵 Puff / Vape'
-                    : '🟡 Cigarette'
+                    ? '🔵 Puff'
+                    : '🟡 Cig'
                 }
               </span>
             </div>`
               : ''
           }
         </td>
-        <td style="font-size: 8.5px;">
-          <b style="color: #ffffff;">${ev.dose}</b><br>
-          <span style="color: #fbbf24; font-size: 8px;">${ev.intensity}</span>
+        <td style="font-size: 7.5px;">
+          <b style="color: #ffffff;">${ev.dose}</b> <span style="color: #fbbf24; font-size: 7px;">(${ev.intensity})</span>
         </td>
-        <td style="color: #fbbf24; font-weight: 700; font-size: 8.5px;">${ev.trigger}</td>
-        <td style="font-size: 8px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
+        <td style="color: #fbbf24; font-weight: 700; font-size: 7.5px;">${ev.trigger}</td>
+        <td style="font-size: 7px; color: #e2e8f0; line-height: 1.15;">💡 ${ev.correctiveAction}</td>
         <td>
-          <span class="${ev.isSlip ? 'pill-rose' : 'pill-emerald'}" style="font-size: 7.5px;">${ev.status}</span>
+          <span class="${ev.isSlip ? 'pill-rose' : 'pill-emerald'}" style="font-size: 7px; padding: 1px 4px;">${ev.status}</span>
         </td>
       </tr>`;
         })
@@ -446,23 +445,23 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     };
 
     const renderAttestationSealHtml = () => `
-      <div class="glass-bubble" style="padding: 10px 14px; margin-top: 6px; border-color: rgba(245, 158, 11, 0.3);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+      <div class="glass-bubble" style="padding: 5px 12px; margin-top: 4px; border-color: rgba(245, 158, 11, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
+            <div style="font-size: 7.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
               ${isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
             </div>
-            <div style="font-size: 11px; font-weight: 800; color: #ffffff; margin-top: 3px;">PUFFINLESS CLINICAL INSTITUTE</div>
-            <div style="font-size: 8.5px; color: #34d399; margin-top: 2px;">
+            <div style="font-size: 9.5px; font-weight: 800; color: #ffffff; margin-top: 1px;">PUFFINLESS CLINICAL INSTITUTE</div>
+            <div style="font-size: 7px; color: #34d399; margin-top: 1px;">
               ✓ ${isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
             </div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
+            <div style="font-size: 7px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
               ${isFr ? 'Direction Scientifique & Clinique' : 'Clinical & Scientific Direction'}
             </div>
-            <div style="font-weight: 900; font-size: 13px; color: #ffffff; margin-top: 2px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
-            <div style="font-size: 8px; color: #34d399; font-weight: 800; margin-top: 1px;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
+            <div style="font-weight: 900; font-size: 10.5px; color: #ffffff; margin-top: 1px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
+            <div style="font-size: 7px; color: #34d399; font-weight: 800;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
           </div>
         </div>
       </div>
@@ -528,7 +527,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       max-height: 297mm;
       box-sizing: border-box !important;
       margin: 0 auto !important;
-      padding: 10mm 13mm;
+      padding: 7mm 9mm;
       background: #030712 !important;
       background-color: #030712 !important;
       background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
@@ -736,9 +735,9 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      font-size: 9.5px;
-      margin-top: 4px;
-      border-radius: 12px;
+      font-size: 7.5px;
+      margin-top: 3px;
+      border-radius: 10px;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(15, 23, 42, 0.85);
@@ -747,17 +746,18 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       background: rgba(30, 41, 59, 0.85);
       color: #94a3b8;
       text-align: left;
-      padding: 6px 8px;
+      padding: 3px 5px;
       font-weight: 800;
       text-transform: uppercase;
-      font-size: 8.5px;
-      letter-spacing: 0.05em;
+      font-size: 7px;
+      letter-spacing: 0.04em;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     .data-table td {
-      padding: 6px 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 1.5px 5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       color: #e2e8f0;
+      line-height: 1.15;
     }
     .data-table tr:last-child td {
       border-bottom: none;
@@ -812,7 +812,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         height: 297mm !important;
         max-height: 297mm !important;
         margin: 0 !important;
-        padding: 10mm 12mm !important;
+        padding: 7mm 9mm !important;
         background: #030712 !important;
         background-color: #030712 !important;
         background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 18%, #030712 55%, #020617 100%) !important;
@@ -1045,35 +1045,35 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <span class="pill pill-gold">${isFr ? 'RAPPORT CLINIQUE SÉCURISÉ' : 'SECURE CLINICAL RECORD'}</span>
       </div>
 
-      <div class="glass-bubble" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+      <div class="glass-bubble" style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; padding: 4px 8px;">
         <span>
-          <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan">${timeRangeLabel}</span> • 
-          <b style="color: #ffffff; margin-left: 6px;">${isFr ? 'Substances Prises :' : 'Substances Taken:'}</b> 
-          <span style="color: ${totalSubstancesTakenDoses > 0 ? '#fca5a5' : '#6ee7b7'}; font-weight: 900; font-size: 11px;">
+          <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan" style="font-size: 7px; padding: 1px 5px;">${timeRangeLabel}</span> • 
+          <b style="color: #ffffff; margin-left: 4px;">${isFr ? 'Substances Prises :' : 'Substances Taken:'}</b> 
+          <span style="color: ${totalSubstancesTakenDoses > 0 ? '#fca5a5' : '#6ee7b7'}; font-weight: 900; font-size: 10px;">
             ${totalSubstancesTakenDoses}
           </span>
         </span>
-        <span style="color: #34d399; font-weight: 700;">
+        <span style="color: #34d399; font-weight: 700; font-size: 8px;">
           ${resistedCravingsCount}/${totalCravingsCount} ${isFr ? 'pulsions surmontées' : 'cravings resisted'} (${resistanceRatePercent}%)
         </span>
       </div>
 
       <!-- Substance Color Codes Legend Bar -->
-      <div class="glass-bubble" style="margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding: 5px 10px; font-size: 8px;">
+      <div class="glass-bubble" style="margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 3px; padding: 3px 8px; font-size: 7px;">
         <span style="font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em;">
-          ${isFr ? 'Code Couleur des Substances :' : 'Substance Color Codes :'}
+          ${isFr ? 'Code Couleur :' : 'Color Codes :'}
         </span>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <span class="pill pill-sub-cig">🟡 ${isFr ? 'Cigarette (Tabac)' : 'Cigarette (Tobacco)'}</span>
-          <span class="pill pill-sub-puff">🔵 ${isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)'}</span>
-          <span class="pill pill-sub-weed">🟢 ${isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)'}</span>
-          <span class="pill pill-sub-craving">🟣 ${isFr ? 'Pulsion d\'Envie' : 'Craving Urge'}</span>
+        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+          <span class="pill pill-sub-cig" style="font-size: 6.5px; padding: 1px 4px;">🟡 ${isFr ? 'Cigarette' : 'Cigarette'}</span>
+          <span class="pill pill-sub-puff" style="font-size: 6.5px; padding: 1px 4px;">🔵 ${isFr ? 'Puff / Vape' : 'Puff / Vape'}</span>
+          <span class="pill pill-sub-weed" style="font-size: 6.5px; padding: 1px 4px;">🟢 ${isFr ? 'Weed' : 'Weed'}</span>
+          <span class="pill pill-sub-craving" style="font-size: 6.5px; padding: 1px 4px;">🟣 ${isFr ? 'Pulsion' : 'Craving'}</span>
         </div>
       </div>
 
-      <div class="section-title">
+      <div class="section-title" style="margin: 4px 0 3px 0; font-size: 9px;">
         <span>${isFr ? '3. Journal Détaillé des Prises & Protocole Anti-Craving' : '3. Intake Journal & Anti-Craving Protocols'}</span>
-        <span style="color: #94a3b8; font-size: 8.5px;">${
+        <span style="color: #94a3b8; font-size: 7.5px;">${
           totalPages === 2
             ? `${firstPageEvents.length} ${isFr ? 'événements enregistrés' : 'events logged'}`
             : `${firstPageEvents.length} sur ${unifiedEvents.length} ${isFr ? `événements (Suite p. 3/${totalPages})` : `events (Cont. p. 3/${totalPages})`}`
@@ -1083,12 +1083,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width: 7%;">${isFr ? 'N°' : '#'}</th>
+            <th style="width: 6%;">${isFr ? 'N°' : '#'}</th>
             <th style="width: 13%;">${isFr ? 'Heure' : 'Hour'}</th>
-            <th style="width: 20%;">${isFr ? 'Substance' : 'Substance'}</th>
-            <th style="width: 14%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
+            <th style="width: 21%;">${isFr ? 'Substance' : 'Substance'}</th>
+            <th style="width: 15%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
             <th style="width: 15%;">${isFr ? 'Déclencheur' : 'Trigger'}</th>
-            <th style="width: 21%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
+            <th style="width: 20%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
             <th style="width: 10%;">${isFr ? 'Statut' : 'Status'}</th>
           </tr>
         </thead>
@@ -1097,86 +1097,63 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </tbody>
       </table>
 
-      <!-- Critical Craving Hours & Tendencies Card -->
-      <div class="section-title" style="margin-top: 8px;">
-        <span>${isFr ? '4. Fenêtre Horaire Critique & Radar des Tendances' : '4. Critical Craving Hours & Urge Tendencies'}</span>
-        <span class="pill pill-rose">⚠️ ${isFr ? 'Pic Vulnérable :' : 'Peak Vulnerability :'} ${peakWindowStr}</span>
-      </div>
-
-      <div class="glass-bubble-gold" style="padding: 8px 12px; margin-bottom: 6px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-          <div>
-            <span style="font-weight: 900; font-size: 10.5px; color: #fbbf24;">
-              ${isFr ? 'Fenêtre la Plus Vulnérable Détectée :' : 'Most Critical Craving Window :'} ${peakWindowStr}
+      <!-- Section 4 & 5 : Executive Side-by-Side Analytics Card -->
+      <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 5px; margin-top: 4px;">
+        <!-- Fenêtre Horaire Critique -->
+        <div class="glass-bubble-gold" style="padding: 4px 7px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+            <span style="font-weight: 900; font-size: 8px; color: #fbbf24;">
+              ⚠️ ${isFr ? 'Fenêtre Critique :' : 'Critical Window :'} ${peakWindowStr} <span style="font-size: 7px; color: #cbd5e1;">(${peakSlotLabel})</span>
             </span>
-            <span style="font-size: 8.5px; color: #cbd5e1; margin-left: 6px;">(${peakSlotLabel})</span>
+            <span class="pill pill-gold" style="font-size: 6.5px; padding: 0.5px 3px;">${maxCountInHour} ${isFr ? 'obs.' : 'urges'}</span>
           </div>
-          <span class="pill pill-gold">${maxCountInHour} ${isFr ? 'pulsions recensées' : 'urges logged'}</span>
-        </div>
 
-        <!-- 4 Slot Grid with visual mini-gauges -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; margin: 4px 0;">
-          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid rgba(255,255,255,0.06);">
-            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌅 Matin (06h-12h)</div>
-            <div style="font-size: 11px; font-weight: 900; color: #ffffff; margin-top: 1px;">${morningCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
-            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${Math.min(100, morningCount * 25)}%; background: #38bdf8;"></div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; text-align: center; margin: 2px 0;">
+            <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 1.5px 2px;">
+              <div style="font-size: 6.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌅 Matin</div>
+              <div style="font-size: 8.5px; font-weight: 900; color: #ffffff;">${morningCount}</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 1.5px 2px; border: 1px solid ${peakHour >= 12 && peakHour < 18 ? 'rgba(244, 63, 94, 0.4)' : 'transparent'};">
+              <div style="font-size: 6.5px; color: ${peakHour >= 12 && peakHour < 18 ? '#f43f5e' : '#94a3b8'}; text-transform: uppercase; font-weight: 800;">☀️ Midi</div>
+              <div style="font-size: 8.5px; font-weight: 900; color: ${peakHour >= 12 && peakHour < 18 ? '#f43f5e' : '#ffffff'};">${afternoonCount}</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 1.5px 2px; border: 1px solid ${peakHour >= 18 && peakHour < 23 ? 'rgba(244, 63, 94, 0.4)' : 'transparent'};">
+              <div style="font-size: 6.5px; color: ${peakHour >= 18 && peakHour < 23 ? '#f43f5e' : '#94a3b8'}; text-transform: uppercase; font-weight: 800;">🌆 Soir</div>
+              <div style="font-size: 8.5px; font-weight: 900; color: ${peakHour >= 18 && peakHour < 23 ? '#f43f5e' : '#ffffff'};">${eveningCount}</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 1.5px 2px;">
+              <div style="font-size: 6.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌙 Nuit</div>
+              <div style="font-size: 8.5px; font-weight: 900; color: #ffffff;">${nightCount}</div>
             </div>
           </div>
-          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid ${peakHour >= 12 && peakHour < 18 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(255,255,255,0.06)'};">
-            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">☀️ Après-Midi (12h-18h)</div>
-            <div style="font-size: 11px; font-weight: 900; color: ${peakHour >= 12 && peakHour < 18 ? '#f43f5e' : '#ffffff'}; margin-top: 1px;">${afternoonCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
-            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${Math.min(100, afternoonCount * 25)}%; background: #f43f5e;"></div>
-            </div>
-          </div>
-          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid ${peakHour >= 18 && peakHour < 23 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(255,255,255,0.06)'};">
-            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌆 Soirée (18h-23h)</div>
-            <div style="font-size: 11px; font-weight: 900; color: ${peakHour >= 18 && peakHour < 23 ? '#f43f5e' : '#ffffff'}; margin-top: 1px;">${eveningCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
-            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${Math.min(100, eveningCount * 25)}%; background: #fbbf24;"></div>
-            </div>
-          </div>
-          <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 4px 4px; border: 1px solid rgba(255,255,255,0.06);">
-            <div style="font-size: 7.5px; color: #94a3b8; text-transform: uppercase; font-weight: 800;">🌙 Nuit (23h-06h)</div>
-            <div style="font-size: 11px; font-weight: 900; color: #ffffff; margin-top: 1px;">${nightCount} <span style="font-size: 7px; color: #94a3b8;">obs.</span></div>
-            <div style="height: 3px; background: rgba(255,255,255,0.1); border-radius: 99px; margin-top: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${Math.min(100, nightCount * 25)}%; background: #a855f7;"></div>
-            </div>
+
+          <div style="font-size: 6.5px; color: #fde68a; line-height: 1.15; margin-top: 2px;">
+            💡 <b>${isFr ? 'Anticipation :' : 'Protocol :'}</b> ${isFr ? `Neutraliser le pic 15 min avant ${peakWindowStart} (eau glacée, respiration 4-7-8).` : `Pre-empt surge 15 min before ${peakWindowStart} (cold water, 4-7-8 breath).`}
           </div>
         </div>
 
-        <!-- Anticipation Protocol Tip -->
-        <div style="font-size: 8px; color: #fde68a; line-height: 1.3; margin-top: 3px;">
-          <b>💡 ${isFr ? 'Protocole d\'Anticipation Clinique :' : 'Clinical Anticipation Protocol :'}</b> ${isFr
-            ? `Désamorcer le pic dopaminergique 15 minutes avant ${peakWindowStart}. Boire un grand verre d'eau glacée, exécuter 3 cycles de respiration 4-7-8 et changer d'environnement physique.`
-            : `Neutralize the dopamine surge 15 minutes before ${peakWindowStart}. Drink ice-cold water, perform 3 cycles of 4-7-8 breathing, and change your physical environment.`}
+        <!-- Radar Comportemental & Déclencheurs -->
+        <div class="glass-bubble" style="padding: 4px 7px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+            <span style="font-weight: 800; font-size: 8px; color: #cbd5e1; text-transform: uppercase;">
+              ${isFr ? 'Radar Déclencheurs IA' : 'AI Trigger Radar'}
+            </span>
+            <span class="pill pill-gold" style="font-size: 6.5px; padding: 0.5px 3px;">${isFr ? 'Prédictif' : 'Predictive'}</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px;">
+            ${
+              topTriggers.length > 0
+                ? topTriggers.slice(0, 4).map(([trig, count]) => `
+                  <div style="background: rgba(0,0,0,0.35); border-radius: 4px; padding: 2px 3px; border: 1px solid rgba(245, 158, 11, 0.2); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 7px; color: #fbbf24; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65px;">${trig}</span>
+                    <span style="font-size: 7.5px; font-weight: 900; color: #ffffff;">${count}x</span>
+                  </div>
+                `).join('')
+                : `<div style="grid-column: span 2; font-size: 7px; color: #34d399; text-align: center; padding: 3px;">✓ ${isFr ? 'Déclencheurs neutralisés' : 'Triggers neutralized'}</div>`
+            }
+          </div>
         </div>
-      </div>
-
-      <div class="section-title" style="margin-top: 6px;">
-        <span>${isFr ? '5. Radar Comportemental & Répartition des Déclencheurs' : '5. Behavioral Radar & Trigger Distribution'}</span>
-        <span class="pill pill-gold">${isFr ? 'Analyse Prédictive IA' : 'AI Analysis'}</span>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px;">
-        ${
-          topTriggers.length > 0
-            ? topTriggers
-                .map(
-                  ([trig, count]) => `
-          <div class="glass-bubble-gold" style="padding: 6px 4px; text-align: center;">
-            <div style="font-weight: 900; font-size: 9.5px; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${trig}</div>
-            <div style="font-size: 14px; font-weight: 900; color: #ffffff; margin-top: 1px;">${count} <span style="font-size: 7.5px; color: #fde68a;">occ.</span></div>
-            <div style="font-size: 7px; color: #fde68a; text-transform: uppercase; font-weight: 700; margin-top: 1px;">${isFr ? 'Facteur de Pulsion' : 'Craving Trigger'}</div>
-          </div>`
-                )
-                .join('')
-            : `
-          <div class="glass-bubble" style="grid-column: span 4; padding: 8px; text-align: center; color: #94a3b8; font-size: 9.5px;">
-            ${isFr ? 'Les déclencheurs sont neutralisés avec succès sur cette période.' : 'Triggers successfully neutralized during this period.'}
-          </div>`
-        }
       </div>
 
       ${continuationChunks.length === 0 ? renderAttestationSealHtml() : ''}
@@ -1215,43 +1192,43 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <span class="pill pill-gold">${isFr ? `PAGE ${pageNum} SUR ${totalPages}` : `PAGE ${pageNum} OF ${totalPages}`}</span>
       </div>
 
-      <div class="glass-bubble" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+      <div class="glass-bubble" style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; padding: 4px 8px;">
         <span>
-          <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan">${timeRangeLabel}</span> • 
-          <span style="color: #cbd5e1; margin-left: 6px;">${chunk.length} ${isFr ? 'événements sur cette page' : 'events on this page'}</span>
+          <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan" style="font-size: 7px; padding: 1px 5px;">${timeRangeLabel}</span> • 
+          <span style="color: #cbd5e1; margin-left: 4px;">${chunk.length} ${isFr ? 'événements sur cette page' : 'events on this page'}</span>
         </span>
-        <span style="color: #34d399; font-weight: 700;">
+        <span style="color: #34d399; font-weight: 700; font-size: 8px;">
           ${isFr ? `Prises #${chunk[0].takeNumber} à #${chunk[chunk.length - 1].takeNumber}` : `Entries #${chunk[0].takeNumber} to #${chunk[chunk.length - 1].takeNumber}`}
         </span>
       </div>
 
       <!-- Substance Color Codes Legend Bar -->
-      <div class="glass-bubble" style="margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding: 5px 10px; font-size: 8px;">
+      <div class="glass-bubble" style="margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 3px; padding: 3px 8px; font-size: 7px;">
         <span style="font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em;">
-          ${isFr ? 'Code Couleur des Substances :' : 'Substance Color Codes :'}
+          ${isFr ? 'Code Couleur :' : 'Color Codes :'}
         </span>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <span class="pill pill-sub-cig">🟡 ${isFr ? 'Cigarette (Tabac)' : 'Cigarette (Tobacco)'}</span>
-          <span class="pill pill-sub-puff">🔵 ${isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)'}</span>
-          <span class="pill pill-sub-weed">🟢 ${isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)'}</span>
-          <span class="pill pill-sub-craving">🟣 ${isFr ? 'Pulsion d\'Envie' : 'Craving Urge'}</span>
+        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+          <span class="pill pill-sub-cig" style="font-size: 6.5px; padding: 1px 4px;">🟡 ${isFr ? 'Cigarette' : 'Cigarette'}</span>
+          <span class="pill pill-sub-puff" style="font-size: 6.5px; padding: 1px 4px;">🔵 ${isFr ? 'Puff / Vape' : 'Puff / Vape'}</span>
+          <span class="pill pill-sub-weed" style="font-size: 6.5px; padding: 1px 4px;">🟢 ${isFr ? 'Weed' : 'Weed'}</span>
+          <span class="pill pill-sub-craving" style="font-size: 6.5px; padding: 1px 4px;">🟣 ${isFr ? 'Pulsion' : 'Craving'}</span>
         </div>
       </div>
 
-      <div class="section-title">
+      <div class="section-title" style="margin: 4px 0 3px 0; font-size: 9px;">
         <span>${isFr ? `3. Suite du Journal des Prises (Feuille ${pageNum - 1})` : `3. Intake Journal Continued (Sheet ${pageNum - 1})`}</span>
-        <span style="color: #94a3b8; font-size: 8.5px;">${chunk.length} ${isFr ? 'événements' : 'events'}</span>
+        <span style="color: #94a3b8; font-size: 7.5px;">${chunk.length} ${isFr ? 'événements' : 'events'}</span>
       </div>
 
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width: 7%;">${isFr ? 'N°' : '#'}</th>
+            <th style="width: 6%;">${isFr ? 'N°' : '#'}</th>
             <th style="width: 13%;">${isFr ? 'Heure' : 'Hour'}</th>
-            <th style="width: 20%;">${isFr ? 'Substance' : 'Substance'}</th>
-            <th style="width: 14%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
+            <th style="width: 21%;">${isFr ? 'Substance' : 'Substance'}</th>
+            <th style="width: 15%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
             <th style="width: 15%;">${isFr ? 'Déclencheur' : 'Trigger'}</th>
-            <th style="width: 21%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
+            <th style="width: 20%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
             <th style="width: 10%;">${isFr ? 'Statut' : 'Status'}</th>
           </tr>
         </thead>
