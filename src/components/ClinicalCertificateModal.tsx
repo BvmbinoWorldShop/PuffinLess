@@ -102,7 +102,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   language = 'en',
 }) => {
   const [now] = useState(() => new Date());
-  const [activePageView, setActivePageView] = useState<'both' | 'p1' | 'p2'>('both');
+  const [activePageView, setActivePageView] = useState<string>('both');
   const [timeRange, setTimeRange] = useState<ExportTimeRange>('week');
   const isFr = language === 'fr';
 
@@ -292,8 +292,23 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   unifiedEvents.forEach((ev, idx) => {
     ev.takeNumber = idx + 1;
   });
-  // Display up to 9 rows to ensure strict 100% 2-page fit
-  const displayedEvents = unifiedEvents.slice(0, 9);
+
+  // Base layout: up to 9 rows on Page 2 for standard/daily fit
+  const firstPageEvents = unifiedEvents.slice(0, 9);
+  const remainingEvents = unifiedEvents.slice(9);
+
+  // Dynamic pagination: if there are many logs (>9, e.g. for week or month), chunk remaining events
+  const continuationChunks: ActivityEvent[][] = [];
+  if (remainingEvents.length > 0) {
+    let cur = 0;
+    while (cur < remainingEvents.length) {
+      const chunkSize = 14;
+      continuationChunks.push(remainingEvents.slice(cur, cur + chunkSize));
+      cur += chunkSize;
+    }
+  }
+
+  const totalPages = 2 + continuationChunks.length;
 
   // Trigger breakdown statistics
   const triggerMap: Record<string, number> = {};
@@ -352,8 +367,107 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     ? (isFr ? 'Soirée (Décompression / fin de journée)' : 'Evening (Wind-down / social)')
     : (isFr ? 'Nuit (Insomnie / vulnérabilité)' : 'Night (Insomnia / quiet hours)');
 
-  // Generate 100% Full-Page Black Theme A4 Document (Strict 2 Pages, No Blank Pages, No Dev/Repo URLs)
+  // Generate 100% Full-Page Black Theme A4 Document (Strict 2 Pages by default, expandable if many logs, No Blank Pages, No Dev/Repo URLs)
   const generatePrintableDocumentHtml = () => {
+    const renderTableRowsHtml = (events: ActivityEvent[]) => {
+      if (events.length === 0) {
+        return `<tr>
+          <td colspan="7" style="text-align: center; padding: 18px; color: #34d399; font-weight: 800; font-size: 11px;">
+            ✓ ${isFr ? 'Aucune consommation enregistrée sur cette période — 100% de sobriété validée' : 'Zero consumption events logged in this period — 100% clean verified'}
+          </td>
+        </tr>`;
+      }
+      return events
+        .map((ev) => {
+          const d = new Date(ev.timestamp);
+          const formattedDate = d.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', {
+            day: '2-digit',
+            month: '2-digit',
+          });
+          const formattedTime = d.toLocaleTimeString(isFr ? 'fr-FR' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          let badgeClass = 'pill-sub-cig';
+          let iconEmoji = '🟡';
+          if (ev.substanceKey === 'puff_vape') {
+            badgeClass = 'pill-sub-puff';
+            iconEmoji = '🔵';
+          } else if (ev.substanceKey === 'cannabis') {
+            badgeClass = 'pill-sub-weed';
+            iconEmoji = '🟢';
+          } else if (ev.substanceKey === 'craving') {
+            badgeClass = 'pill-sub-craving';
+            iconEmoji = '🟣';
+          }
+
+          return `<tr>
+        <td><span class="pill pill-gold" style="font-size: 8px;">#${ev.takeNumber}</span></td>
+        <td style="font-family: monospace; color: #94a3b8; font-size: 8.5px;"><b>${formattedTime}</b> <span style="font-size: 7.5px; color: #64748b;">(${formattedDate})</span></td>
+        <td>
+          <span class="pill ${badgeClass}" style="font-size: 8px; padding: 2px 6px;">
+            ${iconEmoji} ${ev.type}
+          </span>
+          ${
+            ev.cravedSubstance
+              ? `<div style="margin-top: 2px;">
+              <span class="pill ${
+                ev.cravedSubstance === 'cannabis'
+                  ? 'pill-sub-weed'
+                  : ev.cravedSubstance === 'puff_vape'
+                  ? 'pill-sub-puff'
+                  : 'pill-sub-cig'
+              }" style="font-size: 7px; padding: 1px 4px;">
+                ${
+                  ev.cravedSubstance === 'cannabis'
+                    ? '🟢 Weed / Cannabis'
+                    : ev.cravedSubstance === 'puff_vape'
+                    ? '🔵 Puff / Vape'
+                    : '🟡 Cigarette'
+                }
+              </span>
+            </div>`
+              : ''
+          }
+        </td>
+        <td style="font-size: 8.5px;">
+          <b style="color: #ffffff;">${ev.dose}</b><br>
+          <span style="color: #fbbf24; font-size: 8px;">${ev.intensity}</span>
+        </td>
+        <td style="color: #fbbf24; font-weight: 700; font-size: 8.5px;">${ev.trigger}</td>
+        <td style="font-size: 8px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
+        <td>
+          <span class="${ev.isSlip ? 'pill-rose' : 'pill-emerald'}" style="font-size: 7.5px;">${ev.status}</span>
+        </td>
+      </tr>`;
+        })
+        .join('');
+    };
+
+    const renderAttestationSealHtml = () => `
+      <div class="glass-bubble" style="padding: 10px 14px; margin-top: 6px; border-color: rgba(245, 158, 11, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div style="font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
+              ${isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+            </div>
+            <div style="font-size: 11px; font-weight: 800; color: #ffffff; margin-top: 3px;">PUFFINLESS CLINICAL INSTITUTE</div>
+            <div style="font-size: 8.5px; color: #34d399; margin-top: 2px;">
+              ✓ ${isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
+              ${isFr ? 'Direction Scientifique & Clinique' : 'Clinical & Scientific Direction'}
+            </div>
+            <div style="font-weight: 900; font-size: 13px; color: #ffffff; margin-top: 2px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
+            <div style="font-size: 8px; color: #34d399; font-weight: 800; margin-top: 1px;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
     return `<!DOCTYPE html>
 <html lang="${language}">
 <head>
@@ -905,7 +1019,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
     <div class="footer-bar">
       <div><b>PUFFINLESS</b> • ${isFr ? 'Dossier Somatique & Récupération' : 'Somatic Record & Recovery'}</div>
-      <div>Page <b>1 / 2</b></div>
+      <div>Page <b>1 / ${totalPages}</b></div>
     </div>
   </div>
 
@@ -959,7 +1073,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
       <div class="section-title">
         <span>${isFr ? '3. Journal Détaillé des Prises & Protocole Anti-Craving' : '3. Intake Journal & Anti-Craving Protocols'}</span>
-        <span style="color: #94a3b8; font-size: 8.5px;">${displayedEvents.length} ${isFr ? 'événements enregistrés' : 'events logged'}</span>
+        <span style="color: #94a3b8; font-size: 8.5px;">${
+          totalPages === 2
+            ? `${firstPageEvents.length} ${isFr ? 'événements enregistrés' : 'events logged'}`
+            : `${firstPageEvents.length} sur ${unifiedEvents.length} ${isFr ? `événements (Suite p. 3/${totalPages})` : `events (Cont. p. 3/${totalPages})`}`
+        }</span>
       </div>
 
       <table class="data-table">
@@ -975,80 +1093,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           </tr>
         </thead>
         <tbody>
-          ${
-            displayedEvents.length > 0
-              ? displayedEvents
-                  .map((ev) => {
-                    const d = new Date(ev.timestamp);
-                    const formattedDate = d.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', {
-                      day: '2-digit',
-                      month: '2-digit',
-                    });
-                    const formattedTime = d.toLocaleTimeString(isFr ? 'fr-FR' : 'en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-
-                    let badgeClass = 'pill-sub-cig';
-                    let iconEmoji = '🟡';
-                    if (ev.substanceKey === 'puff_vape') {
-                      badgeClass = 'pill-sub-puff';
-                      iconEmoji = '🔵';
-                    } else if (ev.substanceKey === 'cannabis') {
-                      badgeClass = 'pill-sub-weed';
-                      iconEmoji = '🟢';
-                    } else if (ev.substanceKey === 'craving') {
-                      badgeClass = 'pill-sub-craving';
-                      iconEmoji = '🟣';
-                    }
-
-                    return `<tr>
-                  <td><span class="pill pill-gold" style="font-size: 8px;">#${ev.takeNumber}</span></td>
-                  <td style="font-family: monospace; color: #94a3b8; font-size: 8.5px;"><b>${formattedTime}</b> <span style="font-size: 7.5px; color: #64748b;">(${formattedDate})</span></td>
-                  <td>
-                    <span class="pill ${badgeClass}" style="font-size: 8px; padding: 2px 6px;">
-                      ${iconEmoji} ${ev.type}
-                    </span>
-                    ${
-                      ev.cravedSubstance
-                        ? `<div style="margin-top: 2px;">
-                        <span class="pill ${
-                          ev.cravedSubstance === 'cannabis'
-                            ? 'pill-sub-weed'
-                            : ev.cravedSubstance === 'puff_vape'
-                            ? 'pill-sub-puff'
-                            : 'pill-sub-cig'
-                        }" style="font-size: 7px; padding: 1px 4px;">
-                          ${
-                            ev.cravedSubstance === 'cannabis'
-                              ? '🟢 Weed / Cannabis'
-                              : ev.cravedSubstance === 'puff_vape'
-                              ? '🔵 Puff / Vape'
-                              : '🟡 Cigarette'
-                          }
-                        </span>
-                      </div>`
-                        : ''
-                    }
-                  </td>
-                  <td style="font-size: 8.5px;">
-                    <b style="color: #ffffff;">${ev.dose}</b><br>
-                    <span style="color: #fbbf24; font-size: 8px;">${ev.intensity}</span>
-                  </td>
-                  <td style="color: #fbbf24; font-weight: 700; font-size: 8.5px;">${ev.trigger}</td>
-                  <td style="font-size: 8px; color: #e2e8f0; line-height: 1.25;">💡 ${ev.correctiveAction}</td>
-                  <td>
-                    <span class="${ev.isSlip ? 'pill-rose' : 'pill-emerald'}" style="font-size: 7.5px;">${ev.status}</span>
-                  </td>
-                </tr>`;
-                  })
-                  .join('')
-              : `<tr>
-                <td colspan="7" style="text-align: center; padding: 18px; color: #34d399; font-weight: 800; font-size: 11px;">
-                  ✓ ${isFr ? 'Aucune consommation enregistrée sur cette période — 100% de sobriété validée' : 'Zero consumption events logged in this period — 100% clean verified'}
-                </td>
-              </tr>`
-          }
+          ${renderTableRowsHtml(firstPageEvents)}
         </tbody>
       </table>
 
@@ -1134,33 +1179,97 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         }
       </div>
 
-      <div class="glass-bubble" style="padding: 10px 14px; margin-top: 6px; border-color: rgba(245, 158, 11, 0.3);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-          <div>
-            <div style="font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
-              ${isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
-            </div>
-            <div style="font-size: 11px; font-weight: 800; color: #ffffff; margin-top: 3px;">PUFFINLESS CLINICAL INSTITUTE</div>
-            <div style="font-size: 8.5px; color: #34d399; margin-top: 2px;">
-              ✓ ${isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
-            </div>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
-              ${isFr ? 'Direction Scientifique & Clinique' : 'Clinical & Scientific Direction'}
-            </div>
-            <div style="font-weight: 900; font-size: 13px; color: #ffffff; margin-top: 2px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
-            <div style="font-size: 8px; color: #34d399; font-weight: 800; margin-top: 1px;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
-          </div>
-        </div>
-      </div>
+      ${continuationChunks.length === 0 ? renderAttestationSealHtml() : ''}
     </div>
 
     <div class="footer-bar">
       <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan Clinique & Suivi des Prises' : 'Clinical Report & Intake Log'}</div>
-      <div>Page <b>2 / 2</b></div>
+      <div>Page <b>2 / ${totalPages}</b></div>
     </div>
   </div>
+
+  ${continuationChunks
+    .map((chunk, idx) => {
+      const pageNum = 3 + idx;
+      const isLast = pageNum === totalPages;
+      return `
+  <!-- ==================== PAGE ${pageNum} : SUITE DU JOURNAL ==================== -->
+  <div class="a4-page">
+    <div class="corner-decor top-l"></div>
+    <div class="corner-decor top-r"></div>
+    <div class="corner-decor bot-l"></div>
+    <div class="corner-decor bot-r"></div>
+
+    <div>
+      <div class="header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="16" fill="#10b981"/>
+            <path d="M18 46L46 18M26 46L46 26" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <span style="font-weight: 900; font-size: 14px; color: #ffffff; letter-spacing: 0.05em;">PUFFINLESS</span>
+            <span style="font-size: 9px; color: #fbbf24; font-weight: 700; margin-left: 6px;">${isFr ? 'SUITE DU JOURNAL DES CONSOMMATIONS' : 'CONTINUED INTAKE & CRAVINGS LOG'}</span>
+          </div>
+        </div>
+        <span class="pill pill-gold">${isFr ? `PAGE ${pageNum} SUR ${totalPages}` : `PAGE ${pageNum} OF ${totalPages}`}</span>
+      </div>
+
+      <div class="glass-bubble" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+        <span>
+          <b style="color: #ffffff;">${isFr ? 'Période analysée :' : 'Analyzed Period:'}</b> <span class="pill pill-cyan">${timeRangeLabel}</span> • 
+          <span style="color: #cbd5e1; margin-left: 6px;">${chunk.length} ${isFr ? 'événements sur cette page' : 'events on this page'}</span>
+        </span>
+        <span style="color: #34d399; font-weight: 700;">
+          ${isFr ? `Prises #${chunk[0].takeNumber} à #${chunk[chunk.length - 1].takeNumber}` : `Entries #${chunk[0].takeNumber} to #${chunk[chunk.length - 1].takeNumber}`}
+        </span>
+      </div>
+
+      <!-- Substance Color Codes Legend Bar -->
+      <div class="glass-bubble" style="margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding: 5px 10px; font-size: 8px;">
+        <span style="font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em;">
+          ${isFr ? 'Code Couleur des Substances :' : 'Substance Color Codes :'}
+        </span>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span class="pill pill-sub-cig">🟡 ${isFr ? 'Cigarette (Tabac)' : 'Cigarette (Tobacco)'}</span>
+          <span class="pill pill-sub-puff">🔵 ${isFr ? 'Puff / Vape (Nicotine)' : 'Puff / Vape (Nicotine)'}</span>
+          <span class="pill pill-sub-weed">🟢 ${isFr ? 'Weed / Cannabis (THC/CBD)' : 'Weed / Cannabis (THC/CBD)'}</span>
+          <span class="pill pill-sub-craving">🟣 ${isFr ? 'Pulsion d\'Envie' : 'Craving Urge'}</span>
+        </div>
+      </div>
+
+      <div class="section-title">
+        <span>${isFr ? `3. Suite du Journal des Prises (Feuille ${pageNum - 1})` : `3. Intake Journal Continued (Sheet ${pageNum - 1})`}</span>
+        <span style="color: #94a3b8; font-size: 8.5px;">${chunk.length} ${isFr ? 'événements' : 'events'}</span>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 7%;">${isFr ? 'N°' : '#'}</th>
+            <th style="width: 13%;">${isFr ? 'Heure' : 'Hour'}</th>
+            <th style="width: 20%;">${isFr ? 'Substance' : 'Substance'}</th>
+            <th style="width: 14%;">${isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
+            <th style="width: 15%;">${isFr ? 'Déclencheur' : 'Trigger'}</th>
+            <th style="width: 21%;">${isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
+            <th style="width: 10%;">${isFr ? 'Statut' : 'Status'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderTableRowsHtml(chunk)}
+        </tbody>
+      </table>
+
+      ${isLast ? renderAttestationSealHtml() : ''}
+    </div>
+
+    <div class="footer-bar">
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan Clinique & Suivi des Prises' : 'Clinical Report & Intake Log'}</div>
+      <div>Page <b>${pageNum} / ${totalPages}</b></div>
+    </div>
+  </div>`;
+    })
+    .join('')}
 
 </body>
 </html>`;
@@ -1351,21 +1460,21 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </div>
 
         {/* Page Switcher Tabs */}
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5 shrink-0 text-xs">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5 shrink-0 text-xs flex-wrap gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-slate-400 font-medium mr-1 text-[11px]">{isFr ? 'Aperçu :' : 'Preview:'}</span>
             <button
               onClick={() => setActivePageView('both')}
               className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
-                activePageView === 'both' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-white'
+                activePageView === 'both' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              {isFr ? 'Les 2 Pages (100% Pleines)' : 'Both Pages (100% Full)'}
+              {isFr ? `Toutes (${totalPages} Pages)` : `All (${totalPages} Pages)`}
             </button>
             <button
               onClick={() => setActivePageView('p1')}
               className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
-                activePageView === 'p1' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-white'
+                activePageView === 'p1' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
               {isFr ? 'Page 1 (Bilan & Sommeil)' : 'Page 1 (Vitals & Sleep)'}
@@ -1373,11 +1482,25 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <button
               onClick={() => setActivePageView('p2')}
               className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
-                activePageView === 'p2' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-white'
+                activePageView === 'p2' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
-              {isFr ? 'Page 2 (Journal & Actions)' : 'Page 2 (Logs & Actions)'}
+              {isFr ? 'Page 2 (Prises & Radar)' : 'Page 2 (Logs & Radar)'}
             </button>
+            {continuationChunks.map((_, idx) => {
+              const pKey = `p${idx + 3}`;
+              return (
+                <button
+                  key={pKey}
+                  onClick={() => setActivePageView(pKey)}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                    activePageView === pKey ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Page {idx + 3}
+                </button>
+              );
+            })}
           </div>
 
           <span className="text-[10px] text-amber-400 font-mono font-bold">
@@ -1394,7 +1517,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 pb-2 border-b border-white/10 uppercase tracking-widest">
                 <span className="flex items-center gap-1.5">
                   <PuffinLessLogo size={18} />
-                  <span>{isFr ? 'PAGE 1 / 2 — Bilan Somatique & Tendance Sommeil' : 'PAGE 1 / 2 — Somatic Vitals & Sleep Trend'}</span>
+                  <span>{isFr ? `PAGE 1 / ${totalPages} — Bilan Somatique & Tendance Sommeil` : `PAGE 1 / ${totalPages} — Somatic Vitals & Sleep Trend`}</span>
                 </span>
                 <span className="text-slate-400">{currentDateStr}</span>
               </div>
@@ -1554,7 +1677,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 pb-2 border-b border-white/10 uppercase tracking-widest">
                 <span className="flex items-center gap-1.5">
                   <Activity className="w-4 h-4" />
-                  <span>{isFr ? 'PAGE 2 / 2 — Journal des Prises, Déclencheurs & Actions' : 'PAGE 2 / 2 — Intake Logs & Action Protocols'}</span>
+                  <span>{isFr ? `PAGE 2 / ${totalPages} — Journal des Prises, Déclencheurs & Actions` : `PAGE 2 / ${totalPages} — Intake Logs & Action Protocols`}</span>
                 </span>
                 <span className="text-slate-400">PuffinLess Clinical Report</span>
               </div>
@@ -1594,7 +1717,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold text-white">
                   <span>{isFr ? 'Historique des Prises & Déclencheurs' : 'Activity, Triggers & Corrective Protocols'}</span>
-                  <span className="text-[10px] text-slate-400">{displayedEvents.length} {isFr ? 'enregistrements affichés' : 'entries shown'}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {totalPages === 2
+                      ? `${firstPageEvents.length} ${isFr ? 'enregistrements affichés' : 'entries shown'}`
+                      : `${firstPageEvents.length} sur ${unifiedEvents.length} ${isFr ? `affichés (Suite Page 3/${totalPages})` : `shown (Cont. Page 3/${totalPages})`}`}
+                  </span>
                 </div>
 
                 <div className="rounded-2xl overflow-hidden border border-white/10 text-xs bg-slate-900/80">
@@ -1611,8 +1738,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-xs text-slate-300">
-                      {displayedEvents.length > 0 ? (
-                        displayedEvents.map((ev) => {
+                      {firstPageEvents.length > 0 ? (
+                        firstPageEvents.map((ev) => {
                           const d = new Date(ev.timestamp);
                           const dateFmt = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
                           const timeFmt = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
@@ -1757,26 +1884,154 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
               </div>
 
-              {/* Official Attestation Footer */}
-              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
-                    {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
-                  </span>
-                  <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
-                  <span className="text-[9px] text-emerald-400 block mt-0.5">
-                    ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold text-[11px]">
-                    <Shield className="w-4 h-4" />
-                    <span>PuffinLess Certified</span>
+              {/* Official Attestation Footer (shown on Page 2 if strictly 2 pages) */}
+              {continuationChunks.length === 0 && (
+                <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
+                      {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+                    </span>
+                    <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
+                    <span className="text-[9px] text-emerald-400 block mt-0.5">
+                      ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold text-[11px]">
+                      <Shield className="w-4 h-4" />
+                      <span>PuffinLess Certified</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
+
+          {/* ==================== CONTINUATION PAGES PREVIEW ==================== */}
+          {continuationChunks.map((chunk, idx) => {
+            const pageNum = 3 + idx;
+            const isLast = pageNum === totalPages;
+            const shouldShow = activePageView === 'both' || activePageView === `p${pageNum}`;
+            if (!shouldShow) return null;
+
+            return (
+              <div key={`preview-p${pageNum}`} className="rounded-3xl p-5 sm:p-7 border border-amber-500/30 bg-slate-950 shadow-2xl space-y-4 relative">
+                <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 pb-2 border-b border-white/10 uppercase tracking-widest">
+                  <span className="flex items-center gap-1.5">
+                    <Activity className="w-4 h-4" />
+                    <span>{isFr ? `PAGE ${pageNum} / ${totalPages} — Suite du Journal des Prises` : `PAGE ${pageNum} / ${totalPages} — Continued Intake Logs`}</span>
+                  </span>
+                  <span className="text-slate-400">PuffinLess Clinical Report</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-white">
+                    <span>{isFr ? `Suite des Prises #${chunk[0].takeNumber} à #${chunk[chunk.length - 1].takeNumber}` : `Entries #${chunk[0].takeNumber} to #${chunk[chunk.length - 1].takeNumber}`}</span>
+                    <span className="text-[10px] text-slate-400">{chunk.length} {isFr ? 'événements sur cette page' : 'events on this page'}</span>
+                  </div>
+
+                  <div className="rounded-2xl overflow-hidden border border-white/10 text-xs bg-slate-900/80">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-900 text-slate-400 text-[10px] uppercase">
+                        <tr>
+                          <th className="p-2.5">{isFr ? 'N°' : '#'}</th>
+                          <th className="p-2.5">{isFr ? 'Heure' : 'Hour'}</th>
+                          <th className="p-2.5">{isFr ? 'Substance' : 'Substance'}</th>
+                          <th className="p-2.5">{isFr ? 'Dose & Intensité' : 'Dose & Intensity'}</th>
+                          <th className="p-2.5">{isFr ? 'Déclencheur' : 'Trigger'}</th>
+                          <th className="p-2.5">{isFr ? 'Conseil Anti-Craving (Action)' : 'Anti-Craving Tip'}</th>
+                          <th className="p-2.5">{isFr ? 'Statut' : 'Status'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-xs text-slate-300">
+                        {chunk.map((ev) => {
+                          const d = new Date(ev.timestamp);
+                          const dateFmt = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                          const timeFmt = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+
+                          let badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                          let iconEmoji = '🟡';
+                          if (ev.substanceKey === 'puff_vape') {
+                            badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+                            iconEmoji = '🔵';
+                          } else if (ev.substanceKey === 'cannabis') {
+                            badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                            iconEmoji = '🟢';
+                          } else if (ev.substanceKey === 'craving') {
+                            badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+                            iconEmoji = '🟣';
+                          }
+
+                          return (
+                            <tr key={ev.id} className="hover:bg-white/5">
+                              <td className="p-2.5 font-mono font-bold text-amber-300">#{ev.takeNumber}</td>
+                              <td className="p-2.5 font-mono text-[11px] text-slate-400">
+                                <b className="text-white">{timeFmt}</b> <span className="text-[10px] text-slate-500">({dateFmt})</span>
+                              </td>
+                              <td className="p-2.5">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                                  {iconEmoji} {ev.type}
+                                </span>
+                                {ev.cravedSubstance && (
+                                  <div className="mt-1">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                      ev.cravedSubstance === 'cannabis'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                        : ev.cravedSubstance === 'puff_vape'
+                                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                    }`}>
+                                      {ev.cravedSubstance === 'cannabis' ? '🟢 Weed / Cannabis' : ev.cravedSubstance === 'puff_vape' ? '🔵 Puff / Vape' : '🟡 Cigarette'}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-2.5">
+                                <b className="text-white">{ev.dose}</b><br/>
+                                <span className="text-[10px] text-amber-300 font-semibold">{ev.intensity}</span>
+                              </td>
+                              <td className="p-2.5 text-amber-300 font-semibold">{ev.trigger}</td>
+                              <td className="p-2.5 text-slate-200 text-[11px]">💡 {ev.correctiveAction}</td>
+                              <td className="p-2.5">
+                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                  ev.isSlip
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                }`}>
+                                  {ev.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* If last page, show the official attestation */}
+                {isLast && (
+                  <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
+                        {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+                      </span>
+                      <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
+                      <span className="text-[9px] text-emerald-400 block mt-0.5">
+                        ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold text-[11px]">
+                        <Shield className="w-4 h-4" />
+                        <span>PuffinLess Certified</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
         </div>
       </div>
