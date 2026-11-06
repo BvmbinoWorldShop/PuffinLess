@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Calendar as CalendarIcon, BarChart3, ChevronLeft, ChevronRight,
   Sparkles, AlertTriangle, CheckCircle, Info, Moon, BatteryCharging,
-  TrendingDown, TrendingUp, Minus, Clock
+  TrendingDown, TrendingUp, Minus, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import type { SubstanceLog, SleepEnergyEntry, CravingEntry, Language, SubstanceType } from '../types';
 import { MorphicCard } from './MorphicCard';
@@ -28,6 +28,28 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
   const isFr = currentLang === 'fr';
   const [viewMode, setViewMode] = useState<'calendar' | 'daily' | 'weekday'>('calendar');
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr());
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+
+  const getTriggerTip = (trigger?: string) => {
+    if (!trigger) return isFr ? 'Respiration 4-7-8 immédiate et changement d\'environnement' : '4-7-8 breathing and change environment';
+    const t = trigger.toLowerCase();
+    if (t.includes('stress') || t.includes('pression')) {
+      return isFr ? 'Respiration 4-7-8 immédiate pour faire chuter le cortisol' : '4-7-8 breathing to lower cortisol';
+    }
+    if (t.includes('café') || t.includes('coffee') || t.includes('matin')) {
+      return isFr ? 'Remplacer par un thé vert matcha ou un grand verre d\'eau citronnée' : 'Swap with iced matcha or lemon water';
+    }
+    if (t.includes('repas') || t.includes('meal')) {
+      return isFr ? 'Brossage de dents immédiat ou chewing-gum menthe forte' : 'Brush teeth immediately or chew strong mint';
+    }
+    if (t.includes('sport') || t.includes('workout')) {
+      return isFr ? 'Hydratation avec électrolytes et étirements post-effort' : 'Hydrate with electrolytes and stretch';
+    }
+    if (t.includes('soir') || t.includes('détente') || t.includes('relax')) {
+      return isFr ? 'Tisane mélisse/camomille et extinction des écrans 30 min avant le coucher' : 'Chamomile tea and screen curfew 30 min before bed';
+    }
+    return isFr ? 'Règle des 180 secondes : boire de l\'eau glacée pour briser la pulsion' : '180-second rule: drink ice-cold water to break urge';
+  };
 
   // Month navigation
   const [activeMonthDate, setActiveMonthDate] = useState<Date>(() => {
@@ -401,6 +423,8 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
               const isSelected = selectedDate === cell.dateStr;
               const hasIntake = data && data.totalUnits > 0;
               const isClean = !cell.isFuture && (!data || data.totalUnits === 0);
+              const resistedCravings = data?.resistedCravingsCount || 0;
+              const smokedCravings = (data?.cravingsCount || 0) - resistedCravings;
 
               let badgeColor = 'bg-slate-900/30 border-white/5 text-slate-400';
               if (cell.isFuture) {
@@ -423,7 +447,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                     sound.playClick();
                     setSelectedDate(cell.dateStr);
                   }}
-                  className={`relative h-9 rounded-xl border flex flex-col items-center justify-center transition-all ${badgeColor} ${
+                  className={`relative h-9 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${badgeColor} ${
                     isSelected ? 'ring-2 ring-teal-400 shadow-md scale-105 z-10' : ''
                   }`}
                 >
@@ -434,7 +458,22 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                     </span>
                   )}
                   {isClean && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-0.5 shadow-sm" />
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm" />
+                      {resistedCravings > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-sm" title={`${resistedCravings} ${isFr ? 'pulsions surmontées' : 'cravings resisted'}`} />
+                      )}
+                    </div>
+                  )}
+                  {!isClean && (
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      {resistedCravings > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-sm" title={`${resistedCravings} ${isFr ? 'pulsions surmontées' : 'cravings resisted'}`} />
+                      )}
+                      {smokedCravings > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-sm" title={`${smokedCravings} ${isFr ? 'craving cédé' : 'craving smoked'}`} />
+                      )}
+                    </div>
                   )}
                 </button>
               );
@@ -442,10 +481,14 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
           </div>
 
           {/* Legend */}
-          <div className="flex items-center justify-center gap-3 pt-1 text-[10px] text-slate-400">
+          <div className="flex items-center justify-center gap-2.5 pt-1 text-[10px] text-slate-400 flex-wrap">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               {isFr ? 'Sobre (0)' : 'Clean (0)'}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              {isFr ? 'Pulsion Résistée' : 'Craving Resisted'}
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
@@ -459,21 +502,33 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
 
           {/* Selected Day Details Panel */}
           {selectedDate && (
-            <div className="p-3 rounded-2xl bg-slate-900/50 border border-white/10 space-y-2 animate-fade-in">
-              <div className="flex items-center justify-between">
+            <div className="p-3 rounded-2xl bg-slate-900/50 border border-white/10 space-y-2.5 animate-fade-in">
+              <div className="flex items-center justify-between flex-wrap gap-1.5">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 text-teal-400" />
                   {isFr ? `Données saisies le ${selectedDate}` : `Database inputs for ${selectedDate}`}
                 </span>
-                {(!selectedDayInfo || selectedDayInfo.totalUnits === 0) ? (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    {isFr ? 'Journée Propre (0)' : 'Clean Day (0)'}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                    {selectedDayInfo.totalUnits} {isFr ? 'unités consommées' : 'units logged'}
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(!selectedDayInfo || selectedDayInfo.totalUnits === 0) ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      {isFr ? 'Journée Propre (0)' : 'Clean Day (0)'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      {selectedDayInfo.totalUnits} {isFr ? 'unités consommées' : 'units logged'}
+                    </span>
+                  )}
+                  {selectedDayInfo && selectedDayInfo.resistedCravingsCount > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      🛡️ {selectedDayInfo.resistedCravingsCount} {isFr ? 'résisté(s)' : 'resisted'}
+                    </span>
+                  )}
+                  {selectedDayInfo && (selectedDayInfo.cravingsCount - selectedDayInfo.resistedCravingsCount) > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      ⚡ {selectedDayInfo.cravingsCount - selectedDayInfo.resistedCravingsCount} {isFr ? 'fumé(s)' : 'smoked'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -529,7 +584,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                 <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-teal-400" />
-                    <span>{isFr ? 'Chronologie de la journée (ordre chronologique)' : 'Day timeline (chronological order)'}</span>
+                    <span>{isFr ? 'Chronologie de la journée (cliquez pour inspecter)' : 'Day timeline (click to inspect)'}</span>
                   </span>
                   <span className="text-[10px] text-slate-400">
                     {selectedDayTimeline.length} {isFr ? 'entrées' : 'entries'}
@@ -541,9 +596,10 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                     ✨ {isFr ? 'Aucune consommation ni pulsion enregistrée ce jour.' : 'No consumption or cravings logged on this day.'}
                   </div>
                 ) : (
-                  <div className="space-y-1 max-h-56 overflow-y-auto pr-0.5">
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
                     {selectedDayTimeline.map((item) => {
                       const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const isExpanded = expandedItemId === item.id;
 
                       if (item.kind === 'log') {
                         const isCig = item.substance === 'cigarette';
@@ -562,76 +618,185 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                           : (isFr ? 'joint' : 'joint');
 
                         const nameLabel = isCig
-                          ? (isFr ? 'Cigarette' : 'Cigarette')
+                          ? (isFr ? '🟡 Cigarette' : '🟡 Cigarette')
                           : isVape
-                          ? (isFr ? 'Vape / Puff' : 'Vape / Puff')
-                          : (isFr ? 'Cannabis / CBD' : 'Cannabis / CBD');
+                          ? (isFr ? '🔵 Vape / Puff' : '🔵 Vape / Puff')
+                          : (isFr ? '🟢 Cannabis / Weed' : '🟢 Cannabis / Weed');
 
                         return (
                           <div
                             key={item.id}
-                            className="p-1.5 rounded-xl bg-slate-900/70 border border-white/5 flex items-center justify-between text-[11px]"
+                            onClick={() => {
+                              sound.playClick();
+                              setExpandedItemId(isExpanded ? null : item.id);
+                            }}
+                            className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                              isExpanded
+                                ? 'bg-slate-800/80 border-teal-500/40 shadow-lg shadow-black/40 ring-1 ring-teal-500/30'
+                                : 'bg-slate-900/70 border-white/5 hover:border-white/20'
+                            }`}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[10px] text-teal-400 font-semibold tabular-nums">{timeStr}</span>
-                              <span className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${badgeStyle}`}>
-                                {nameLabel}
-                              </span>
-                              <span className="font-bold text-white tabular-nums">
-                                +{item.count} {unitLabel}
-                              </span>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-teal-400 font-semibold tabular-nums">{timeStr}</span>
+                                <span className="px-2 py-0.5 rounded-lg border text-[10px] font-bold bg-slate-800 border-white/10 text-slate-200">
+                                  {isFr ? 'Fumée enregistrée' : 'Logged smoke'}
+                                </span>
+                                <span className="font-bold text-white tabular-nums">
+                                  +{item.count} {unitLabel}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                {item.trigger && !isExpanded && (
+                                  <span className="text-[10px] font-medium text-rose-300 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-md">
+                                    🎯 {item.trigger}
+                                  </span>
+                                )}
+                                {isExpanded ? (
+                                  <ChevronUp className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                )}
+                              </div>
                             </div>
 
-                            {item.trigger && (
-                              <span className="text-[10px] font-medium text-rose-300 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-md">
-                                🎯 {item.trigger}
-                              </span>
+                            {/* Detailed substance view revealed on click */}
+                            {isExpanded && (
+                              <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-[11px] animate-fade-in">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400 text-[10px]">{isFr ? 'Substance consommée :' : 'Substance consumed:'}</span>
+                                  <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold ${badgeStyle}`}>
+                                    {nameLabel}
+                                  </span>
+                                </div>
+                                {item.trigger && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-400 text-[10px]">{isFr ? 'Déclencheur identifié :' : 'Trigger identified:'}</span>
+                                    <span className="text-rose-300 font-semibold">🎯 {item.trigger}</span>
+                                  </div>
+                                )}
+                                <div className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-300 text-[10px] flex items-center gap-1.5">
+                                  <span>💡</span>
+                                  <span>{getTriggerTip(item.trigger)}</span>
+                                </div>
+                              </div>
                             )}
                           </div>
                         );
                       }
 
                       // Craving item
-                      const cravedSub = item.substance || 'puff_vape';
+                      const cravedSub = (item.substance || 'puff_vape') as SubstanceType;
                       const isWeed = cravedSub === 'cannabis';
                       const isPuff = cravedSub === 'puff_vape';
                       const subBadgeStyle = isWeed
-                        ? 'bg-lime-500/15 border-lime-500/30 text-lime-300'
+                        ? 'bg-lime-500/20 border-lime-500/40 text-lime-300'
                         : isPuff
-                        ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
-                        : 'bg-amber-500/15 border-amber-500/30 text-amber-300';
-                      const subLabel = isWeed ? '🟢 Weed' : isPuff ? '🔵 Puff' : '🟡 Cigarette';
+                        ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300';
+                      const subLabel = isWeed ? '🟢 Cannabis / Weed' : isPuff ? '🔵 Puff / Vape' : '🟡 Cigarette';
 
                       return (
                         <div
                           key={item.id}
-                          className="p-1.5 rounded-xl bg-slate-900/70 border border-white/5 flex items-center justify-between text-[11px]"
+                          onClick={() => {
+                            sound.playClick();
+                            setExpandedItemId(isExpanded ? null : item.id);
+                          }}
+                          className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                            isExpanded
+                              ? 'bg-slate-800/80 border-teal-500/40 shadow-lg shadow-black/40 ring-1 ring-teal-500/30'
+                              : 'bg-slate-900/70 border-white/5 hover:border-white/20'
+                          }`}
                         >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[10px] text-teal-400 font-semibold tabular-nums">{timeStr}</span>
-                            <span
-                              className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${
-                                item.resisted
-                                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                                  : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-                              }`}
-                            >
-                              {item.resisted
-                                ? (isFr ? '🛡️ Crave Résisté' : '🛡️ Craving Resisted')
-                                : (isFr ? '⚡ Crave Fumé' : '⚡ Craving Smoked')}
-                            </span>
-                            <span className={`px-1.5 py-0.5 rounded-md border text-[9.5px] font-bold ${subBadgeStyle}`}>
-                              {subLabel}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {isFr ? 'Intensité' : 'Intensity'} <b className="text-white">{item.intensity}/10</b>
-                            </span>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[10px] text-teal-400 font-semibold tabular-nums">{timeStr}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${
+                                  item.resisted
+                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                                    : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                }`}
+                              >
+                                {item.resisted
+                                  ? (isFr ? '🛡️ Crave Résisté' : '🛡️ Craving Resisted')
+                                  : (isFr ? '⚡ Crave Fumé' : '⚡ Craving Smoked')}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {isFr ? 'Intensité' : 'Intensity'} <b className="text-white">{item.intensity}/10</b>
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {!isExpanded ? (
+                                <span className="text-[10px] text-teal-400/90 flex items-center gap-0.5 font-medium px-1.5 py-0.5 rounded bg-teal-500/10 border border-teal-500/20">
+                                  {isFr ? 'Voir substance' : 'View substance'}
+                                  <ChevronDown className="w-3 h-3 text-teal-400" />
+                                </span>
+                              ) : (
+                                <ChevronUp className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                              )}
+                            </div>
                           </div>
 
-                          {item.trigger && (
-                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0">
-                              🎯 {item.trigger}
-                            </span>
+                          {/* Interactive Expanded Card revealing substance & clinical protocol */}
+                          {isExpanded && (
+                            <div className="mt-2.5 pt-2.5 border-t border-white/10 space-y-2 text-[11px] animate-fade-in">
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-400 text-[10px]">
+                                  {isFr ? 'Substance concernée par la pulsion :' : 'Craved substance:'}
+                                </span>
+                                <span className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${subBadgeStyle}`}>
+                                  {subLabel}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-400 text-[10px]">{isFr ? 'Issue de la pulsion :' : 'Craving outcome:'}</span>
+                                <span className={`font-bold text-[10.5px] ${item.resisted ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {item.resisted
+                                    ? (isFr ? '🛡️ Surmontée avec succès (0 inhalation)' : '🛡️ Successfully resisted (0 hit)')
+                                    : (isFr ? '⚡ Consommation après pulsion' : '⚡ Consumed after craving')}
+                                </span>
+                              </div>
+
+                              {/* Intensity meter */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-slate-400">
+                                  <span>{isFr ? 'Intensité ressentie' : 'Felt intensity'}</span>
+                                  <span className="font-bold text-white">{item.intensity} / 10</span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      item.intensity >= 7
+                                        ? 'bg-rose-500'
+                                        : item.intensity >= 4
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, Math.max(10, item.intensity * 10))}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {item.trigger && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400 text-[10px]">{isFr ? 'Déclencheur identifié :' : 'Trigger:'}</span>
+                                  <span className="text-amber-300 font-semibold">🎯 {item.trigger}</span>
+                                </div>
+                              )}
+
+                              <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-[10.5px] flex items-start gap-1.5">
+                                <span className="shrink-0 mt-0.5">💡</span>
+                                <div>
+                                  <b className="text-teal-200">{isFr ? 'Protocole recommandé : ' : 'Recommended protocol: '}</b>
+                                  <span>{getTriggerTip(item.trigger)}</span>
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       );

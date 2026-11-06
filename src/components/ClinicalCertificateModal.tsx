@@ -293,16 +293,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     ev.takeNumber = idx + 1;
   });
 
-  // Base layout: up to 30 rows on Page 2 and per continuation page for optimal visual breathing room
-  const firstPageEvents = unifiedEvents.slice(0, 30);
-  const remainingEvents = unifiedEvents.slice(30);
+  // Base layout: up to 20 rows on Page 2 and per continuation page for optimal visual breathing room
+  const firstPageEvents = unifiedEvents.slice(0, 20);
+  const remainingEvents = unifiedEvents.slice(20);
 
-  // Dynamic pagination: if there are more than 30 logs (e.g. for week or month), chunk remaining events (30 per continuation page max)
+  // Dynamic pagination: if there are more than 20 logs (e.g. for week or month), chunk remaining events (20 per continuation page max)
   const continuationChunks: ActivityEvent[][] = [];
   if (remainingEvents.length > 0) {
     let cur = 0;
     while (cur < remainingEvents.length) {
-      const chunkSize = 30;
+      const chunkSize = 20;
       continuationChunks.push(remainingEvents.slice(cur, cur + chunkSize));
       cur += chunkSize;
     }

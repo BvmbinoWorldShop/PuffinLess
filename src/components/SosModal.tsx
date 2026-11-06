@@ -34,7 +34,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [isBreathingActive, setIsBreathingActive] = useState<boolean>(false);
   const [craveIntensity, setCraveIntensity] = useState<number>(7);
-  const selectedSubstance: SubstanceType = defaultSubstance || 'puff_vape';
+  const [selectedSubstance, setSelectedSubstance] = useState<SubstanceType>(() => defaultSubstance || 'puff_vape');
   const [selectedTrigger, setSelectedTrigger] = useState<string>('Stress');
   const [showSlipConfirm, setShowSlipConfirm] = useState<boolean>(false);
 
@@ -331,6 +331,57 @@ export const SosModal: React.FC<SosModalProps> = ({
               onChange={(e) => setCraveIntensity(Number(e.target.value))}
               className="w-1/2 accent-rose-500 cursor-pointer"
             />
+          </div>
+
+          {/* Substance selector: sleek and highlights only selected */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
+            <label className="text-xs font-medium text-slate-300">
+              {language === 'fr' ? 'Substance ciblée :' : 'Targeted substance:'}
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setSelectedSubstance('cigarette');
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                  selectedSubstance === 'cigarette'
+                    ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-sm'
+                    : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                🟡 {language === 'fr' ? 'Cigarette' : 'Cigarette'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setSelectedSubstance('puff_vape');
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                  selectedSubstance === 'puff_vape'
+                    ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-sm'
+                    : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                🔵 {language === 'fr' ? 'Puff / Vape' : 'Puff / Vape'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setSelectedSubstance('cannabis');
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                  selectedSubstance === 'cannabis'
+                    ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-sm'
+                    : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                🟢 {language === 'fr' ? 'Weed' : 'Weed'}
+              </button>
+            </div>
           </div>
         </div>
 
