@@ -678,16 +678,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-xs text-slate-400">{t('noCravingsYet', lang)}</p>
         ) : (
           <div className="space-y-2">
-            {recentCravings.map((c) => (
-              <div key={c.id} className="p-2.5 rounded-xl bg-slate-900/40 border border-white/5 flex items-center justify-between text-xs">
-                <span>
-                  <b className="text-white">{getTriggerLabel(c.trigger, lang)}</b>
-                  {c.substance && <span className="text-slate-400 ml-1">({t(('substance' + (c.substance === 'cigarette' ? 'Cigarette' : c.substance === 'puff_vape' ? 'Puff' : 'Cannabis')) as any, lang)})</span>}
-                  <span className="text-slate-400 ml-1">{t('intensity', lang)} {c.intensity}/10</span>
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-400">{t('resistedCheck', lang)}</span>
-              </div>
-            ))}
+            {recentCravings.map((c) => {
+              const subType = c.substance || profile?.primarySubstance || 'puff_vape';
+              const isWeed = subType === 'cannabis';
+              const isPuff = subType === 'puff_vape';
+              const subBadgeClass = isWeed
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                : isPuff
+                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                : 'bg-amber-500/15 border-amber-500/40 text-amber-300';
+              const subEmoji = isWeed ? '🟢' : isPuff ? '🔵' : '🟡';
+              const subLabel = isWeed
+                ? (lang === 'fr' ? 'Weed (Cannabis)' : 'Weed / Cannabis')
+                : isPuff
+                ? (lang === 'fr' ? 'Puff / Vape' : 'Vape / Puff')
+                : (lang === 'fr' ? 'Cigarette' : 'Cigarette');
+
+              return (
+                <div key={c.id} className="p-2.5 rounded-xl bg-slate-900/40 border border-white/5 flex items-center justify-between text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <b className="text-white">{getTriggerLabel(c.trigger, lang)}</b>
+                      <span className="text-slate-400 text-[11px]">{t('intensity', lang)} {c.intensity}/10</span>
+                    </div>
+                    {/* Small subtitle with substance type and color */}
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${subBadgeClass}`}>
+                        <span>{subEmoji}</span>
+                        <span>{subLabel}</span>
+                        <span className="opacity-80">· {c.resisted ? (lang === 'fr' ? 'surmontée' : 'resisted') : (lang === 'fr' ? 'fumée' : 'smoked')}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-400 shrink-0">{t('resistedCheck', lang)}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </MorphicCard>

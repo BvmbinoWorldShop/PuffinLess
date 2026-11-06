@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Award, Trophy, Tag, Lock, FileText, Download, Sparkles } from 'lucide-react';
-import type { Badge, Language, UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry } from '../types';
+import type { Badge, Language, UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, PurchaseExpense } from '../types';
 import type { CoreReport } from '../core/obsidianCore';
 import { getBadges } from '../utils/healthMilestones';
 import type { CalculatedStats } from '../utils/calculations';
@@ -18,6 +18,7 @@ interface RewardsViewProps {
   substanceLogs?: SubstanceLog[];
   cravings?: CravingEntry[];
   sleepLogs?: SleepEnergyEntry[];
+  expenses?: PurchaseExpense[];
 }
 
 interface Perk {
@@ -39,6 +40,7 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
   substanceLogs,
   cravings,
   sleepLogs,
+  expenses,
 }) => {
   const isFr = language === 'fr';
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
@@ -347,6 +349,7 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
         substanceLogs={substanceLogs}
         cravings={cravings}
         sleepLogs={sleepLogs}
+        expenses={expenses}
         currency={currency}
         language={language}
       />

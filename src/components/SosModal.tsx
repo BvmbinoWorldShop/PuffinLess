@@ -13,6 +13,7 @@ interface SosModalProps {
   currency: string;
   moneySaved: number;
   language?: Language;
+  defaultSubstance?: SubstanceType;
 }
 
 type BreathingPhase = 'Inhale' | 'Hold' | 'Exhale' | 'Ready';
@@ -25,6 +26,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   currency,
   moneySaved,
   language = 'en',
+  defaultSubstance,
 }) => {
   const [activeTab, setActiveTab] = useState<'breathe' | 'reality' | 'grounding'>('breathe');
   const [breathingPhase, setBreathingPhase] = useState<BreathingPhase>('Ready');
@@ -32,7 +34,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [isBreathingActive, setIsBreathingActive] = useState<boolean>(false);
   const [craveIntensity, setCraveIntensity] = useState<number>(7);
-  const [selectedSubstance, setSelectedSubstance] = useState<SubstanceType>('cigarette');
+  const [selectedSubstance, setSelectedSubstance] = useState<SubstanceType>(() => defaultSubstance || 'cigarette');
   const [selectedTrigger, setSelectedTrigger] = useState<string>('Stress');
   const [showSlipConfirm, setShowSlipConfirm] = useState<boolean>(false);
 
@@ -370,28 +372,54 @@ export const SosModal: React.FC<SosModalProps> = ({
         </div>
 
         {/* Main CTAs: Resist vs Smoked */}
-        <div className="mt-4 space-y-2">
-          {!showSlipConfirm ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleVictory}
-                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
-                <span>{language === 'fr' ? "J'ai résisté !" : "I Resisted!"}</span>
-              </button>
+        {(() => {
+          const isWeed = selectedSubstance === 'cannabis';
+          const isPuff = selectedSubstance === 'puff_vape';
+          const subBadgeClass = isWeed
+            ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-emerald-500/20'
+            : isPuff
+            ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-cyan-500/20'
+            : 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-amber-500/20';
+          const subEmoji = isWeed ? '🟢' : isPuff ? '🔵' : '🟡';
+          const subName = isWeed
+            ? (language === 'fr' ? 'Weed (Cannabis)' : 'Weed / Cannabis')
+            : isPuff
+            ? (language === 'fr' ? 'Puff / Vape' : 'Puff / Vape')
+            : (language === 'fr' ? 'Cigarette' : 'Cigarette');
 
-              <button
-                type="button"
-                onClick={() => setShowSlipConfirm(true)}
-                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-600/30 border border-rose-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
-              >
-                <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
-                <span>{language === 'fr' ? "J'ai fumé" : "I Smoked"}</span>
-              </button>
-            </div>
-          ) : (
+          return (
+            <div className="mt-4 space-y-2">
+              {!showSlipConfirm ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleVictory}
+                    className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 border border-emerald-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+                      <span>{language === 'fr' ? "J'ai résisté !" : "I Resisted!"}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${subBadgeClass}`}>
+                      {subEmoji} {subName} {language === 'fr' ? 'surmontée' : 'resisted'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSlipConfirm(true)}
+                    className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white keep-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-600/30 border border-rose-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
+                      <span>{language === 'fr' ? "J'ai fumé" : "I Smoked"}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${subBadgeClass}`}>
+                      {subEmoji} {subName}
+                    </span>
+                  </button>
+                </div>
+              ) : (
             <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-center space-y-2.5 animate-fade-in">
               <p className="text-xs font-semibold text-rose-200 flex items-center justify-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
@@ -452,6 +480,8 @@ export const SosModal: React.FC<SosModalProps> = ({
               : `Automatic timestamp · Trigger: ${selectedTrigger} · Intensity: ${craveIntensity}/10`}
           </p>
         </div>
+      );
+    })()}
       </div>
     </div>
   );

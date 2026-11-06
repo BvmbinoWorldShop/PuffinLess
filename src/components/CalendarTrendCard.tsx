@@ -256,7 +256,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
 
   type DayTimelineItem =
     | { kind: 'log'; id: string; timestamp: string; substance: SubstanceType; count: number; trigger?: string }
-    | { kind: 'craving'; id: string; timestamp: string; intensity: number; resisted: boolean; trigger?: string };
+    | { kind: 'craving'; id: string; timestamp: string; intensity: number; resisted: boolean; trigger?: string; substance?: SubstanceType };
 
   const selectedDayTimeline = useMemo(() => {
     const items: DayTimelineItem[] = [];
@@ -283,6 +283,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
           intensity: c.intensity,
           resisted: c.resisted,
           trigger: c.trigger,
+          substance: c.substance,
         });
       }
     }
@@ -591,12 +592,22 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                       }
 
                       // Craving item
+                      const cravedSub = item.substance || 'puff_vape';
+                      const isWeed = cravedSub === 'cannabis';
+                      const isPuff = cravedSub === 'puff_vape';
+                      const subBadgeStyle = isWeed
+                        ? 'bg-lime-500/15 border-lime-500/30 text-lime-300'
+                        : isPuff
+                        ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
+                        : 'bg-amber-500/15 border-amber-500/30 text-amber-300';
+                      const subLabel = isWeed ? '🟢 Weed' : isPuff ? '🔵 Puff' : '🟡 Cigarette';
+
                       return (
                         <div
                           key={item.id}
                           className="p-1.5 rounded-xl bg-slate-900/70 border border-white/5 flex items-center justify-between text-[11px]"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-[10px] text-teal-400 font-semibold tabular-nums">{timeStr}</span>
                             <span
                               className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold ${
@@ -609,13 +620,16 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
                                 ? (isFr ? '🛡️ Crave Résisté' : '🛡️ Craving Resisted')
                                 : (isFr ? '⚡ Crave Fumé' : '⚡ Craving Smoked')}
                             </span>
+                            <span className={`px-1.5 py-0.5 rounded-md border text-[9.5px] font-bold ${subBadgeStyle}`}>
+                              {subLabel}
+                            </span>
                             <span className="text-[10px] text-slate-400">
                               {isFr ? 'Intensité' : 'Intensity'} <b className="text-white">{item.intensity}/10</b>
                             </span>
                           </div>
 
                           {item.trigger && (
-                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0">
                               🎯 {item.trigger}
                             </span>
                           )}

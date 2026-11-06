@@ -13,13 +13,15 @@ import {
   FileText,
   Calendar,
   AlertCircle,
+  ShoppingBag,
 } from 'lucide-react';
-import type { UserProfile, Language, SubstanceLog, CravingEntry, SleepEnergyEntry } from '../types';
+import type { UserProfile, Language, SubstanceLog, CravingEntry, SleepEnergyEntry, PurchaseExpense } from '../types';
 import type { CalculatedStats } from '../utils/calculations';
 import type { CoreReport } from '../core/obsidianCore';
 import { SAMPLE_SLEEP_DATA } from '../utils/sleepTracker';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
+import { loadExpenses } from '../utils/storage';
 
 export type ExportTimeRange = 'day' | 'week' | 'month';
 
@@ -32,6 +34,7 @@ interface ClinicalCertificateModalProps {
   substanceLogs?: SubstanceLog[];
   cravings?: CravingEntry[];
   sleepLogs?: SleepEnergyEntry[];
+  expenses?: PurchaseExpense[];
   currency: string;
   language?: Language;
 }
@@ -43,6 +46,7 @@ interface ActivityEvent {
   type: string;
   category: 'substance' | 'craving';
   substanceKey: 'cigarette' | 'puff_vape' | 'cannabis' | 'craving';
+  cravedSubstance?: 'cigarette' | 'puff_vape' | 'cannabis';
   dose: string;
   intensity: string;
   trigger: string;
@@ -93,6 +97,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   substanceLogs = [],
   cravings = [],
   sleepLogs = [],
+  expenses,
   currency,
   language = 'en',
 }) => {
@@ -108,6 +113,23 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     if (timeRange === 'week') return t - 7 * 24 * 60 * 60 * 1000;
     return t - 30 * 24 * 60 * 60 * 1000; // 'month'
   }, [timeRange, now]);
+
+  // Filter purchases/expenses
+  const actualExpenses = useMemo(() => {
+    if (expenses && expenses.length > 0) return expenses;
+    return loadExpenses();
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    return actualExpenses.filter((e) => {
+      const t = new Date(e.timestamp).getTime();
+      return !isNaN(t) && t >= cutoffMs;
+    });
+  }, [actualExpenses, cutoffMs]);
+
+  const totalExpensesAmount = useMemo(() => {
+    return filteredExpenses.reduce((sum, e) => sum + ((e.price || 0) * (e.quantity || 1)), 0);
+  }, [filteredExpenses]);
 
   const timeRangeLabel = useMemo(() => {
     if (isFr) {
@@ -245,6 +267,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     const trig = cr.trigger || (isFr ? 'Envie spontanée' : 'Sudden urge');
     const intensityNum = cr.intensity || 5;
     const intensityStr = `${intensityNum}/10 (${intensityNum >= 7 ? (isFr ? 'Aiguë' : 'Acute') : intensityNum >= 4 ? (isFr ? 'Moyenne' : 'Medium') : (isFr ? 'Basse' : 'Low')})`;
+    const cravedSub: 'cigarette' | 'puff_vape' | 'cannabis' =
+      cr.substance || profile?.primarySubstance || 'puff_vape';
 
     unifiedEvents.push({
       id: cr.id,
@@ -253,6 +277,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       type: isFr ? 'Pulsion d\'Envie' : 'Craving Urge',
       category: 'craving',
       substanceKey: 'craving',
+      cravedSubstance: cravedSub,
       dose: isFr ? 'Tentative' : 'Urge Episode',
       intensity: intensityStr,
       trigger: trig,
@@ -262,8 +287,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     });
   });
 
-  // Sort descending for display (newest events first)
-  unifiedEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // Sort ascending chronologically (normal chronological day: morning to night)
+  unifiedEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  unifiedEvents.forEach((ev, idx) => {
+    ev.takeNumber = idx + 1;
+  });
   // Display up to 9 rows to ensure strict 100% 2-page fit
   const displayedEvents = unifiedEvents.slice(0, 9);
 
@@ -549,6 +577,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       gap: 8px;
       margin-bottom: 10px;
     }
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
     .kpi-bubble {
       background: rgba(15, 23, 42, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -725,7 +759,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </div>
       </div>
 
-      <div class="grid-4">
+      <div class="grid-5">
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: #34d399;">${stats.days}j ${stats.hours}h</div>
           <div class="kpi-lbl">${isFr ? 'Sobriété Globale' : 'Clean Duration'}</div>
@@ -733,6 +767,10 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: #fbbf24;">${currency}${Math.round(stats.moneySaved).toLocaleString()}</div>
           <div class="kpi-lbl">${isFr ? 'Capital Économisé' : 'Money Saved'}</div>
+        </div>
+        <div class="kpi-bubble">
+          <div class="kpi-val" style="color: ${totalExpensesAmount > 0 ? '#f59e0b' : '#38bdf8'};">${currency}${Math.round(totalExpensesAmount).toLocaleString()}</div>
+          <div class="kpi-lbl">${isFr ? 'Achats Enregistrés' : 'Purchases Logged'}</div>
         </div>
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: #38bdf8;">${totalDosesAvoided.toLocaleString()}</div>
@@ -971,6 +1009,27 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     <span class="pill ${badgeClass}" style="font-size: 8px; padding: 2px 6px;">
                       ${iconEmoji} ${ev.type}
                     </span>
+                    ${
+                      ev.cravedSubstance
+                        ? `<div style="margin-top: 2px;">
+                        <span class="pill ${
+                          ev.cravedSubstance === 'cannabis'
+                            ? 'pill-sub-weed'
+                            : ev.cravedSubstance === 'puff_vape'
+                            ? 'pill-sub-puff'
+                            : 'pill-sub-cig'
+                        }" style="font-size: 7px; padding: 1px 4px;">
+                          ${
+                            ev.cravedSubstance === 'cannabis'
+                              ? '🟢 Weed / Cannabis'
+                              : ev.cravedSubstance === 'puff_vape'
+                              ? '🔵 Puff / Vape'
+                              : '🟡 Cigarette'
+                          }
+                        </span>
+                      </div>`
+                        : ''
+                    }
                   </td>
                   <td style="font-size: 8.5px;">
                     <b style="color: #ffffff;">${ev.dose}</b><br>
@@ -1363,26 +1422,31 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
               </div>
 
-              {/* 4 Pillars KPI Grid with Substances Taken */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+              {/* 5 Pillars KPI Grid with Substances Taken & Achats Enregistrés */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Clock className="w-5 h-5 mx-auto mb-1 text-emerald-400" />
-                  <div className="text-lg font-black text-white tabular-nums">{stats.days}j {stats.hours}h</div>
+                  <div className="text-base sm:text-lg font-black text-white tabular-nums">{stats.days}j {stats.hours}h</div>
                   <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Sobriété Globale' : 'Clean Time'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Wallet className="w-5 h-5 mx-auto mb-1 text-amber-400" />
-                  <div className="text-lg font-black text-amber-300 tabular-nums">{currency}{Math.round(stats.moneySaved).toLocaleString()}</div>
+                  <div className="text-base sm:text-lg font-black text-amber-300 tabular-nums">{currency}{Math.round(stats.moneySaved).toLocaleString()}</div>
                   <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Économies' : 'Saved'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
+                  <ShoppingBag className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+                  <div className="text-base sm:text-lg font-black text-amber-400 tabular-nums">{currency}{Math.round(totalExpensesAmount).toLocaleString()}</div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Achats Enregistrés' : 'Purchases'}</div>
+                </div>
+                <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Heart className="w-5 h-5 mx-auto mb-1 text-cyan-400" />
-                  <div className="text-lg font-black text-cyan-300 tabular-nums">{totalDosesAvoided.toLocaleString()}</div>
+                  <div className="text-base sm:text-lg font-black text-cyan-300 tabular-nums">{totalDosesAvoided.toLocaleString()}</div>
                   <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Toxines Évitées' : 'Avoided'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <AlertCircle className={`w-5 h-5 mx-auto mb-1 ${totalSubstancesTakenDoses > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
-                  <div className={`text-lg font-black tabular-nums ${totalSubstancesTakenDoses > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  <div className={`text-base sm:text-lg font-black tabular-nums ${totalSubstancesTakenDoses > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
                     {totalSubstancesTakenDoses}
                   </div>
                   <div className="text-[9px] uppercase font-bold text-slate-400">
@@ -1576,6 +1640,19 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
                                   {iconEmoji} {ev.type}
                                 </span>
+                                {ev.cravedSubstance && (
+                                  <div className="mt-1">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                      ev.cravedSubstance === 'cannabis'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                        : ev.cravedSubstance === 'puff_vape'
+                                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                    }`}>
+                                      {ev.cravedSubstance === 'cannabis' ? '🟢 Weed / Cannabis' : ev.cravedSubstance === 'puff_vape' ? '🔵 Puff / Vape' : '🟡 Cigarette'}
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="p-2.5">
                                 <b className="text-white">{ev.dose}</b><br/>

@@ -56,8 +56,26 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
 
   // quotes
   const [quoteCat, setQuoteCat] = useState<string>('All');
-  const [bookmarks, setBookmarks] = useState<string[]>(['ql1', 'ql27']);
+  const [bookmarks, setBookmarks] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('puffinless_quote_bookmarks');
+      return saved ? JSON.parse(saved) : ['ql1', 'ql27'];
+    } catch {
+      return ['ql1', 'ql27'];
+    }
+  });
   const [copied, setCopied] = useState<string | null>(null);
+
+  const toggleBookmark = (id: string) => {
+    sound.playClick();
+    setBookmarks((prev) => {
+      const next = prev.includes(id) ? prev.filter((b) => b !== id) : [id, ...prev];
+      try {
+        localStorage.setItem('puffinless_quote_bookmarks', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const corr = computeSleepEnergyCorrelation(sleepEnergyLogs, isFr);
 
@@ -228,9 +246,15 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
   }, [allQuotes, isFr]);
 
   const filteredQuotes = useMemo(() => {
-    if (quoteCat === 'All') return allQuotes;
-    return allQuotes.filter((q) => q.category === quoteCat);
-  }, [allQuotes, quoteCat]);
+    const list = quoteCat === 'All' ? allQuotes : allQuotes.filter((q) => q.category === quoteCat);
+    // User request: In citation the one saved as favorite comes automatically on top of the list
+    return [...list].sort((a, b) => {
+      const aFav = bookmarks.includes(a.id) ? 1 : 0;
+      const bFav = bookmarks.includes(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav; // Favorites on top
+      return 0;
+    });
+  }, [allQuotes, quoteCat, bookmarks]);
 
   const phaseLabel = () => {
     if (!running) return isFr ? 'Prêt' : 'Ready';
@@ -719,8 +743,13 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
               <MorphicCard key={q.id} variant="default">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{q.category}</span>
+                      {saved && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-sm">
+                          ★ {isFr ? 'Favori' : 'Favorite'}
+                        </span>
+                      )}
                       {q.book && (
                         <span className="text-[10px] text-emerald-400 font-medium truncate">📖 {q.book}</span>
                       )}
@@ -730,10 +759,11 @@ export const WellnessView: React.FC<WellnessViewProps> = ({
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button
-                      onClick={() => { sound.playClick(); setBookmarks(saved ? bookmarks.filter((b) => b !== q.id) : [...bookmarks, q.id]); }}
-                      className={`p-2 rounded-xl border transition-all ${saved ? 'bg-amber-500/20 border-amber-400/40 text-amber-400' : 'glass-button text-slate-400'}`}
+                      onClick={() => toggleBookmark(q.id)}
+                      title={saved ? (isFr ? 'Retirer des favoris' : 'Remove favorite') : (isFr ? 'Enregistrer en favori (en haut)' : 'Save as favorite (top)')}
+                      className={`p-2 rounded-xl border transition-all ${saved ? 'bg-amber-500/25 border-amber-400/50 text-amber-300 shadow-md shadow-amber-500/20 scale-105' : 'glass-button text-slate-400'}`}
                     >
-                      <Bookmark className={`w-3.5 h-3.5 ${saved ? 'fill-current' : ''}`} />
+                      <Bookmark className={`w-3.5 h-3.5 ${saved ? 'fill-current text-amber-400' : ''}`} />
                     </button>
                     <button
                       onClick={() => { sound.playClick(); navigator.clipboard?.writeText(`"${q.quote}" - ${q.author} (${q.book || ''})`); setCopied(q.id); setTimeout(() => setCopied(null), 1800); }}

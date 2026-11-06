@@ -130,6 +130,7 @@ export function App() {
             substanceLogs={store.substanceLogs}
             cravings={store.cravings}
             sleepLogs={store.sleepLogs}
+            expenses={store.expenses}
           />
         )}
       </main>
@@ -137,6 +138,7 @@ export function App() {
       <Navigation currentTab={currentTab} onSelectTab={goTab} language={lang} isVisible={showBottomNav} />
 
       <SosModal
+        key={`sos-${isSosOpen}-${profile.primarySubstance || 'default'}`}
         isOpen={isSosOpen}
         onClose={() => setIsSosOpen(false)}
         onResistedCraving={actions.resistCraving}
@@ -144,6 +146,7 @@ export function App() {
         currency={profile.currency}
         moneySaved={stats.moneySaved}
         language={lang}
+        defaultSubstance={profile.primarySubstance}
       />
 
       <OnboardingModal
