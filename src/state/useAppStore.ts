@@ -21,6 +21,7 @@ import {
   initIndexedDBStorage, resetAllUserData,
   DEFAULT_PROFILE,
 } from '../utils/storage';
+import { recoverAllDeviceData } from '../utils/recovery';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
@@ -309,13 +310,27 @@ export function useAppStore() {
     }
   };
 
+  const recoverLocalData = async () => {
+    const res = await recoverAllDeviceData();
+    if (res.recovered) {
+      if (res.profile) setProfile(res.profile);
+      if (res.goals) setGoals(res.goals);
+      if (res.cravings) setCravings(res.cravings);
+      if (res.expenses) setExpenses(res.expenses);
+      if (res.substanceLogs) setSubstanceLogs(res.substanceLogs);
+      if (res.sleepLogs) setSleepLogs(res.sleepLogs);
+      if (res.streaks) setStreaks(res.streaks);
+    }
+    return res;
+  };
+
   return {
     isHydrated,
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData,
     },
   };
 }

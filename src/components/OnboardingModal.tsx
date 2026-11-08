@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2, X } from 'lucide-react';
+import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2, X, RefreshCw } from 'lucide-react';
 import type { UserProfile, QuitMode, Language, QuitGoal } from '../types';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
@@ -11,6 +11,7 @@ interface OnboardingModalProps {
   initialStep?: number;
   onComplete: (profile: UserProfile) => void;
   onClose?: () => void;
+  onRecover?: () => Promise<any>;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
@@ -19,9 +20,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   initialStep = 1,
   onComplete,
   onClose,
+  onRecover,
 }) => {
   const [lang, setLang] = useState<Language>(initialProfile.language || 'en');
   const isFr = lang === 'fr';
+
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryFeedback, setRecoveryFeedback] = useState<string | null>(null);
 
   // If user has already onboarded, clicking "Guide" shows the 3 guide parts: Welcome, Arsenal, Mobile PWA with Finish button
   const isGuideMode = Boolean(initialProfile.isOnboarded);
@@ -72,6 +77,49 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     { labelEn: 'Athletic Stamina', labelFr: 'Souffle & Cardio', icon: Wind },
     { labelEn: 'Clean Dopamine Focus', labelFr: 'Dopamine Saine & Clarté', icon: Zap },
   ];
+
+  const handleRecover = async () => {
+    if (!onRecover) return;
+    setIsRecovering(true);
+    setRecoveryFeedback(null);
+    try {
+      sound.playClick();
+      const res = await onRecover();
+      if (res && res.recovered) {
+        sound.playCelebration();
+        try {
+          confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+        } catch {
+          // ignore
+        }
+        setRecoveryFeedback(
+          isFr
+            ? `✓ Données retrouvées : ${res.stats?.daysSinceQuit || 0} jour(s) d'abstinence et ${res.stats?.cravingsCount || 0} victoires restaurées !`
+            : `✓ Data restored: ${res.stats?.daysSinceQuit || 0} day(s) smoke-free and ${res.stats?.cravingsCount || 0} victories recovered!`
+        );
+        setTimeout(() => {
+          if (res.profile) {
+            onComplete(res.profile);
+          } else if (onClose) {
+            onClose();
+          }
+        }, 900);
+      } else {
+        setRecoveryFeedback(
+          isFr
+            ? 'Aucune donnée antérieure détectée sur cet appareil.'
+            : 'No prior data detected on this device.'
+        );
+      }
+    } catch (err) {
+      console.error('[Onboarding] Recovery error:', err);
+      setRecoveryFeedback(
+        isFr ? 'Erreur lors de la récupération.' : 'Recovery attempt failed.'
+      );
+    } finally {
+      setIsRecovering(false);
+    }
+  };
 
   const handleNextStep = () => {
     sound.playClick();
@@ -242,6 +290,47 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     : 'The ultimate companion to conquer cigarettes, vapes/puffs, and weed. Reclaim deep sleep, clean lungs, and compounded wealth.'}
                 </p>
               </div>
+
+              {/* Mode Récupération Banner: 1-click restore for existing device data */}
+              {onRecover && !isGuideMode && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-teal-950/60 border border-emerald-500/40 shadow-lg space-y-2 animate-fade-in">
+                  <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+                        <Shield className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block">
+                          {isFr ? 'Déjà sur PuffinLess sur cet appareil ?' : 'Already on PuffinLess on this device?'}
+                        </span>
+                        <span className="text-[11px] text-slate-300 block">
+                          {isFr ? 'Restaurer instantanément vos jours d\'abstinence et historique sauvegardés' : 'Instantly restore your streak days and history saved on device'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isRecovering}
+                      onClick={handleRecover}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRecovering ? 'animate-spin' : ''}`} />
+                      <span>{isRecovering ? (isFr ? 'Scan...' : 'Scanning...') : (isFr ? 'Restaurer mes données' : 'Restore Data')}</span>
+                    </button>
+                  </div>
+                  {recoveryFeedback && (
+                    <div
+                      className={`p-2 rounded-xl text-[11px] font-semibold ${
+                        recoveryFeedback.startsWith('✓')
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-slate-800 text-slate-300 border border-white/10'
+                      }`}
+                    >
+                      {recoveryFeedback}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="p-3.5 rounded-2xl glass-panel border border-white/10 flex items-start gap-3">

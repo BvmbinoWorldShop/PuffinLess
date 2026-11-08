@@ -13,7 +13,7 @@ import CryptoJS from 'crypto-js';
 
 const KEY_DB_NAME = 'puffinless_key_vault';
 const KEY_STORE_NAME = 'keys';
-const MASTER_KEY_ID = 'device_master_key';
+export const MASTER_KEY_ID = 'device_master_key';
 const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v2';
 const LEGACY_STORAGE_DEVICE_KEY = 'puffinless_vault_key_v1';
 const LEGACY_VAULT_SALT = 'puffinless_aes256_client_vault_stable_key_v2_offline';
@@ -65,7 +65,7 @@ export type DecryptResult<T> =
   | { status: 'success'; data: T }
   | { status: 'error'; error: DecryptionError };
 
-function getCrypto(): Crypto {
+export function getCrypto(): Crypto {
   if (typeof globalThis !== 'undefined' && globalThis.crypto) {
     return globalThis.crypto;
   }
@@ -75,12 +75,12 @@ function getCrypto(): Crypto {
   throw new Error('[Crypto] Web Crypto API is not supported in this runtime environment.');
 }
 
-function toHex(buffer: ArrayBuffer | Uint8Array): string {
+export function toHex(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function fromHex(hex: string): Uint8Array {
+export function fromHex(hex: string): Uint8Array {
   const cleanHex = hex.trim();
   const bytes = new Uint8Array(cleanHex.length / 2);
   for (let i = 0; i < cleanHex.length; i += 2) {
@@ -107,11 +107,20 @@ function fromBase64(base64: string): Uint8Array {
   return bytes;
 }
 
+let keyDbInstance: IDBDatabase | null = null;
+let keyDbPromise: Promise<IDBDatabase> | null = null;
+
 /**
- * Open (or create) the dedicated IndexedDB Key Vault database for non-extractable CryptoKeys
+ * Open (or reuse) the dedicated IndexedDB Key Vault database for non-extractable CryptoKeys
  */
 function openKeyVaultDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (keyDbInstance) {
+    return Promise.resolve(keyDbInstance);
+  }
+  if (keyDbPromise) {
+    return keyDbPromise;
+  }
+  keyDbPromise = new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
       return reject(new Error('IndexedDB is not available in this environment'));
     }
@@ -122,15 +131,27 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
         db.createObjectStore(KEY_STORE_NAME);
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error('Failed to open key vault database'));
+    req.onsuccess = () => {
+      keyDbInstance = req.result;
+      keyDbInstance.onversionchange = () => {
+        keyDbInstance?.close();
+        keyDbInstance = null;
+        keyDbPromise = null;
+      };
+      resolve(keyDbInstance);
+    };
+    req.onerror = () => {
+      keyDbPromise = null;
+      reject(req.error || new Error('Failed to open key vault database'));
+    };
   });
+  return keyDbPromise;
 }
 
 /**
  * Store a non-extractable CryptoKey in IndexedDB
  */
-async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
+export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
   inMemoryKeyStore.set(id, key);
   if (typeof window === 'undefined' || !window.indexedDB) {
     return;
@@ -143,7 +164,6 @@ async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
       const req = store.put(key, id);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
-      tx.oncomplete = () => { db.close(); };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
@@ -154,7 +174,7 @@ async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
 /**
  * Retrieve a non-extractable CryptoKey from IndexedDB
  */
-async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
+export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
   if (inMemoryKeyStore.has(id)) {
     return inMemoryKeyStore.get(id) || null;
   }
@@ -169,11 +189,33 @@ async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
       const req = store.get(id);
       req.onsuccess = () => resolve((req.result as CryptoKey) || null);
       req.onerror = () => reject(req.error);
-      tx.oncomplete = () => { db.close(); };
       tx.onerror = () => reject(tx.error);
     });
   } catch {
     return null;
+  }
+}
+
+/**
+ * Remove a non-extractable CryptoKey from IndexedDB
+ */
+export async function removeKeyFromVault(id: string): Promise<void> {
+  inMemoryKeyStore.delete(id);
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return;
+  }
+  try {
+    const db = await openKeyVaultDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(KEY_STORE_NAME);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // ignore
   }
 }
 
@@ -212,7 +254,7 @@ export async function deriveKeyFromPassphrase(
 /**
  * Helper to import raw 32-byte seed as a non-extractable AES-GCM CryptoKey
  */
-async function createKeyFromSeed(seed: Uint8Array): Promise<CryptoKey> {
+export async function createKeyFromSeed(seed: Uint8Array): Promise<CryptoKey> {
   const cryptoInstance = getCrypto();
   return await cryptoInstance.subtle.importKey(
     'raw',
@@ -224,10 +266,97 @@ async function createKeyFromSeed(seed: Uint8Array): Promise<CryptoKey> {
 }
 
 /**
+ * Safely imports or derives a non-extractable CryptoKey from an arbitrary string or hex key.
+ */
+export async function importOrDeriveKeyFromString(keyStr: string): Promise<CryptoKey> {
+  const clean = keyStr.trim();
+  const cryptoInstance = getCrypto();
+  let seedBytes: Uint8Array;
+  if (/^[0-9a-fA-F]{64}$/.test(clean)) {
+    seedBytes = fromHex(clean);
+  } else {
+    // If not 64-hex, hash string with SHA-256 to produce consistent 32-byte seed
+    const enc = new TextEncoder();
+    const digest = await cryptoInstance.subtle.digest('SHA-256', enc.encode(clean));
+    seedBytes = new Uint8Array(digest);
+  }
+  return await createKeyFromSeed(seedBytes);
+}
+
+/**
+ * Gathers all possible candidate CryptoKeys for this device across all migration iterations.
+ */
+export async function getAllCandidateCryptoKeys(): Promise<CryptoKey[]> {
+  const keys: CryptoKey[] = [];
+
+  if (cachedCryptoKey) {
+    keys.push(cachedCryptoKey);
+  }
+  if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
+    const memKey = inMemoryKeyStore.get(MASTER_KEY_ID);
+    if (memKey && !keys.includes(memKey)) keys.push(memKey);
+  }
+
+  // Load from IndexedDB Key Vault
+  try {
+    const stored = await loadKeyFromVault(MASTER_KEY_ID);
+    if (stored && !keys.includes(stored)) keys.push(stored);
+  } catch {
+    // ignore
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    // 1. Recovery envelope
+    const env = localStorage.getItem(DEVICE_RECOVERY_KEY);
+    if (env) {
+      try {
+        const k = await importOrDeriveKeyFromString(env);
+        keys.push(k);
+      } catch {
+        // ignore
+      }
+    }
+
+    // 2. Storage device key v2
+    const v2 = localStorage.getItem(STORAGE_DEVICE_KEY);
+    if (v2) {
+      try {
+        const k = await importOrDeriveKeyFromString(v2);
+        keys.push(k);
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Storage device key v1
+    const v1 = localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
+    if (v1) {
+      try {
+        const k = await importOrDeriveKeyFromString(v1);
+        keys.push(k);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // 4. Deterministic legacy salt key
+  try {
+    const saltSha = CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex);
+    const saltKey = await importOrDeriveKeyFromString(saltSha);
+    keys.push(saltKey);
+  } catch {
+    // ignore
+  }
+
+  return keys;
+}
+
+/**
  * Retrieves or initializes the non-extractable AES-GCM 256-bit CryptoKey.
- * - Stores the key in IndexedDB (never raw in localStorage).
- * - Definitively secures recovery: if IndexedDB is corrupted or wiped, reconstructs key from encrypted recovery envelope.
- * - Supports custom Passphrase Vault mode.
+ * - Stores non-extractable CryptoKey in IndexedDB (strictly zero raw key material in localStorage).
+ * - Enforces fail-closed security for Passphrase Vault mode.
+ * - Automatically purges any legacy raw keys from localStorage after migration.
  */
 export async function getSubtleCryptoKey(): Promise<CryptoKey> {
   if (cachedCryptoKey) {
@@ -236,34 +365,45 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
 
   const cryptoInstance = getCrypto();
 
-  // 1. If Passphrase Vault is active, require unlock
+  // 1. If Passphrase Vault is active, require unlock (genuinely revokes key access when locked)
   const vaultConfig = getVaultConfig();
   if (vaultConfig && vaultConfig.mode === 'passphrase') {
-    // Check if in-memory store has it
     if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
       const key = inMemoryKeyStore.get(MASTER_KEY_ID)!;
       cachedCryptoKey = key;
       return key;
     }
-    // Check IndexedDB key vault
-    const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
-    if (storedKey) {
-      cachedCryptoKey = storedKey;
-      return storedKey;
-    }
     throw new DecryptionError('Coffre verrouillé : veuillez entrer votre phrase secrète.');
   }
 
-  // 2. Check for legacy raw key in localStorage and perform zero-loss migration
+  // 2. Retrieve non-extractable key from IndexedDB key vault
+  const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
+  if (storedKey) {
+    cachedCryptoKey = storedKey;
+    // Genuinely purge raw key material from localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_DEVICE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+      localStorage.removeItem(DEVICE_RECOVERY_KEY);
+    }
+    return storedKey;
+  }
+
+  // 3. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
   if (typeof localStorage !== 'undefined') {
-    const legacyRawHex = localStorage.getItem(STORAGE_DEVICE_KEY);
-    if (legacyRawHex && legacyRawHex.length === 64) {
+    const legacyRaw =
+      localStorage.getItem(DEVICE_RECOVERY_KEY) ||
+      localStorage.getItem(STORAGE_DEVICE_KEY) ||
+      localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
+
+    if (legacyRaw) {
       try {
-        const rawBytes = fromHex(legacyRawHex);
-        const importedKey = await createKeyFromSeed(rawBytes);
+        const importedKey = await importOrDeriveKeyFromString(legacyRaw);
         await saveKeyToVault(MASTER_KEY_ID, importedKey);
-        localStorage.setItem(DEVICE_RECOVERY_KEY, legacyRawHex);
+        // CRITICAL: Immediately purge raw key material from localStorage
         localStorage.removeItem(STORAGE_DEVICE_KEY);
+        localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+        localStorage.removeItem(DEVICE_RECOVERY_KEY);
         cachedCryptoKey = importedKey;
         return importedKey;
       } catch (err) {
@@ -272,37 +412,17 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
     }
   }
 
-  // 3. Load non-extractable key from IndexedDB vault
-  const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
-  if (storedKey) {
-    cachedCryptoKey = storedKey;
-    return storedKey;
-  }
-
-  // 4. Emergency Recovery: If IndexedDB was wiped/corrupted, restore key from device envelope
-  if (typeof localStorage !== 'undefined') {
-    const envelope = localStorage.getItem(DEVICE_RECOVERY_KEY);
-    if (envelope && envelope.length === 64) {
-      try {
-        const seedBytes = fromHex(envelope);
-        const recoveredKey = await createKeyFromSeed(seedBytes);
-        await saveKeyToVault(MASTER_KEY_ID, recoveredKey);
-        cachedCryptoKey = recoveredKey;
-        return recoveredKey;
-      } catch (err) {
-        console.warn('[Crypto] Device envelope recovery failed:', err);
-      }
-    }
-  }
-
-  // 5. Initial Boot: Generate fresh 32-byte cryptographic entropy seed & non-extractable key
+  // 4. Initial Boot on Device: Generate fresh 32-byte entropy seed and store ONLY non-extractable key in IndexedDB
   const freshSeed = new Uint8Array(32);
   cryptoInstance.getRandomValues(freshSeed);
   const freshKey = await createKeyFromSeed(freshSeed);
 
   await saveKeyToVault(MASTER_KEY_ID, freshKey);
+  // Guarantee zero raw key material in localStorage
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(DEVICE_RECOVERY_KEY, toHex(freshSeed));
+    localStorage.removeItem(STORAGE_DEVICE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+    localStorage.removeItem(DEVICE_RECOVERY_KEY);
   }
   cachedCryptoKey = freshKey;
   return freshKey;
@@ -311,19 +431,17 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
 /**
  * Activates Passphrase Vault mode.
  * Derives a non-extractable AES-GCM 256-bit key from user passphrase using PBKDF2 (600,000 iterations).
+ * Stores key ONLY in volatile memory during active session; never persisted raw or in IndexedDB.
  */
 export async function enablePassphraseVault(passphrase: string): Promise<CryptoKey> {
+  const cleanPass = passphrase.trim();
   const cryptoInstance = getCrypto();
   const salt = new Uint8Array(16);
   cryptoInstance.getRandomValues(salt);
-  const derivedKey = await deriveKeyFromPassphrase(passphrase.trim(), salt, 600000);
-
-  cachedCryptoKey = derivedKey;
-  inMemoryKeyStore.set(MASTER_KEY_ID, derivedKey);
-  await saveKeyToVault(MASTER_KEY_ID, derivedKey);
+  const derivedKey = await deriveKeyFromPassphrase(cleanPass, salt, 600000);
 
   // Encrypt canary verification payload with the new passphrase key
-  const canaryCipher = await encryptData('PUFFINLESS_CANARY_VAULT_OK');
+  const canaryCipher = await encryptWithKey('PUFFINLESS_CANARY_VAULT_OK', derivedKey);
 
   const config: VaultConfig = {
     mode: 'passphrase',
@@ -335,6 +453,11 @@ export async function enablePassphraseVault(passphrase: string): Promise<CryptoK
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(VAULT_CONFIG_KEY, JSON.stringify(config));
   }
+
+  // Set in-memory only; remove device master key from IndexedDB
+  cachedCryptoKey = derivedKey;
+  inMemoryKeyStore.set(MASTER_KEY_ID, derivedKey);
+  await removeKeyFromVault(MASTER_KEY_ID);
 
   return derivedKey;
 }
@@ -351,17 +474,27 @@ export async function unlockPassphraseVault(passphrase: string): Promise<boolean
   try {
     const salt = fromHex(config.saltHex);
     const testKey = await deriveKeyFromPassphrase(passphrase.trim(), salt, config.iterations || 600000);
-    const prevKey = cachedCryptoKey;
-    cachedCryptoKey = testKey;
 
-    const canary = await decryptData<string>(config.canaryCipher, '');
-    if (canary === 'PUFFINLESS_CANARY_VAULT_OK') {
+    // Verify canary using test key
+    const cryptoInstance = getCrypto();
+    const parts = config.canaryCipher.split(':');
+    const iv = fromHex(parts[1]);
+    const cipherBytes = fromBase64(parts[2]);
+
+    const decryptedBuffer = await cryptoInstance.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv as unknown as BufferSource },
+      testKey,
+      cipherBytes as unknown as BufferSource
+    );
+    const decryptedStr = new TextDecoder().decode(decryptedBuffer);
+
+    if (decryptedStr === '"PUFFINLESS_CANARY_VAULT_OK"' || decryptedStr === 'PUFFINLESS_CANARY_VAULT_OK') {
+      // Valid! Keep key in volatile memory ONLY
+      cachedCryptoKey = testKey;
       inMemoryKeyStore.set(MASTER_KEY_ID, testKey);
-      await saveKeyToVault(MASTER_KEY_ID, testKey);
       return true;
     }
 
-    cachedCryptoKey = prevKey;
     return false;
   } catch {
     return false;
@@ -376,12 +509,12 @@ export async function disablePassphraseVault(): Promise<CryptoKey> {
     localStorage.removeItem(VAULT_CONFIG_KEY);
   }
   cachedCryptoKey = null;
-  inMemoryKeyStore.delete(MASTER_KEY_ID);
+  inMemoryKeyStore.clear();
   return await getSubtleCryptoKey();
 }
 
 /**
- * Sets an active custom CryptoKey (e.g. unlocked via user passphrase) in memory
+ * Sets an active custom CryptoKey (e.g. unlocked via user passphrase) in volatile memory
  */
 export function setActiveVaultKey(key: CryptoKey): void {
   cachedCryptoKey = key;
@@ -389,10 +522,11 @@ export function setActiveVaultKey(key: CryptoKey): void {
 }
 
 /**
- * Clears the in-memory cached CryptoKey (locks the active cryptographic session)
+ * Clears the in-memory cached CryptoKey, genuinely removing all access to the vault key.
  */
 export function lockCryptographicVault(): void {
   cachedCryptoKey = null;
+  inMemoryKeyStore.clear();
 }
 
 /**
@@ -427,9 +561,19 @@ export async function purgeVaultKeys(): Promise<void> {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem(STORAGE_DEVICE_KEY);
       sessionStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+      sessionStorage.removeItem(DEVICE_RECOVERY_KEY);
+      sessionStorage.removeItem(VAULT_CONFIG_KEY);
     }
   } catch {
     // ignore
+  }
+
+  if (keyDbInstance) {
+    try {
+      keyDbInstance.close();
+    } catch {}
+    keyDbInstance = null;
+    keyDbPromise = null;
   }
 
   if (typeof window !== 'undefined' && window.indexedDB) {
@@ -444,6 +588,29 @@ export async function purgeVaultKeys(): Promise<void> {
       console.warn('[Crypto] Error deleting key vault DB:', err);
     }
   }
+}
+
+/**
+ * Encrypts arbitrary serializable data with AES-GCM (256-bit) using an explicit CryptoKey.
+ */
+export async function encryptWithKey<T>(data: T, key: CryptoKey): Promise<string> {
+  const cryptoInstance = getCrypto();
+  const iv = new Uint8Array(12);
+  cryptoInstance.getRandomValues(iv);
+
+  const rawString = JSON.stringify(data);
+  const encoded = new TextEncoder().encode(rawString);
+
+  const cipherBuffer = await cryptoInstance.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as unknown as BufferSource },
+    key,
+    encoded as unknown as BufferSource
+  );
+
+  const ivHex = toHex(iv);
+  const cipherBase64 = toBase64(cipherBuffer);
+
+  return `aes-gcm:${ivHex}:${cipherBase64}`;
 }
 
 /**
@@ -501,32 +668,65 @@ export async function decryptData<T>(
 
   // 1. Modern Authenticated AES-GCM Payload
   if (cipherOrRaw.startsWith('aes-gcm:')) {
-    try {
-      const parts = cipherOrRaw.split(':');
-      if (parts.length !== 3) {
+    const parts = cipherOrRaw.split(':');
+    if (parts.length !== 3) {
+      if (options?.throwOnError) {
         throw new DecryptionError('Structure de payload AES-GCM invalide');
       }
-      const ivHex = parts[1];
-      const cipherBase64 = parts[2];
+      return fallback;
+    }
+    const ivHex = parts[1];
+    const cipherBase64 = parts[2];
 
+    try {
       const iv = fromHex(ivHex);
       const cipherBytes = fromBase64(cipherBase64);
       const cryptoInstance = getCrypto();
-      const cryptoKey = await getSubtleCryptoKey();
 
-      const decryptedBuffer = await cryptoInstance.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv as unknown as BufferSource },
-        cryptoKey,
-        cipherBytes as unknown as BufferSource
-      );
+      // Gather all candidate keys across current and past iterations
+      const candidateKeys = await getAllCandidateCryptoKeys();
+      try {
+        const primaryKey = await getSubtleCryptoKey();
+        if (!candidateKeys.includes(primaryKey)) {
+          candidateKeys.unshift(primaryKey);
+        }
+      } catch {
+        // ignore
+      }
 
-      const decryptedStr = new TextDecoder().decode(decryptedBuffer);
-      return JSON.parse(decryptedStr) as T;
+      let lastError: unknown = null;
+      for (const testKey of candidateKeys) {
+        try {
+          const decryptedBuffer = await cryptoInstance.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv as unknown as BufferSource },
+            testKey,
+            cipherBytes as unknown as BufferSource
+          );
+
+          const decryptedStr = new TextDecoder().decode(decryptedBuffer);
+          const parsed = JSON.parse(decryptedStr) as T;
+
+          // Decryption succeeded with this candidate key!
+          // Cache and persist it as active master key so future reads are instantaneous.
+          cachedCryptoKey = testKey;
+          inMemoryKeyStore.set(MASTER_KEY_ID, testKey);
+          saveKeyToVault(MASTER_KEY_ID, testKey).catch(() => {});
+
+          return parsed;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      if (options?.throwOnError) {
+        throw new DecryptionError(lastError instanceof Error ? lastError.message : 'Échec d\'authentification AES-GCM');
+      }
+      console.warn('[Crypto] AES-GCM decryption failed across candidate keys:', lastError);
+      return fallback;
     } catch (err) {
       if (options?.throwOnError) {
         throw new DecryptionError(err instanceof Error ? err.message : 'Échec d\'authentification AES-GCM');
       }
-      console.warn('[Crypto] AES-GCM decryption failed:', err);
       return fallback;
     }
   }
@@ -535,16 +735,31 @@ export async function decryptData<T>(
   if (cipherOrRaw.startsWith('aes256:')) {
     const ciphertext = cipherOrRaw.substring(7);
 
-    // Try legacy salt-derived key for older data
-    try {
-      const legacyKey = getLegacyVaultKey();
-      const bytes = CryptoJS.AES.decrypt(ciphertext, legacyKey);
-      const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-      if (decryptedString) {
-        return JSON.parse(decryptedString) as T;
+    // Multi-key candidate resolution for CryptoJS payloads
+    const candidateStrings: string[] = [];
+    if (typeof localStorage !== 'undefined') {
+      const env = localStorage.getItem(DEVICE_RECOVERY_KEY);
+      if (env) candidateStrings.push(env);
+      const v2 = localStorage.getItem(STORAGE_DEVICE_KEY);
+      if (v2 && !candidateStrings.includes(v2)) candidateStrings.push(v2);
+      const v1 = localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
+      if (v1 && !candidateStrings.includes(v1)) candidateStrings.push(v1);
+    }
+    const legacySaltSha = CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex);
+    if (!candidateStrings.includes(legacySaltSha)) candidateStrings.push(legacySaltSha);
+    if (!candidateStrings.includes(LEGACY_VAULT_SALT)) candidateStrings.push(LEGACY_VAULT_SALT);
+
+    for (const keyCandidate of candidateStrings) {
+      try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, keyCandidate);
+        const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
+        if (decryptedString) {
+          const parsed = JSON.parse(decryptedString) as T;
+          return parsed;
+        }
+      } catch {
+        // try next candidate
       }
-    } catch {
-      // Continue to error/fallback
     }
 
     if (options?.throwOnError) {

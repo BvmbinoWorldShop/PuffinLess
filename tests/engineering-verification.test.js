@@ -1,6 +1,7 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import CryptoJS from 'crypto-js';
+import 'fake-indexeddb/auto';
 
 // Setup Mock Browser Storage for Node test environment
 class MockStorage {
@@ -32,6 +33,7 @@ globalThis.sessionStorage = new MockStorage();
 globalThis.window = {
   localStorage: globalThis.localStorage,
   sessionStorage: globalThis.sessionStorage,
+  indexedDB: globalThis.indexedDB,
 };
 
 // DIRECT IMPORTS FROM REAL APPLICATION CODE
@@ -48,13 +50,23 @@ import {
   disablePassphraseVault,
   lockCryptographicVault,
   isPassphraseVaultEnabled,
+  loadKeyFromVault,
+  MASTER_KEY_ID,
   DecryptionError,
 } from '../src/utils/crypto.ts';
 import {
   resetAllUserData,
   saveProfile,
+  loadProfile,
+  saveStreaks,
+  saveCravings,
   initIndexedDBStorage,
+  migrateToPassphraseVault,
+  migrateToDeviceVault,
 } from '../src/utils/storage.ts';
+import {
+  recoverAllDeviceData,
+} from '../src/utils/recovery.ts';
 import {
   purgeSecurityState,
   getSecurityConfig,
@@ -389,6 +401,150 @@ describe('PuffinLess Production Code Verification', () => {
       const restoredDeviceKey = await disablePassphraseVault();
       assert.ok(restoredDeviceKey);
       assert.equal(isPassphraseVaultEnabled(), false, 'Vault mode must be cleanly deactivated');
+    });
+  });
+
+  describe('Pillar 5: Real IndexedDB Persistence, Migration & Zero-Loss Recovery', () => {
+    test('strictly enforces zero raw key material in localStorage and stores non-extractable key in IndexedDB', async () => {
+      // Initialize or get the subtle key
+      const key = await getSubtleCryptoKey();
+      assert.ok(key);
+      assert.equal(key.extractable, false, 'CryptoKey MUST be non-extractable');
+
+      // Verify no raw key strings or seed material anywhere in localStorage
+      assert.equal(globalThis.localStorage.getItem('puffinless_vault_key_v2'), null);
+      assert.equal(globalThis.localStorage.getItem('puffinless_vault_key_v1'), null);
+      assert.equal(globalThis.localStorage.getItem('puffinless_vault_device_envelope_v2'), null);
+
+      // Verify that the master key in the real IndexedDB vault is non-extractable
+      const loadedKey = await loadKeyFromVault(MASTER_KEY_ID);
+      assert.ok(loadedKey, 'Master key must exist in IndexedDB vault');
+      assert.equal(loadedKey.extractable, false, 'Vault stored key must be strictly non-extractable');
+      assert.equal(loadedKey.algorithm.name, 'AES-GCM');
+    });
+
+    test('cold restart restores all entities from real IndexedDB with zero onboarding guide loop', async () => {
+      const sampleProfile = {
+        name: 'SobrietyChampion',
+        isOnboarded: true,
+        cigarettesPerDay: 20,
+        quitDate: '2026-03-01T00:00:00.000Z',
+        currency: 'EUR',
+        pricePerPack: 12.5,
+      };
+      const sampleStreaks = [
+        { id: 's1', start: '2026-03-01T00:00:00.000Z', brokenBy: 'relapse' }
+      ];
+      const sampleCravings = [
+        { id: 'c1', timestamp: '2026-03-02T12:00:00.000Z', intensity: 8, trigger: 'stress' }
+      ];
+
+      // Save to real IndexedDB via production storage functions
+      await saveProfile(sampleProfile);
+      await saveStreaks(sampleStreaks);
+      await saveCravings(sampleCravings);
+
+      // 1. Verify synchronous loadProfile() immediately reflects isOnboarded: true on boot
+      // This prevents the guide / presentation modal from flashing on app open
+      const syncProfile = loadProfile();
+      assert.equal(syncProfile.isOnboarded, true, 'Synchronous loadProfile must immediately report isOnboarded: true');
+
+      // 2. Clear volatile memory caches (simulating cold process restart)
+      lockCryptographicVault();
+
+      // 3. Hydrate via initIndexedDBStorage from real IndexedDB
+      const hydrated = await initIndexedDBStorage();
+      assert.ok(hydrated, 'Storage must hydrate data successfully on restart');
+      assert.equal(hydrated.profile.name, 'SobrietyChampion');
+      assert.equal(hydrated.profile.isOnboarded, true);
+      assert.equal(hydrated.profile.cigarettesPerDay, 20);
+      assert.equal(hydrated.streaks.length, 1);
+      assert.equal(hydrated.streaks[0].id, 's1');
+      assert.equal(hydrated.cravings.length, 1);
+      assert.equal(hydrated.cravings[0].intensity, 8);
+    });
+
+    test('passphrase migration guarantees zero data loss in both directions', async () => {
+      const initialProfile = {
+        name: 'VaultTester',
+        isOnboarded: true,
+        cigarettesPerDay: 10,
+        quitDate: '2026-02-15T08:00:00.000Z',
+        currency: 'EUR',
+        pricePerPack: 11,
+      };
+      const initialCravings = [
+        { id: 'c-test-1', timestamp: '2026-02-16T10:00:00.000Z', intensity: 5, trigger: 'morning_coffee' }
+      ];
+
+      // Seed storage with device key
+      await saveProfile(initialProfile);
+      await saveCravings(initialCravings);
+
+      const passphrase = 'MySuperPassphrase#2026!';
+
+      // 1. Migrate to Passphrase Vault (PBKDF2 600,000 iterations)
+      await migrateToPassphraseVault(passphrase);
+      assert.equal(isPassphraseVaultEnabled(), true, 'Passphrase vault must be enabled');
+
+      // 2. Read back data after migration - zero data loss!
+      const hydratedPassphrase = await initIndexedDBStorage();
+      assert.equal(hydratedPassphrase.profile.name, 'VaultTester');
+      assert.equal(hydratedPassphrase.cravings.length, 1);
+      assert.equal(hydratedPassphrase.cravings[0].id, 'c-test-1');
+
+      // 3. Vault Locking genuinely removes access to the key
+      lockCryptographicVault();
+      await assert.rejects(
+        async () => {
+          await getSubtleCryptoKey();
+        },
+        DecryptionError,
+        'Locked vault must reject getSubtleCryptoKey() when locked'
+      );
+
+      // 4. Unlock with correct passphrase
+      const unlockResult = await unlockPassphraseVault(passphrase);
+      assert.equal(unlockResult, true, 'Unlock with valid passphrase must succeed');
+
+      // 5. Migrate back to device vault
+      await migrateToDeviceVault();
+      assert.equal(isPassphraseVaultEnabled(), false, 'Passphrase vault must be deactivated');
+
+      // 6. Verify data integrity after return to device vault
+      const hydratedDevice = await initIndexedDBStorage();
+      assert.equal(hydratedDevice.profile.name, 'VaultTester');
+      assert.equal(hydratedDevice.cravings.length, 1);
+      assert.equal(hydratedDevice.cravings[0].trigger, 'morning_coffee');
+    });
+
+    test('recovers legacy encrypted payloads (aes256: CryptoJS) across cold reset or update', async () => {
+      const legacyProfile = {
+        name: 'RecoveredHero',
+        isOnboarded: true,
+        cigarettesPerDay: 18,
+        quitDate: '2026-01-01T00:00:00.000Z',
+      };
+      const legacyCravings = [
+        { id: 'c-legacy-1', timestamp: '2026-01-02T15:00:00.000Z', intensity: 9, trigger: 'social' }
+      ];
+
+      // Encrypt with legacy CryptoJS key into legacy localStorage keys
+      const legacyKey = getLegacyVaultKey();
+      const legacyProfCipher = `aes256:${CryptoJS.AES.encrypt(JSON.stringify(legacyProfile), legacyKey).toString()}`;
+      const legacyCravCipher = `aes256:${CryptoJS.AES.encrypt(JSON.stringify(legacyCravings), legacyKey).toString()}`;
+
+      globalThis.localStorage.setItem('puffinless_profile', legacyProfCipher);
+      globalThis.localStorage.setItem('puffinless_cravings', legacyCravCipher);
+
+      // Execute recovery engine
+      const res = await recoverAllDeviceData();
+      assert.equal(res.recovered, true, 'Recovery engine must report recovered === true');
+      assert.ok(res.profile);
+      assert.equal(res.profile.name, 'RecoveredHero');
+      assert.equal(res.profile.isOnboarded, true);
+      assert.equal(res.cravings.length, 1);
+      assert.equal(res.cravings[0].id, 'c-legacy-1');
     });
   });
 });

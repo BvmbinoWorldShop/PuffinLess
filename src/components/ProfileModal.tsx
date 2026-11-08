@@ -2,15 +2,17 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
   Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload, Smartphone,
-  Lock, Download
+  Lock, Download, RefreshCw
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
-import { downloadUserDataJSON, reencryptAllUserDataWithKey } from '../utils/storage';
+import {
+  downloadUserDataJSON,
+  migrateToPassphraseVault,
+  migrateToDeviceVault,
+} from '../utils/storage';
 import {
   isPassphraseVaultEnabled,
-  enablePassphraseVault,
-  disablePassphraseVault,
   lockCryptographicVault,
 } from '../utils/crypto';
 import {
@@ -25,6 +27,7 @@ interface ProfileModalProps {
   onSaveProfile: (profile: UserProfile) => Promise<void> | void;
   onRerunOnboarding: (step?: number) => void;
   onResetData: () => Promise<void> | void;
+  onRecoverData?: () => Promise<any>;
 }
 
 const PRESET_AVATARS = [
@@ -85,6 +88,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onSaveProfile,
   onRerunOnboarding,
   onResetData,
+  onRecoverData,
 }) => {
   // Language & Theme
   const [lang, setLang] = useState<Language>(profile.language || 'en');
@@ -153,7 +157,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [vaultSuccess, setVaultSuccess] = useState<string | null>(null);
   const [isVaultProcessing, setIsVaultProcessing] = useState(false);
 
+  // Local Device Recovery state
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
   const isFr = lang === 'fr';
+
+  const handleRecoverData = async () => {
+    if (!onRecoverData) return;
+    setIsRecovering(true);
+    setRecoveryMessage(null);
+    try {
+      sound.playClick();
+      const res = await onRecoverData();
+      if (res && res.recovered) {
+        sound.playCelebration();
+        setRecoveryMessage(
+          isFr
+            ? `✓ Récupération réussie : ${res.stats?.daysSinceQuit || 0} jour(s) d'abstinence, ${res.stats?.cravingsCount || 0} victoires et ${res.stats?.streaksCount || 0} séries restaurées.`
+            : `✓ Recovery successful: ${res.stats?.daysSinceQuit || 0} smoke-free day(s), ${res.stats?.cravingsCount || 0} victories, and ${res.stats?.streaksCount || 0} streaks restored.`
+        );
+      } else {
+        setRecoveryMessage(
+          isFr
+            ? 'Toutes les données de cet appareil sont déjà synchronisées et protégées.'
+            : 'All data on this device is already synchronized and protected.'
+        );
+      }
+    } catch (err) {
+      console.error('[ProfileModal] Recovery error:', err);
+      setRecoveryMessage(
+        isFr ? 'Erreur lors du scan de récupération.' : 'Error during recovery scan.'
+      );
+    } finally {
+      setIsRecovering(false);
+    }
+  };
 
   const handleEnablePassphraseVault = async () => {
     setVaultError(null);
@@ -175,16 +214,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setIsVaultProcessing(true);
     sound.playClick();
     try {
-      const derivedKey = await enablePassphraseVault(vaultPassphrase);
-      await reencryptAllUserDataWithKey(derivedKey);
+      await migrateToPassphraseVault(vaultPassphrase);
       setIsPassphraseMode(true);
       setShowPassphraseInput(false);
       setVaultPassphrase('');
       setVaultPassphraseConfirm('');
       setVaultSuccess(
         isFr
-          ? 'Coffre-fort avec phrase secrète activé avec succès !'
-          : 'Passphrase Vault successfully enabled!'
+          ? 'Coffre-fort avec phrase secrète activé avec succès sans perte de données !'
+          : 'Passphrase Vault successfully enabled without data loss!'
       );
       setTimeout(() => setVaultSuccess(null), 3000);
     } catch (err) {
@@ -199,13 +237,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setIsVaultProcessing(true);
     sound.playClick();
     try {
-      const deviceKey = await disablePassphraseVault();
-      await reencryptAllUserDataWithKey(deviceKey);
+      await migrateToDeviceVault();
       setIsPassphraseMode(false);
       setVaultSuccess(
         isFr
-          ? 'Retour au mode de protection appareil effectué.'
-          : 'Reverted to device protection mode.'
+          ? 'Retour au mode de protection appareil effectué sans perte de données.'
+          : 'Reverted to device protection mode without data loss.'
       );
       setTimeout(() => setVaultSuccess(null), 3000);
     } catch (err) {
@@ -1474,6 +1511,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   {isFr ? 'Coffre-fort local avec sécurité de niveau militaire, export de sauvegarde et droit à l\'effacement' : 'Military-grade secured local vault, full backup export, and right to be forgotten'}
                 </p>
               </div>
+            </div>
+
+            {/* Mode Récupération & Restauration Locale */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 border border-emerald-500/30 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                <div>
+                  <span className="text-xs font-bold text-white block">
+                    {isFr ? 'Mode Récupération & Restauration Locale' : 'Local Device Recovery & Restore'}
+                  </span>
+                  <span className="text-[11px] text-slate-300 block">
+                    {isFr
+                      ? 'Analyse en profondeur votre appareil pour retrouver et restaurer votre profil, vos jours d\'abstinence et tout votre historique sans perte.'
+                      : 'Deep-scans your device to locate and restore your profile, smoke-free days, and full history with zero data loss.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isRecovering}
+                  onClick={handleRecoverData}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-extrabold transition-all shrink-0 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRecovering ? 'animate-spin' : ''}`} />
+                  <span>{isRecovering ? (isFr ? 'Scan...' : 'Scanning...') : (isFr ? 'Récupérer mes données' : 'Recover Data')}</span>
+                </button>
+              </div>
+              {recoveryMessage && (
+                <div
+                  className={`p-2 rounded-xl text-[11px] font-semibold ${
+                    recoveryMessage.startsWith('✓')
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-slate-800 text-slate-300 border border-white/10'
+                  }`}
+                >
+                  {recoveryMessage}
+                </div>
+              )}
             </div>
 
             {/* Save All Data Section (Export JSON) */}

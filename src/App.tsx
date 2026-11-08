@@ -27,7 +27,12 @@ export function App() {
   const [isVaultActive, setIsVaultActive] = useState(() => !isPassphraseVaultEnabled() || isVaultUnlocked());
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isManualOnboardingOpen, setIsManualOnboardingOpen] = useState(false);
-  const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
+  const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('puffinless_is_onboarded') === 'true';
+    }
+    return false;
+  });
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -185,6 +190,7 @@ export function App() {
         isOpen={isOnboardingOpen}
         initialProfile={profile}
         initialStep={onboardingStep}
+        onRecover={actions.recoverLocalData}
         onClose={() => {
           setIsManualOnboardingOpen(false);
           setIsOnboardingDismissed(true);
@@ -202,6 +208,7 @@ export function App() {
           profile={profile}
           onClose={() => setIsProfileOpen(false)}
           onSaveProfile={actions.updateProfile}
+          onRecoverData={actions.recoverLocalData}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
             setIsOnboardingDismissed(false);

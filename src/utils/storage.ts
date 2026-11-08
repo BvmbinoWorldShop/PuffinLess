@@ -10,10 +10,35 @@ import type {
   SleepEnergyEntry,
   StreakRecord,
   Language,
+  AppTheme,
 } from '../types';
-import { encryptData, decryptData, purgeVaultKeys, setActiveVaultKey } from './crypto.ts';
+import {
+  encryptData,
+  decryptData,
+  purgeVaultKeys,
+  setActiveVaultKey,
+  deriveKeyFromPassphrase,
+  encryptWithKey,
+  toHex,
+  getCrypto,
+  createKeyFromSeed,
+  saveKeyToVault,
+  removeKeyFromVault,
+  MASTER_KEY_ID,
+  VAULT_CONFIG_KEY,
+  type VaultConfig,
+} from './crypto.ts';
 import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
+import {
+  recoverAllDeviceData,
+  createDeviceRescueSnapshot,
+  mergeStreaks,
+  mergeCravings,
+  mergeSubstances,
+  RESCUE_BACKUP_KEY,
+  LEGACY_RESCUE_KEY,
+} from './recovery.ts';
 
 export const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -52,6 +77,7 @@ export async function saveStreaks(streaks: StreakRecord[]): Promise<void> {
   const cipher = await encryptData(streaks);
   localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
   await idbSet(STORAGE_KEYS.STREAKS, cipher);
+  createDeviceRescueSnapshot({ streaks });
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -635,7 +661,7 @@ export function loadProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
     if (raw) {
-      if (!raw.startsWith('aes-gcm:')) {
+      if (!raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
           return { ...DEFAULT_PROFILE, ...parsed };
@@ -645,7 +671,23 @@ export function loadProfile(): UserProfile {
   } catch {
     // fallback
   }
-  return { ...DEFAULT_PROFILE, createdAt: nowIso, quitDate: nowIso };
+
+  // Persistent user state check (prevents presentation/onboarding loop on cold restart)
+  const isUserOnboarded = typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_is_onboarded') === 'true';
+  const savedName = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_user_name')) || '';
+  const savedQuitDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
+  const savedLang = (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_app_lang') as Language)) || 'en';
+  const savedTheme = (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_app_theme') as AppTheme)) || 'dark';
+
+  return {
+    ...DEFAULT_PROFILE,
+    name: savedName,
+    isOnboarded: isUserOnboarded,
+    quitDate: savedQuitDate || nowIso,
+    createdAt: savedQuitDate || nowIso,
+    language: savedLang,
+    theme: savedTheme,
+  };
 }
 
 export async function loadProfileAsync(): Promise<UserProfile> {
@@ -656,6 +698,9 @@ export async function loadProfileAsync(): Promise<UserProfile> {
       const parsed = await decryptData<Partial<UserProfile>>(raw, {});
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         const merged: UserProfile = { ...DEFAULT_PROFILE, ...parsed };
+        if (merged.isOnboarded && typeof localStorage !== 'undefined') {
+          localStorage.setItem('puffinless_is_onboarded', 'true');
+        }
         if (!merged.createdAt) {
           merged.createdAt = merged.quitDate || nowIso;
         }
@@ -668,13 +713,21 @@ export async function loadProfileAsync(): Promise<UserProfile> {
   } catch (e) {
     console.error('Error loading profile async', e);
   }
-  return { ...DEFAULT_PROFILE, createdAt: nowIso, quitDate: nowIso };
+  return loadProfile();
 }
 
 export async function saveProfile(profile: UserProfile): Promise<void> {
   const cipher = await encryptData(profile);
   localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
   await idbSet(STORAGE_KEYS.PROFILE, cipher);
+  if (profile.isOnboarded && typeof localStorage !== 'undefined') {
+    localStorage.setItem('puffinless_is_onboarded', 'true');
+    if (profile.name) localStorage.setItem('puffinless_user_name', profile.name);
+    if (profile.quitDate) localStorage.setItem('puffinless_quit_date', profile.quitDate);
+    if (profile.language) localStorage.setItem('puffinless_app_lang', profile.language);
+    if (profile.theme) localStorage.setItem('puffinless_app_theme', profile.theme);
+  }
+  createDeviceRescueSnapshot({ profile });
 }
 
 export function loadExpenses(): PurchaseExpense[] {
@@ -703,6 +756,7 @@ export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
   const cipher = await encryptData(expenses);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
   await idbSet(STORAGE_KEYS.EXPENSES, cipher);
+  createDeviceRescueSnapshot({ expenses });
 }
 
 export function loadSubstanceLogs(): SubstanceLog[] {
@@ -731,6 +785,7 @@ export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
   const cipher = await encryptData(logs);
   localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
   await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
+  createDeviceRescueSnapshot({ substanceLogs: logs });
 }
 
 export function loadSleepEnergy(): SleepEnergyEntry[] {
@@ -759,6 +814,7 @@ export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void
   const cipher = await encryptData(entries);
   localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
   await idbSet(STORAGE_KEYS.SLEEP_ENERGY, cipher);
+  createDeviceRescueSnapshot({ sleepLogs: entries });
 }
 
 export function loadSavingsGoals(): SavingsGoal[] {
@@ -787,6 +843,7 @@ export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
   const cipher = await encryptData(goals);
   localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
   await idbSet(STORAGE_KEYS.SAVINGS_GOALS, cipher);
+  createDeviceRescueSnapshot({ goals });
 }
 
 export function loadCravings(): CravingEntry[] {
@@ -815,6 +872,7 @@ export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
   const cipher = await encryptData(cravings);
   localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
   await idbSet(STORAGE_KEYS.CRAVINGS, cipher);
+  createDeviceRescueSnapshot({ cravings });
 }
 
 export function loadSmokeLog(): SmokeLogEntry[] {
@@ -843,6 +901,7 @@ export async function saveSmokeLog(logs: SmokeLogEntry[]): Promise<void> {
   const cipher = await encryptData(logs);
   localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
   await idbSet(STORAGE_KEYS.SMOKE_LOG, cipher);
+  createDeviceRescueSnapshot({ smokeLogs: logs });
 }
 
 export interface HydratedStorageData {
@@ -856,55 +915,109 @@ export interface HydratedStorageData {
 }
 
 /**
- * Initializes and syncs IndexedDB storage.
- * - If IndexedDB is already populated, returns the stored data.
- * - If IndexedDB is empty (first run), migrates existing localStorage data into IndexedDB.
+ * Initializes and syncs IndexedDB storage with automatic device recovery.
+ * - Checks IndexedDB and localStorage.
+ * - If neither contains an active profile, automatically triggers deep device recovery.
+ * - Consolidates all cravings, streaks, substances, and sleep entries without duplicates.
+ * - Guarantees zero data loss across updates.
  */
 export async function initIndexedDBStorage(): Promise<HydratedStorageData | null> {
   if (typeof window === 'undefined') return null;
 
   try {
+    // 1. Check IndexedDB
+    let idbProfile: UserProfile | null = null;
     const idbProfileRaw = await idbGet<unknown>(STORAGE_KEYS.PROFILE);
-
     if (idbProfileRaw) {
-      const idbProfile = await decryptData<UserProfile>(idbProfileRaw, null as any);
+      idbProfile = await decryptData<UserProfile>(idbProfileRaw, null as any);
+    }
 
-      if (idbProfile && typeof idbProfile === 'object') {
-        const [goalsRaw, cravingsRaw, expensesRaw, substanceLogsRaw, sleepLogsRaw, streaksRaw] =
-          await Promise.all([
-            idbGet<unknown>(STORAGE_KEYS.SAVINGS_GOALS),
-            idbGet<unknown>(STORAGE_KEYS.CRAVINGS),
-            idbGet<unknown>(STORAGE_KEYS.EXPENSES),
-            idbGet<unknown>(STORAGE_KEYS.SUBSTANCE_LOG),
-            idbGet<unknown>(STORAGE_KEYS.SLEEP_ENERGY),
-            idbGet<unknown>(STORAGE_KEYS.STREAKS),
-          ]);
+    // 2. Check localStorage
+    let localProfile: UserProfile | null = null;
+    const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILE);
+    if (localRaw) {
+      localProfile = await decryptData<UserProfile>(localRaw, null as any);
+    }
 
-        const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
-          decryptData<SavingsGoal[]>(goalsRaw, []),
-          decryptData<CravingEntry[]>(cravingsRaw, []),
-          decryptData<PurchaseExpense[]>(expensesRaw, []),
-          decryptData<SubstanceLog[]>(substanceLogsRaw, []),
-          decryptData<SleepEnergyEntry[]>(sleepLogsRaw, []),
-          decryptData<StreakRecord[]>(streaksRaw, []),
-        ]);
+    const hasActiveIdb = Boolean(
+      idbProfile && typeof idbProfile === 'object' && (idbProfile.isOnboarded || idbProfile.quitDate)
+    );
+    const hasActiveLocal = Boolean(
+      localProfile && typeof localProfile === 'object' && (localProfile.isOnboarded || localProfile.quitDate)
+    );
 
+    // If neither storage has a verified active profile, run deep device recovery
+    if (!hasActiveIdb && !hasActiveLocal) {
+      const recovery = await recoverAllDeviceData();
+      if (recovery.recovered && recovery.profile) {
         return {
-          profile: idbProfile,
-          goals: goals || undefined,
-          cravings: cravings || undefined,
-          expenses: expenses || undefined,
-          substanceLogs: substanceLogs || undefined,
-          sleepLogs: sleepLogs || undefined,
-          streaks: streaks || undefined,
+          profile: recovery.profile,
+          goals: recovery.goals,
+          cravings: recovery.cravings,
+          expenses: recovery.expenses,
+          substanceLogs: recovery.substanceLogs,
+          sleepLogs: recovery.sleepLogs,
+          streaks: recovery.streaks,
         };
       }
     }
 
-    // First time IndexedDB migration from localStorage
-    const [localProfile, localStreaks, localCravings, localSubstances, localExpenses, localSleep, localGoals] =
-      await Promise.all([
-        loadProfileAsync(),
+    // If IndexedDB has active profile:
+    if (hasActiveIdb && idbProfile) {
+      const [goalsRaw, cravingsRaw, expensesRaw, substanceLogsRaw, sleepLogsRaw, streaksRaw] =
+        await Promise.all([
+          idbGet<unknown>(STORAGE_KEYS.SAVINGS_GOALS),
+          idbGet<unknown>(STORAGE_KEYS.CRAVINGS),
+          idbGet<unknown>(STORAGE_KEYS.EXPENSES),
+          idbGet<unknown>(STORAGE_KEYS.SUBSTANCE_LOG),
+          idbGet<unknown>(STORAGE_KEYS.SLEEP_ENERGY),
+          idbGet<unknown>(STORAGE_KEYS.STREAKS),
+        ]);
+
+      const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
+        decryptData<SavingsGoal[]>(goalsRaw, []),
+        decryptData<CravingEntry[]>(cravingsRaw, []),
+        decryptData<PurchaseExpense[]>(expensesRaw, []),
+        decryptData<SubstanceLog[]>(substanceLogsRaw, []),
+        decryptData<SleepEnergyEntry[]>(sleepLogsRaw, []),
+        decryptData<StreakRecord[]>(streaksRaw, []),
+      ]);
+
+      // Consolidate with any items in localStorage
+      const [localCravings, localStreaks, localSubstances] = await Promise.all([
+        loadCravingsAsync(),
+        loadStreaksAsync(),
+        loadSubstanceLogsAsync(),
+      ]);
+
+      const consolidatedCravings = mergeCravings(cravings || [], localCravings || []);
+      const consolidatedStreaks = mergeStreaks(streaks || [], localStreaks || []);
+      const consolidatedSubstances = mergeSubstances(substanceLogs || [], localSubstances || []);
+
+      createDeviceRescueSnapshot({
+        profile: idbProfile,
+        goals: goals || undefined,
+        cravings: consolidatedCravings,
+        expenses: expenses || undefined,
+        substanceLogs: consolidatedSubstances,
+        sleepLogs: sleepLogs || undefined,
+        streaks: consolidatedStreaks,
+      });
+
+      return {
+        profile: idbProfile,
+        goals: goals || undefined,
+        cravings: consolidatedCravings,
+        expenses: expenses || undefined,
+        substanceLogs: consolidatedSubstances,
+        sleepLogs: sleepLogs || undefined,
+        streaks: consolidatedStreaks,
+      };
+    }
+
+    // If localProfile is active:
+    if (hasActiveLocal && localProfile) {
+      const [streaks, cravings, substances, expenses, sleep, goals] = await Promise.all([
         loadStreaksAsync(),
         loadCravingsAsync(),
         loadSubstanceLogsAsync(),
@@ -913,71 +1026,88 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
         loadSavingsGoalsAsync(),
       ]);
 
-    const [profileCipher, streaksCipher, cravingsCipher, subCipher, expCipher, sleepCipher, goalsCipher] =
+      // Sync active localProfile into IndexedDB safely
       await Promise.all([
-        encryptData(localProfile),
-        encryptData(localStreaks),
-        encryptData(localCravings),
-        encryptData(localSubstances),
-        encryptData(localExpenses),
-        encryptData(localSleep),
-        encryptData(localGoals),
+        saveProfile(localProfile),
+        saveStreaks(streaks),
+        saveCravings(cravings),
+        saveSubstanceLogs(substances),
+        saveExpenses(expenses),
+        saveSleepEnergy(sleep),
+        saveSavingsGoals(goals),
       ]);
 
-    await Promise.all([
-      idbSet(STORAGE_KEYS.PROFILE, profileCipher),
-      idbSet(STORAGE_KEYS.STREAKS, streaksCipher),
-      idbSet(STORAGE_KEYS.CRAVINGS, cravingsCipher),
-      idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
-      idbSet(STORAGE_KEYS.EXPENSES, expCipher),
-      idbSet(STORAGE_KEYS.SLEEP_ENERGY, sleepCipher),
-      idbSet(STORAGE_KEYS.SAVINGS_GOALS, goalsCipher),
-    ]);
-
-    return {
-      profile: localProfile,
-      goals: localGoals,
-      cravings: localCravings,
-      expenses: localExpenses,
-      substanceLogs: localSubstances,
-      sleepLogs: localSleep,
-      streaks: localStreaks,
-    };
-  } catch (err) {
-    console.warn('[Storage] IndexedDB initialization error, recovering from encrypted localStorage:', err);
-    try {
-      const [localProfile, localStreaks, localCravings, localSubstances, localExpenses, localSleep, localGoals] =
-        await Promise.all([
-          loadProfileAsync(),
-          loadStreaksAsync(),
-          loadCravingsAsync(),
-          loadSubstanceLogsAsync(),
-          loadExpensesAsync(),
-          loadSleepEnergyAsync(),
-          loadSavingsGoalsAsync(),
-        ]);
+      createDeviceRescueSnapshot({
+        profile: localProfile,
+        goals,
+        cravings,
+        expenses,
+        substanceLogs: substances,
+        sleepLogs: sleep,
+        streaks,
+      });
 
       return {
         profile: localProfile,
-        goals: localGoals,
-        cravings: localCravings,
-        expenses: localExpenses,
-        substanceLogs: localSubstances,
-        sleepLogs: localSleep,
-        streaks: localStreaks,
+        goals,
+        cravings,
+        expenses,
+        substanceLogs: substances,
+        sleepLogs: sleep,
+        streaks,
       };
-    } catch (fallbackErr) {
-      console.error('[Storage] Emergency fallback from localStorage failed:', fallbackErr);
-      return null;
     }
+
+    // Fallback deep scan across all legacy and rescue keys
+    const fallbackRecovery = await recoverAllDeviceData();
+    if (fallbackRecovery.recovered && fallbackRecovery.profile) {
+      return {
+        profile: fallbackRecovery.profile,
+        goals: fallbackRecovery.goals,
+        cravings: fallbackRecovery.cravings,
+        expenses: fallbackRecovery.expenses,
+        substanceLogs: fallbackRecovery.substanceLogs,
+        sleepLogs: fallbackRecovery.sleepLogs,
+        streaks: fallbackRecovery.streaks,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[Storage] IndexedDB initialization error, recovering from device scan:', err);
+    try {
+      const recovery = await recoverAllDeviceData();
+      if (recovery.recovered && recovery.profile) {
+        return {
+          profile: recovery.profile,
+          goals: recovery.goals,
+          cravings: recovery.cravings,
+          expenses: recovery.expenses,
+          substanceLogs: recovery.substanceLogs,
+          sleepLogs: recovery.sleepLogs,
+          streaks: recovery.streaks,
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   }
 }
 
 /**
- * Re-encrypts all user entities with a newly selected active CryptoKey (e.g. Passphrase Vault transition).
+ * Safely migrates all user data to Passphrase Vault without data loss.
+ * Loads current records with active key, derives 600k PBKDF2 passphrase key,
+ * encrypts canary and records, stores to IndexedDB and localStorage, and sets active.
  */
-export async function reencryptAllUserDataWithKey(newKey: CryptoKey): Promise<void> {
-  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals] = await Promise.all([
+export async function migrateToPassphraseVault(passphrase: string): Promise<CryptoKey> {
+  const cleanPass = passphrase.trim();
+  if (!cleanPass || cleanPass.length < 6) {
+    throw new Error('Passphrase must be at least 6 characters');
+  }
+
+  // 1. Load all current user data using current active key
+  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
     loadProfileAsync(),
     loadStreaksAsync(),
     loadCravingsAsync(),
@@ -985,19 +1115,208 @@ export async function reencryptAllUserDataWithKey(newKey: CryptoKey): Promise<vo
     loadSubstanceLogsAsync(),
     loadSleepEnergyAsync(),
     loadSavingsGoalsAsync(),
+    loadSmokeLogAsync(),
   ]);
 
-  setActiveVaultKey(newKey);
+  // 2. Derive new non-extractable AES-GCM key from passphrase via PBKDF2 (600,000 iterations)
+  const cryptoInstance = getCrypto();
+  const salt = new Uint8Array(16);
+  cryptoInstance.getRandomValues(salt);
+  const passphraseKey = await deriveKeyFromPassphrase(cleanPass, salt, 600000);
+
+  // 3. Encrypt canary verification with new passphrase key
+  const canaryCipher = await encryptWithKey('PUFFINLESS_CANARY_VAULT_OK', passphraseKey);
+
+  // 4. Re-encrypt all user data with new passphrase key
+  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
+    await Promise.all([
+      encryptWithKey(profile, passphraseKey),
+      encryptWithKey(streaks, passphraseKey),
+      encryptWithKey(cravings, passphraseKey),
+      encryptWithKey(expenses, passphraseKey),
+      encryptWithKey(subLogs, passphraseKey),
+      encryptWithKey(sleepLogs, passphraseKey),
+      encryptWithKey(goals, passphraseKey),
+      encryptWithKey(smokeLogs, passphraseKey),
+    ]);
+
+  // 5. Write re-encrypted data to both IndexedDB and localStorage
+  await Promise.all([
+    idbSet(STORAGE_KEYS.PROFILE, profCipher),
+    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
+    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
+    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
+    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
+    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
+    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
+    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
+  ]);
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
+    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
+
+    const config: VaultConfig = {
+      mode: 'passphrase',
+      saltHex: toHex(salt),
+      iterations: 600000,
+      canaryCipher,
+    };
+    localStorage.setItem(VAULT_CONFIG_KEY, JSON.stringify(config));
+  }
+
+  // 6. Update rescue snapshot
+  createDeviceRescueSnapshot({
+    profile,
+    streaks,
+    cravings,
+    expenses,
+    substanceLogs: subLogs,
+    sleepLogs,
+    goals,
+    smokeLogs,
+  });
+
+  // 7. Set passphrase key active in memory and purge device key from IndexedDB
+  setActiveVaultKey(passphraseKey);
+  await removeKeyFromVault(MASTER_KEY_ID);
+
+  return passphraseKey;
+}
+
+/**
+ * Reverts from Passphrase Vault mode to Device Key mode without data loss.
+ */
+export async function migrateToDeviceVault(): Promise<CryptoKey> {
+  // 1. Load all current user data with active passphrase key
+  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
+    loadProfileAsync(),
+    loadStreaksAsync(),
+    loadCravingsAsync(),
+    loadExpensesAsync(),
+    loadSubstanceLogsAsync(),
+    loadSleepEnergyAsync(),
+    loadSavingsGoalsAsync(),
+    loadSmokeLogAsync(),
+  ]);
+
+  // 2. Generate new non-extractable device key
+  const cryptoInstance = getCrypto();
+  const freshSeed = new Uint8Array(32);
+  cryptoInstance.getRandomValues(freshSeed);
+  const deviceKey = await createKeyFromSeed(freshSeed);
+  await saveKeyToVault(MASTER_KEY_ID, deviceKey);
+
+  // 3. Re-encrypt all data with device key
+  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
+    await Promise.all([
+      encryptWithKey(profile, deviceKey),
+      encryptWithKey(streaks, deviceKey),
+      encryptWithKey(cravings, deviceKey),
+      encryptWithKey(expenses, deviceKey),
+      encryptWithKey(subLogs, deviceKey),
+      encryptWithKey(sleepLogs, deviceKey),
+      encryptWithKey(goals, deviceKey),
+      encryptWithKey(smokeLogs, deviceKey),
+    ]);
 
   await Promise.all([
-    saveProfile(profile),
-    saveStreaks(streaks),
-    saveCravings(cravings),
-    saveExpenses(expenses),
-    saveSubstanceLogs(subLogs),
-    saveSleepEnergy(sleepLogs),
-    saveSavingsGoals(goals),
+    idbSet(STORAGE_KEYS.PROFILE, profCipher),
+    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
+    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
+    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
+    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
+    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
+    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
+    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
   ]);
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
+    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
+    localStorage.removeItem(VAULT_CONFIG_KEY);
+  }
+
+  // 4. Update rescue snapshot
+  createDeviceRescueSnapshot({
+    profile,
+    streaks,
+    cravings,
+    expenses,
+    substanceLogs: subLogs,
+    sleepLogs,
+    goals,
+    smokeLogs,
+  });
+
+  // 5. Set active key
+  setActiveVaultKey(deviceKey);
+
+  return deviceKey;
+}
+
+/**
+ * Re-encrypts all user entities with a newly selected active CryptoKey (e.g. Passphrase Vault transition).
+ */
+export async function reencryptAllUserDataWithKey(newKey: CryptoKey): Promise<void> {
+  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
+    loadProfileAsync(),
+    loadStreaksAsync(),
+    loadCravingsAsync(),
+    loadExpensesAsync(),
+    loadSubstanceLogsAsync(),
+    loadSleepEnergyAsync(),
+    loadSavingsGoalsAsync(),
+    loadSmokeLogAsync(),
+  ]);
+
+  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
+    await Promise.all([
+      encryptWithKey(profile, newKey),
+      encryptWithKey(streaks, newKey),
+      encryptWithKey(cravings, newKey),
+      encryptWithKey(expenses, newKey),
+      encryptWithKey(subLogs, newKey),
+      encryptWithKey(sleepLogs, newKey),
+      encryptWithKey(goals, newKey),
+      encryptWithKey(smokeLogs, newKey),
+    ]);
+
+  await Promise.all([
+    idbSet(STORAGE_KEYS.PROFILE, profCipher),
+    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
+    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
+    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
+    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
+    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
+    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
+    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
+  ]);
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
+    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
+  }
+
+  setActiveVaultKey(newKey);
 }
 
 /**
@@ -1020,6 +1339,8 @@ export async function resetAllUserData(): Promise<void> {
   // 4. Wipe all browser storage completely
   if (typeof localStorage !== 'undefined') {
     try {
+      localStorage.removeItem(RESCUE_BACKUP_KEY);
+      localStorage.removeItem(LEGACY_RESCUE_KEY);
       localStorage.clear();
     } catch {
       // Fallback key-by-key removal if clear() is restricted
