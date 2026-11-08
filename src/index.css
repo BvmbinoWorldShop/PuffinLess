@@ -569,3 +569,19 @@
     display: none !important;
   }
 }
+
+/* Mobile & WebKit Date Input Normalization */
+input[type="date"] {
+  display: inline-flex;
+  align-items: center;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  min-height: 1.2em;
+  text-align: left;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.8);
+  margin-left: auto;
+}
+

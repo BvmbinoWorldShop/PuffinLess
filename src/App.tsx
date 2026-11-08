@@ -17,15 +17,18 @@ import { t } from './utils/i18n';
 
 export function App() {
   const store = useAppStore();
-  const { profile, stats, report, actions } = store;
+  const { profile, stats, report, actions, isHydrated } = store;
   const lang = profile.language || 'en';
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [isUnlocked, setIsUnlocked] = useState(() => !isSecurityEnabled());
   const [isSosOpen, setIsSosOpen] = useState(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(!profile.isOnboarded);
+  const [isManualOnboardingOpen, setIsManualOnboardingOpen] = useState(false);
+  const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const isOnboardingOpen = isManualOnboardingOpen || (isHydrated && !profile.isOnboarded && !isOnboardingDismissed);
 
   // Auto-hide bottom navigation on scroll down, show on scroll up
   const [showBottomNav, setShowBottomNav] = useState(true);
@@ -57,6 +60,19 @@ export function App() {
 
   if (!isUnlocked) {
     return <AppLockScreen onUnlock={() => setIsUnlocked(true)} language={lang} />;
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-pulse">
+            <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#10b981]" />
+          </div>
+          <span className="text-xs text-slate-400 font-bold tracking-wider uppercase">PuffinLess</span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -154,10 +170,13 @@ export function App() {
         isOpen={isOnboardingOpen}
         initialProfile={profile}
         initialStep={onboardingStep}
-        onClose={() => setIsOnboardingOpen(false)}
+        onClose={() => {
+          setIsManualOnboardingOpen(false);
+          setIsOnboardingDismissed(true);
+        }}
         onComplete={(p) => {
           actions.completeOnboarding(p);
-          setIsOnboardingOpen(false);
+          setIsManualOnboardingOpen(false);
         }}
       />
 
@@ -170,12 +189,14 @@ export function App() {
           onSaveProfile={actions.updateProfile}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
-            setIsOnboardingOpen(true);
+            setIsOnboardingDismissed(false);
+            setIsManualOnboardingOpen(true);
           }}
           onResetData={async () => {
             await actions.resetAll();
             setOnboardingStep(1);
-            setIsOnboardingOpen(true);
+            setIsOnboardingDismissed(false);
+            setIsManualOnboardingOpen(true);
           }}
         />
       )}

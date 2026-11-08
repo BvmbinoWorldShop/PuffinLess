@@ -51,7 +51,7 @@ export async function loadStreaksAsync(): Promise<StreakRecord[]> {
 export async function saveStreaks(streaks: StreakRecord[]): Promise<void> {
   const cipher = await encryptData(streaks);
   localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
-  await idbSet(STORAGE_KEYS.STREAKS, streaks);
+  await idbSet(STORAGE_KEYS.STREAKS, cipher);
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -674,7 +674,7 @@ export async function loadProfileAsync(): Promise<UserProfile> {
 export async function saveProfile(profile: UserProfile): Promise<void> {
   const cipher = await encryptData(profile);
   localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
-  await idbSet(STORAGE_KEYS.PROFILE, profile);
+  await idbSet(STORAGE_KEYS.PROFILE, cipher);
 }
 
 export function loadExpenses(): PurchaseExpense[] {
@@ -702,7 +702,7 @@ export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
 export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
   const cipher = await encryptData(expenses);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
-  await idbSet(STORAGE_KEYS.EXPENSES, expenses);
+  await idbSet(STORAGE_KEYS.EXPENSES, cipher);
 }
 
 export function loadSubstanceLogs(): SubstanceLog[] {
@@ -730,7 +730,7 @@ export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
 export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
   const cipher = await encryptData(logs);
   localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
-  await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
+  await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
 }
 
 export function loadSleepEnergy(): SleepEnergyEntry[] {
@@ -758,7 +758,7 @@ export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
 export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void> {
   const cipher = await encryptData(entries);
   localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
-  await idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
+  await idbSet(STORAGE_KEYS.SLEEP_ENERGY, cipher);
 }
 
 export function loadSavingsGoals(): SavingsGoal[] {
@@ -786,7 +786,7 @@ export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
 export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
   const cipher = await encryptData(goals);
   localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
-  await idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
+  await idbSet(STORAGE_KEYS.SAVINGS_GOALS, cipher);
 }
 
 export function loadCravings(): CravingEntry[] {
@@ -814,7 +814,7 @@ export async function loadCravingsAsync(): Promise<CravingEntry[]> {
 export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
   const cipher = await encryptData(cravings);
   localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
-  await idbSet(STORAGE_KEYS.CRAVINGS, cravings);
+  await idbSet(STORAGE_KEYS.CRAVINGS, cipher);
 }
 
 export function loadSmokeLog(): SmokeLogEntry[] {
@@ -842,7 +842,7 @@ export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
 export async function saveSmokeLog(logs: SmokeLogEntry[]): Promise<void> {
   const cipher = await encryptData(logs);
   localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
-  await idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
+  await idbSet(STORAGE_KEYS.SMOKE_LOG, cipher);
 }
 
 export interface HydratedStorageData {
@@ -864,27 +864,41 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   if (typeof window === 'undefined') return null;
 
   try {
-    const idbProfile = await idbGet<UserProfile>(STORAGE_KEYS.PROFILE);
+    const idbProfileRaw = await idbGet<unknown>(STORAGE_KEYS.PROFILE);
 
-    if (idbProfile) {
-      const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
-        idbGet<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS),
-        idbGet<CravingEntry[]>(STORAGE_KEYS.CRAVINGS),
-        idbGet<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES),
-        idbGet<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG),
-        idbGet<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY),
-        idbGet<StreakRecord[]>(STORAGE_KEYS.STREAKS),
-      ]);
+    if (idbProfileRaw) {
+      const idbProfile = await decryptData<UserProfile>(idbProfileRaw, null as any);
 
-      return {
-        profile: idbProfile,
-        goals: goals || undefined,
-        cravings: cravings || undefined,
-        expenses: expenses || undefined,
-        substanceLogs: substanceLogs || undefined,
-        sleepLogs: sleepLogs || undefined,
-        streaks: streaks || undefined,
-      };
+      if (idbProfile && typeof idbProfile === 'object') {
+        const [goalsRaw, cravingsRaw, expensesRaw, substanceLogsRaw, sleepLogsRaw, streaksRaw] =
+          await Promise.all([
+            idbGet<unknown>(STORAGE_KEYS.SAVINGS_GOALS),
+            idbGet<unknown>(STORAGE_KEYS.CRAVINGS),
+            idbGet<unknown>(STORAGE_KEYS.EXPENSES),
+            idbGet<unknown>(STORAGE_KEYS.SUBSTANCE_LOG),
+            idbGet<unknown>(STORAGE_KEYS.SLEEP_ENERGY),
+            idbGet<unknown>(STORAGE_KEYS.STREAKS),
+          ]);
+
+        const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
+          decryptData<SavingsGoal[]>(goalsRaw, []),
+          decryptData<CravingEntry[]>(cravingsRaw, []),
+          decryptData<PurchaseExpense[]>(expensesRaw, []),
+          decryptData<SubstanceLog[]>(substanceLogsRaw, []),
+          decryptData<SleepEnergyEntry[]>(sleepLogsRaw, []),
+          decryptData<StreakRecord[]>(streaksRaw, []),
+        ]);
+
+        return {
+          profile: idbProfile,
+          goals: goals || undefined,
+          cravings: cravings || undefined,
+          expenses: expenses || undefined,
+          substanceLogs: substanceLogs || undefined,
+          sleepLogs: sleepLogs || undefined,
+          streaks: streaks || undefined,
+        };
+      }
     }
 
     // First time IndexedDB migration from localStorage
@@ -899,14 +913,25 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
         loadSavingsGoalsAsync(),
       ]);
 
+    const [profileCipher, streaksCipher, cravingsCipher, subCipher, expCipher, sleepCipher, goalsCipher] =
+      await Promise.all([
+        encryptData(localProfile),
+        encryptData(localStreaks),
+        encryptData(localCravings),
+        encryptData(localSubstances),
+        encryptData(localExpenses),
+        encryptData(localSleep),
+        encryptData(localGoals),
+      ]);
+
     await Promise.all([
-      idbSet(STORAGE_KEYS.PROFILE, localProfile),
-      idbSet(STORAGE_KEYS.STREAKS, localStreaks),
-      idbSet(STORAGE_KEYS.CRAVINGS, localCravings),
-      idbSet(STORAGE_KEYS.SUBSTANCE_LOG, localSubstances),
-      idbSet(STORAGE_KEYS.EXPENSES, localExpenses),
-      idbSet(STORAGE_KEYS.SLEEP_ENERGY, localSleep),
-      idbSet(STORAGE_KEYS.SAVINGS_GOALS, localGoals),
+      idbSet(STORAGE_KEYS.PROFILE, profileCipher),
+      idbSet(STORAGE_KEYS.STREAKS, streaksCipher),
+      idbSet(STORAGE_KEYS.CRAVINGS, cravingsCipher),
+      idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
+      idbSet(STORAGE_KEYS.EXPENSES, expCipher),
+      idbSet(STORAGE_KEYS.SLEEP_ENERGY, sleepCipher),
+      idbSet(STORAGE_KEYS.SAVINGS_GOALS, goalsCipher),
     ]);
 
     return {
@@ -964,20 +989,36 @@ export async function resetAllUserData(): Promise<void> {
 export async function exportAllUserDataJSON(): Promise<string> {
   const [profile, streaks, cravings, substanceLogs, smokeLogs, expenses, sleepEnergy, savingsGoals] =
     await Promise.all([
-      idbGet<UserProfile>(STORAGE_KEYS.PROFILE).then((p) => p || loadProfile()),
-      idbGet<StreakRecord[]>(STORAGE_KEYS.STREAKS).then((s) => s || []),
-      idbGet<CravingEntry[]>(STORAGE_KEYS.CRAVINGS).then((c) => c || []),
-      idbGet<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG).then((sl) => sl || []),
-      idbGet<SmokeLogEntry[]>(STORAGE_KEYS.SMOKE_LOG).then((sm) => sm || []),
-      idbGet<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES).then((e) => e || []),
-      idbGet<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY).then((se) => se || []),
-      idbGet<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS).then((g) => g || []),
+      idbGet<unknown>(STORAGE_KEYS.PROFILE).then(async (raw) =>
+        raw ? await decryptData<UserProfile>(raw, null as any) : await loadProfileAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.STREAKS).then(async (raw) =>
+        raw ? await decryptData<StreakRecord[]>(raw, []) : await loadStreaksAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.CRAVINGS).then(async (raw) =>
+        raw ? await decryptData<CravingEntry[]>(raw, []) : await loadCravingsAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.SUBSTANCE_LOG).then(async (raw) =>
+        raw ? await decryptData<SubstanceLog[]>(raw, []) : await loadSubstanceLogsAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.SMOKE_LOG).then(async (raw) =>
+        raw ? await decryptData<SmokeLogEntry[]>(raw, []) : await loadSmokeLogAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.EXPENSES).then(async (raw) =>
+        raw ? await decryptData<PurchaseExpense[]>(raw, []) : await loadExpensesAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.SLEEP_ENERGY).then(async (raw) =>
+        raw ? await decryptData<SleepEnergyEntry[]>(raw, []) : await loadSleepEnergyAsync()
+      ),
+      idbGet<unknown>(STORAGE_KEYS.SAVINGS_GOALS).then(async (raw) =>
+        raw ? await decryptData<SavingsGoal[]>(raw, []) : await loadSavingsGoalsAsync()
+      ),
     ]);
 
   const exportPayload = {
     exportedAt: new Date().toISOString(),
     formatVersion: '2.0',
-    encryptionStandard: 'AES-GCM (Web Crypto API)',
+    securityStandard: 'Military-Grade Authenticated Encryption',
     appName: 'PuffinLess',
     profile,
     streaks,

@@ -55,7 +55,10 @@ export function calculateClinicalPeriodMetrics(input: ClinicalMetricsInputs): Cl
   const cutoffMs = nowMs - windowDays * 24 * 60 * 60 * 1000;
 
   // Clean time strictly bounded by the period window
-  const cleanDurationMs = Math.max(0, nowMs - new Date(input.profile?.quitDate || nowDate).getTime());
+  const rawQuitDate = input.profile?.quitDate || input.profile?.createdAt;
+  const parsedQuitTime = rawQuitDate ? new Date(rawQuitDate).getTime() : NaN;
+  const validQuitTime = isNaN(parsedQuitTime) ? nowMs : parsedQuitTime;
+  const cleanDurationMs = Math.max(0, nowMs - validQuitTime);
   const periodMaxMs = windowDays * 24 * 60 * 60 * 1000;
   const periodCleanMs = Math.min(cleanDurationMs, periodMaxMs);
   const periodCleanDays = Math.floor(periodCleanMs / (24 * 60 * 60 * 1000));

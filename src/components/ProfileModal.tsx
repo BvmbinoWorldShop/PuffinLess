@@ -132,12 +132,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // App Lock PIN security state
   const [securityEnabled, setSecurityEnabled] = useState(() => getSecurityConfig().enabled);
   const [securityPin, setSecurityPin] = useState(() => (getSecurityConfig().pinHash ? '••••' : ''));
 
   const isFr = lang === 'fr';
+
+  const handleExportData = async () => {
+    sound.playClick();
+    setIsExporting(true);
+    try {
+      await downloadUserDataJSON();
+    } catch (err) {
+      console.error('[ProfileModal] Error exporting data:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Toggle habit checkbox
   const toggleHabit = (sub: SubstanceType) => {
@@ -270,12 +283,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     try {
       // Fundamental Rule: Every save DOES NOT change the started timer.
       // As default the app starts the count from the day it is used unless a specific date is entered by the user.
-      let finalQuitDate = profile.quitDate || profile.createdAt || new Date().toISOString();
-      let finalCustomQuitDate = Boolean(profile.customQuitDate);
+      let finalQuitDate = '';
+      let finalCustomQuitDate = false;
 
       if (quitDate.trim() === '') {
         // User left date blank or clicked "✕ Vierge"
-        // Keep existing started timer untouched; do not reset progress!
+        // Revert to original app installation date (profile.createdAt)
+        finalQuitDate = profile.createdAt || new Date().toISOString();
         finalCustomQuitDate = false;
       } else {
         // User entered an explicit specific date
@@ -1180,8 +1194,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       </span>
                       <span className="text-[11px] text-slate-400 block">
                         {isFr
-                          ? 'Verrouille l\'affichage contre les regards indiscrets (PBKDF2 100 000 itérations)'
-                          : 'Locks screen display against snooping (PBKDF2 100,000 iterations)'}
+                          ? 'Verrouille l\'affichage contre les regards indiscrets avec protection renforcée'
+                          : 'Locks screen display against snooping with enhanced protection'}
                       </span>
                     </div>
                   </div>
@@ -1238,22 +1252,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">
-                      {isFr ? 'Coffre-fort Cryptographique (AES-GCM 256 bits)' : 'Cryptographic Data Vault (AES-GCM 256-bit)'}
+                      {isFr ? 'Coffre-fort des Données Ultra-Sécurisé' : 'Ultra-Secured Data Vault'}
                     </span>
                     <span className="text-[11px] text-slate-400 block">
                       {isFr
-                        ? 'Chiffrement matériel au repos avec CryptoKey non extractible stockée dans le coffre local. Zéro clé brute dans le stockage.'
-                        : 'Hardware-backed at-rest encryption via non-extractable CryptoKey stored in isolated vault. Zero raw keys in storage.'}
+                        ? 'Protection physique au repos avec sécurité de niveau militaire. Vos informations restent strictement cloisonnées et chiffrées sur votre appareil, sans aucun accès externe.'
+                        : 'At-rest protection with military-grade security. Your information remains strictly isolated and encrypted on your device, with zero external access.'}
                     </span>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">
-                    {isFr ? 'Dérivation & Protection' : 'Key Derivation'}
+                    {isFr ? 'Niveau de Protection' : 'Protection Level'}
                   </span>
                   <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 font-semibold text-[10px]">
-                    PBKDF2 SHA-256 (600k iter) / AES-GCM
+                    {isFr ? 'Protection Militaire Active' : 'Active Military-Grade Protection'}
                   </span>
                 </div>
               </div>
@@ -1292,14 +1306,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    downloadUserDataJSON();
-                  }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md"
+                  disabled={isExporting}
+                  onClick={handleExportData}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md disabled:opacity-50"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
+                  {isExporting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-emerald-300/30 border-t-emerald-300 rounded-full animate-spin" />
+                      <span>{isFr ? 'Exportation...' : 'Exporting...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

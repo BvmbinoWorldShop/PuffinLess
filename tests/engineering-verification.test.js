@@ -263,5 +263,26 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(metrics.periodDosesAvoided, 135, 'Period doses avoided must be 140 - 5 = 135');
       assert.equal(metrics.periodMoneySaved, 74, 'Period money saved must be 84 - 10 = $74 (not lifetime thousands)');
     });
+
+    test('safely handles empty or invalid quitDate without producing NaN', () => {
+      const nowMs = 1794110000000;
+      const metricsBlank = calculateClinicalPeriodMetrics({
+        timeRange: 'day',
+        now: nowMs,
+        profile: { quitDate: '', createdAt: '' },
+      });
+      assert.equal(isNaN(metricsBlank.periodCleanDays), false, 'periodCleanDays must not be NaN');
+      assert.equal(isNaN(metricsBlank.periodCleanHours), false, 'periodCleanHours must not be NaN');
+      assert.equal(metricsBlank.periodCleanDays, 0);
+      assert.equal(metricsBlank.periodCleanHours, 0);
+
+      const metricsInvalid = calculateClinicalPeriodMetrics({
+        timeRange: 'day',
+        now: nowMs,
+        profile: { quitDate: 'not-a-valid-date' },
+      });
+      assert.equal(isNaN(metricsInvalid.periodCleanDays), false, 'periodCleanDays must not be NaN for invalid dates');
+      assert.equal(isNaN(metricsInvalid.periodCleanHours), false, 'periodCleanHours must not be NaN for invalid dates');
+    });
   });
 });

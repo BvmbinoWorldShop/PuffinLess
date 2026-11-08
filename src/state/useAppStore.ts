@@ -46,22 +46,29 @@ export function useAppStore() {
   const [substanceLogs, setSubstanceLogs] = useState<SubstanceLog[]>(loadSubstanceLogs);
   const [sleepLogs, setSleepLogs] = useState<SleepEnergyEntry[]>(loadSleepEnergy);
   const [streaks, setStreaks] = useState<StreakRecord[]>(loadStreaks);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const [tick, setTick] = useState(0);
 
   // Hydrate from IndexedDB on startup (with automatic migration of localStorage on first run)
   useEffect(() => {
     let isMounted = true;
-    initIndexedDBStorage().then((data) => {
-      if (!isMounted || !data) return;
-      if (data.profile) setProfile(data.profile);
-      if (data.goals) setGoals(data.goals);
-      if (data.cravings) setCravings(data.cravings);
-      if (data.expenses) setExpenses(data.expenses);
-      if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
-      if (data.sleepLogs) setSleepLogs(data.sleepLogs);
-      if (data.streaks) setStreaks(data.streaks);
-    });
+    initIndexedDBStorage()
+      .then((data) => {
+        if (!isMounted || !data) return;
+        if (data.profile) setProfile(data.profile);
+        if (data.goals) setGoals(data.goals);
+        if (data.cravings) setCravings(data.cravings);
+        if (data.expenses) setExpenses(data.expenses);
+        if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
+        if (data.sleepLogs) setSleepLogs(data.sleepLogs);
+        if (data.streaks) setStreaks(data.streaks);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
+      });
     return () => {
       isMounted = false;
     };
@@ -285,6 +292,7 @@ export function useAppStore() {
   };
 
   return {
+    isHydrated,
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {

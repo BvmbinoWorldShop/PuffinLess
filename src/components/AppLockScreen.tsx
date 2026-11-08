@@ -15,6 +15,7 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [lockoutSec, setLockoutSec] = useState<number>(() => getRemainingLockoutSeconds());
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const config = getSecurityConfig();
   const expectedLen = config.pinLength || 4;
@@ -32,41 +33,45 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
   }, [lockoutSec]);
 
   const handleKeyPress = (num: string) => {
-    if (lockoutSec > 0) return;
+    if (lockoutSec > 0 || isVerifying) return;
     sound.playClick();
     setError(false);
     if (pin.length < 8) {
       const nextPin = pin + num;
       setPin(nextPin);
       if (nextPin.length >= expectedLen) {
-        const result = verifyPin(nextPin);
-        if (result.success) {
-          sound.playCelebration();
-          onUnlock();
-        } else {
-          sound.playWarning();
-          setError(true);
-          if (result.isLockedOut) {
-            setLockoutSec(result.remainingSeconds);
+        setIsVerifying(true);
+        setTimeout(() => {
+          const result = verifyPin(nextPin);
+          if (result.success) {
+            sound.playCelebration();
+            onUnlock();
+          } else {
+            sound.playWarning();
+            setError(true);
+            if (result.isLockedOut) {
+              setLockoutSec(result.remainingSeconds);
+            }
+            setTimeout(() => {
+              setPin('');
+              setError(false);
+              setIsVerifying(false);
+            }, 600);
           }
-          setTimeout(() => {
-            setPin('');
-            setError(false);
-          }, 600);
-        }
+        }, 25);
       }
     }
   };
 
   const handleDelete = () => {
-    if (lockoutSec > 0) return;
+    if (lockoutSec > 0 || isVerifying) return;
     sound.playClick();
     setError(false);
     setPin((p) => p.slice(0, -1));
   };
 
   const handleClear = () => {
-    if (lockoutSec > 0) return;
+    if (lockoutSec > 0 || isVerifying) return;
     sound.playClick();
     setError(false);
     setPin('');
@@ -74,22 +79,26 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({ onUnlock, language
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (lockoutSec > 0) return;
-    const result = verifyPin(pin);
-    if (result.success) {
-      sound.playCelebration();
-      onUnlock();
-    } else {
-      sound.playWarning();
-      setError(true);
-      if (result.isLockedOut) {
-        setLockoutSec(result.remainingSeconds);
+    if (lockoutSec > 0 || isVerifying) return;
+    setIsVerifying(true);
+    setTimeout(() => {
+      const result = verifyPin(pin);
+      if (result.success) {
+        sound.playCelebration();
+        onUnlock();
+      } else {
+        sound.playWarning();
+        setError(true);
+        if (result.isLockedOut) {
+          setLockoutSec(result.remainingSeconds);
+        }
+        setTimeout(() => {
+          setPin('');
+          setError(false);
+          setIsVerifying(false);
+        }, 600);
       }
-      setTimeout(() => {
-        setPin('');
-        setError(false);
-      }, 700);
-    }
+    }, 25);
   };
 
   return (
