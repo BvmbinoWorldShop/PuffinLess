@@ -83,8 +83,8 @@ function getCorrectiveAction(trigger: string, isFr: boolean): string {
       : 'Chamomile/lemon balm tea + screen curfew 30 min before bed';
   }
   return isFr
-    ? 'Règle clinique des 180 secondes : boire de l\'eau, le pic de pulsion s\'effondre'
-    : 'Clinical 180-second rule: sip cold water, the neural craving peak always collapses';
+    ? 'Règle pratique des 180 secondes : boire de l\'eau, le pic de pulsion s\'effondre'
+    : 'Empirical 180-second rule: sip cold water, the neural craving peak collapses';
 }
 
 export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> = ({
@@ -159,6 +159,13 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
   const totalDosesAvoided = stats.cigarettesAvoided + stats.puffsAvoided + stats.gramsAvoided;
   const lifeSavedHours = Math.round((stats.days * 24 * 60 * 0.15) / 60);
+
+  // Theoretical benchmarks estimated from clean sobriety duration (scientific cessation models)
+  const totalCleanHours = Math.max(0, stats.days * 24 + stats.hours);
+  const coPct = Math.min(100, Math.round((totalCleanHours / 24) * 100));
+  const cilsPct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (30 * 24)) * 100)));
+  const dopaminePct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (90 * 24)) * 100)));
+  const vigueurPct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (60 * 24)) * 100)));
 
   const rawName = profile?.name?.trim() || (isFr ? 'MEMBRE CERTIFIÉ' : 'CERTIFIED MEMBER');
   const verificationHash = `PFL-${stats.days}D-${Math.abs(
@@ -885,8 +892,14 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="title-box">
-        <h1>${isFr ? 'Bilan Somatique & Rapport Personnel' : 'Personal Health & Recovery Report'}</h1>
-        <p>${isFr ? 'Bilan personnel d\'abstinence, consommations et régénération neurochimique' : 'Personal record of abstinence, intake events, and biological recovery'}</p>
+        <h1>${isFr ? 'Bilan de Suivi & Rapport Personnel de Progression' : 'Personal Recovery & Progress Report'}</h1>
+        <p>${isFr ? 'Synthèse personnelle d\'abstinence, consommations et repères d\'évolution' : 'Personal record of abstinence, intake events, and recovery milestones'}</p>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 4px 8px; margin-bottom: 8px; font-size: 8px; color: #94a3b8; line-height: 1.3;">
+        ${isFr
+          ? 'ℹ️ <b>Note d\'information :</b> Ce document est un bilan personnel d\'auto-évaluation généré à partir des données déclarées par l\'utilisateur. Il ne constitue ni un diagnostic, ni un certificat médical, ni une mesure biologique directe.'
+          : 'ℹ️ <b>Notice:</b> This document is a personal self-assessment report generated from user-declared data. It is neither a diagnostic, medical certificate, nor direct lab measurement.'}
       </div>
 
       <div class="glass-bubble-gold patient-ribbon">
@@ -938,47 +951,47 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="section-title">
-        <span>${isFr ? '1. Diagnostic Somatique & Courbe de Régénération' : '1. Somatic Diagnostic & Recovery Trajectory'}</span>
+        <span>${isFr ? '1. Repères Physiologiques Théoriques & Progression' : '1. Theoretical Recovery Benchmarks & Milestones'}</span>
         <span class="pill pill-emerald">Rang ${stats.level.tier.toUpperCase()} — Niv. ${stats.level.levelNumber}</span>
       </div>
       <div class="glass-bubble-emerald" style="margin-bottom: 8px; font-size: 10px; color: #a7f3d0; line-height: 1.4;">
         <b style="color: #ffffff;">${stats.level.rankTitle} :</b> ${isFr
-          ? `Le titulaire a validé ${stats.unlockedBadgeIds.length} jalons biomédicaux cruciaux. Normalisation du monoxyde de carbone sanguin, régénération ciliaire bronchique et rééquilibrage de la dopamine synaptique confirmés.`
-          : `Validated ${stats.unlockedBadgeIds.length} clinical biomarkers. Restored blood oxygen levels, bronchus cilia motility, and dopamine receptor homeostasis.`}
-        ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Temps de vie estimé regagné : +${lifeSavedHours} h` : `Estimated life regained: +${lifeSavedHours} h`}</span>` : ''}
+          ? `Progression basée sur ${stats.unlockedBadgeIds.length} jalons d'abstinence franchis. Les repères théoriques ci-dessous représentent des estimations moyennes de rétablissement physiologique issues de la littérature scientifique.`
+          : `Progression based on ${stats.unlockedBadgeIds.length} sobriety milestones achieved. Benchmarks below represent theoretical recovery estimates derived from published scientific literature.`}
+        ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Temps de vie théorique préservé : +${lifeSavedHours} h` : `Theoretical life preserved: +${lifeSavedHours} h`}</span>` : ''}
 
-        <!-- Biomarkers Visual Progress Trend -->
+        <!-- Theoretical Benchmarks Progress Trend (Dynamically calculated based on clean hours) -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(52, 211, 153, 0.25);">
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #6ee7b7; margin-bottom: 2px;">
-              <span>CO Sanguin</span><span>100%</span>
+              <span>CO Sanguin (théorique)</span><span>${coPct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: 100%; height: 100%; background: linear-gradient(90deg, #059669, #34d399);"></div>
+              <div style="width: ${coPct}%; height: 100%; background: linear-gradient(90deg, #059669, #34d399);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #38bdf8; margin-bottom: 2px;">
-              <span>Cils Pulmonaires</span><span>92%</span>
+              <span>Cils Pulmonaires (théorique)</span><span>${cilsPct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: 92%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+              <div style="width: ${cilsPct}%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #c084fc; margin-bottom: 2px;">
-              <span>Récept. Dopamine</span><span>84%</span>
+              <span>Sensibilité Dopamine</span><span>${dopaminePct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: 84%; height: 100%; background: linear-gradient(90deg, #9333ea, #c084fc);"></div>
+              <div style="width: ${dopaminePct}%; height: 100%; background: linear-gradient(90deg, #9333ea, #c084fc);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #fbbf24; margin-bottom: 2px;">
-              <span>Vigueur Nerveuse</span><span>78%</span>
+              <span>Vigueur Somatique</span><span>${vigueurPct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: 78%; height: 100%; background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
+              <div style="width: ${vigueurPct}%; height: 100%; background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
             </div>
           </div>
         </div>
@@ -1063,7 +1076,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     </div>
 
     <div class="footer-bar">
-      <div><b>PUFFINLESS</b> • ${isFr ? 'Dossier Somatique & Récupération' : 'Somatic Record & Recovery'}</div>
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Rapport de Progression & Bilan Personnel' : 'Progress Report & Recovery'}</div>
       <div>Page <b>1 / ${totalPages}</b></div>
     </div>
   </div>
@@ -1087,7 +1100,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <span style="font-size: 9px; color: #fbbf24; font-weight: 700; margin-left: 6px;">${isFr ? 'JOURNAL DES CONSOMMATIONS, DÉCLENCHEURS & ACTIONS' : 'INTAKE, TRIGGERS & CORRECTIVE ACTIONS'}</span>
           </div>
         </div>
-        <span class="pill pill-gold">${isFr ? 'RAPPORT CLINIQUE SÉCURISÉ' : 'SECURE CLINICAL RECORD'}</span>
+        <span class="pill pill-gold">${isFr ? 'RAPPORT DE SUIVI SÉCURISÉ' : 'SECURE PROGRESS REPORT'}</span>
       </div>
 
       <div class="glass-bubble" style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; padding: 4px 8px;">
@@ -1205,7 +1218,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     </div>
 
     <div class="footer-bar">
-      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan Clinique & Suivi des Prises' : 'Clinical Report & Intake Log'}</div>
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan de Suivi & Suivi des Prises' : 'Progress Report & Intake Log'}</div>
       <div>Page <b>2 / ${totalPages}</b></div>
     </div>
   </div>
@@ -1286,7 +1299,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     </div>
 
     <div class="footer-bar">
-      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan Clinique & Suivi des Prises' : 'Clinical Report & Intake Log'}</div>
+      <div><b>PUFFINLESS</b> • ${isFr ? 'Bilan de Suivi & Suivi des Prises' : 'Progress Report & Intake Log'}</div>
       <div>Page <b>${pageNum} / ${totalPages}</b></div>
     </div>
   </div>`;
@@ -1376,7 +1389,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `PuffinLess-Dossier-Clinique-${timeRange}-${stats.days}Jours.html`;
+    link.download = `PuffinLess-Rapport-Progression-${timeRange}-${stats.days}Jours.html`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1403,12 +1416,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                {isFr ? 'Dossier Clinique & Rapport Somatique' : 'Official Clinical Report'}
+                {isFr ? 'Rapport Personnel de Progression & Bilan' : 'Personal Recovery & Progress Report'}
               </h3>
               <p className="text-[11px] text-slate-400">
                 {isFr
-                  ? 'Format A4 100% de la page, bulles Obsidian, tendance sommeil, déclencheurs & solutions'
-                  : 'Full 100% A4 page, Obsidian bubbles, sleep trend, triggers & clinical solutions'}
+                  ? 'Format A4 haute définition, bulles Obsidian, tendance sommeil, déclencheurs & solutions'
+                  : 'Full A4 page layout, Obsidian bubbles, sleep trend, triggers & anti-craving tips'}
               </p>
             </div>
           </div>
@@ -1569,9 +1582,16 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="flex items-center justify-between text-[10px] font-bold text-amber-400 pb-2 border-b border-white/10 uppercase tracking-widest">
                 <span className="flex items-center gap-1.5">
                   <PuffinLessLogo size={18} />
-                  <span>{isFr ? `PAGE 1 / ${totalPages} — Bilan Somatique & Tendance Sommeil` : `PAGE 1 / ${totalPages} — Somatic Vitals & Sleep Trend`}</span>
+                  <span>{isFr ? `PAGE 1 / ${totalPages} — Bilan de Progression & Tendance Sommeil` : `PAGE 1 / ${totalPages} — Progress Overview & Sleep Trend`}</span>
                 </span>
                 <span className="text-slate-400">{currentDateStr}</span>
+              </div>
+
+              {/* Informative non-diagnostic disclaimer */}
+              <div className="p-2.5 rounded-xl bg-slate-900/70 border border-white/10 text-[10px] text-slate-400 leading-relaxed">
+                {isFr
+                  ? 'ℹ️ Note d\'information : Ce document est un bilan personnel d\'auto-évaluation généré à partir de vos déclarations. Il ne constitue ni un diagnostic ni un certificat médical.'
+                  : 'ℹ️ Notice: This document is a personal self-assessment report generated from your logged data. It does not constitute a medical diagnosis or certificate.'}
               </div>
 
               {/* Recipient summary */}
@@ -1643,52 +1663,52 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/40 text-slate-300">{timeRangeLabel}</span>
               </div>
 
-              {/* Somatic Rank & Biomarker Recovery Trajectory */}
+              {/* Somatic Rank & Theoretical Recovery Trajectory */}
               <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-xs">
                 <div className="flex items-center gap-1.5 font-bold text-emerald-300 mb-1">
                   <CheckCircle className="w-4 h-4" />
                   <span>
-                    {isFr ? `Rang Somatique : ${stats.level.tier.toUpperCase()} — Niveau ${stats.level.levelNumber} (${stats.level.rankTitle})` : `Somatic Status: Rank ${stats.level.tier.toUpperCase()} — Level ${stats.level.levelNumber}`}
+                    {isFr ? `Rang de Sobriété : ${stats.level.tier.toUpperCase()} — Niveau ${stats.level.levelNumber} (${stats.level.rankTitle})` : `Sobriety Status: Rank ${stats.level.tier.toUpperCase()} — Level ${stats.level.levelNumber}`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {isFr
-                    ? `Normalisation du monoxyde de carbone sanguin, régénération ciliaire bronchique et rééquilibrage de la dopamine cérébrale validés. Temps de vie regagné : +${lifeSavedHours} h.`
-                    : `Blood oxygen restored, lung cilia rejuvenation in progress, synaptic dopamine balance confirmed. Life regained: +${lifeSavedHours} h.`}
+                    ? `Progression théorique estimée sur ${stats.unlockedBadgeIds.length} jalons franchis. Temps de vie théorique préservé : +${lifeSavedHours} h.`
+                    : `Theoretical progression estimated across ${stats.unlockedBadgeIds.length} milestones. Theoretical life preserved: +${lifeSavedHours} h.`}
                 </p>
 
-                {/* Biomarker Progress Bars in Modal Preview */}
+                {/* Theoretical Progress Bars in Modal Preview */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 pt-2.5 border-t border-emerald-500/20">
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-emerald-300">
-                      <span>CO Sanguin</span><span>100%</span>
+                      <span>CO Sanguin (théorique)</span><span>{coPct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-emerald-400 w-full"></div>
+                      <div className="h-full bg-emerald-400" style={{ width: `${coPct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-cyan-300">
-                      <span>Cils Pulmonaires</span><span>92%</span>
+                      <span>Cils Pulmonaires (théorique)</span><span>{cilsPct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-cyan-400 w-[92%]"></div>
+                      <div className="h-full bg-cyan-400" style={{ width: `${cilsPct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-purple-300">
-                      <span>Récepteurs Dopamine</span><span>84%</span>
+                      <span>Sensibilité Dopamine</span><span>{dopaminePct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-purple-400 w-[84%]"></div>
+                      <div className="h-full bg-purple-400" style={{ width: `${dopaminePct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-amber-300">
-                      <span>Vigueur Nerveuse</span><span>78%</span>
+                      <span>Vigueur Somatique</span><span>{vigueurPct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-amber-400 w-[78%]"></div>
+                      <div className="h-full bg-amber-400" style={{ width: `${vigueurPct}%` }}></div>
                     </div>
                   </div>
                 </div>
@@ -1979,7 +1999,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     <Activity className="w-4 h-4" />
                     <span>{isFr ? `PAGE ${pageNum} / ${totalPages} — Suite du Journal des Prises` : `PAGE ${pageNum} / ${totalPages} — Continued Intake Logs`}</span>
                   </span>
-                  <span className="text-slate-400">PuffinLess Clinical Report</span>
+                  <span className="text-slate-400">PuffinLess Progress Report</span>
                 </div>
 
                 <div className="space-y-1.5">

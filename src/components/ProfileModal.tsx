@@ -2,10 +2,11 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   X, User, Volume2, Sparkles, Trash2, Sun, Moon, Briefcase,
   Flame, Brain, Check, ChevronRight, Activity, Shield, Camera, Upload, Smartphone,
-  Lock
+  Lock, Download
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
+import { downloadUserDataJSON } from '../utils/storage';
 import {
   getSecurityConfig,
   saveSecurityConfig,
@@ -96,8 +97,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [name, setName] = useState(profile.name || '');
   const [age, setAge] = useState<number | ''>(profile.age ? profile.age : '');
   const [gender, setGender] = useState(profile.gender || 'Prefer not to say');
-  const [ethnicity, setEthnicity] = useState(profile.ethnicity || '');
-  const [religion, setReligion] = useState(profile.religion || '');
+  const [coreValue, setCoreValue] = useState(profile.customCoachGoal || '');
   const [job, setJob] = useState(profile.job || '');
   const [monthlyIncome, setMonthlyIncome] = useState<number | ''>(profile.monthlyIncome ? profile.monthlyIncome : '');
   const [currency, setCurrency] = useState(profile.currency || '$');
@@ -201,11 +201,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       : `You will liberate ${currency}${monthlyCostEstimate}/month (${incomePercent}% of your net income), redirecting ${currency}${(monthlyCostEstimate * 12).toLocaleString()} per year directly into your true life aspirations.`;
 
     const spiritualMindset = isFr
-      ? religion && religion !== 'None'
-        ? `En accord avec votre quête de maîtrise (${religion}), retrouver la souveraineté sur vos impulsions réaligne votre corps et votre esprit avec vos valeurs les plus profondes.`
-        : `Retrouver la souveraineté sur vos impulsions réaligne votre biologie avec votre véritable potentiel intérieur.`
-      : religion && religion !== 'None'
-        ? `Aligning with your values (${religion}), taking back full sovereignty over chemical impulses restores balance between your mind, body, and highest purpose.`
+      ? coreValue
+        ? `En accord avec votre motivation ("${coreValue}"), reprendre la maîtrise sur vos pulsions réaligne votre quotidien avec vos priorités.`
+        : `Retrouver la souveraineté sur vos impulsions réaligne votre quotidien avec votre véritable potentiel intérieur.`
+      : coreValue
+        ? `Aligning with your core purpose ("${coreValue}"), taking back sovereignty over impulses restores daily clarity and focus.`
         : `Taking back full sovereignty over chemical impulses liberates your mind and restores your daily mental clarity.`;
 
     return {
@@ -214,7 +214,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       wealthImpact,
       spiritualMindset,
     };
-  }, [name, primarySubstance, job, religion, monthlyCostEstimate, incomePercent, currency, isFr]);
+  }, [name, primarySubstance, job, coreValue, monthlyCostEstimate, incomePercent, currency, isFr]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,8 +294,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       quitGoal,
       age: Number(age) || 0,
       gender,
-      ethnicity: ethnicity.trim(),
-      religion: religion.trim(),
+      ethnicity: '',
+      religion: '',
+      customCoachGoal: coreValue.trim(),
       job: job.trim(),
       monthlyIncome: Number(monthlyIncome) || 0,
       habits,
@@ -625,39 +626,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {isFr ? 'Ethnicité / Origine' : 'Ethnicity'}
-                  </label>
-                  <input
-                    type="text"
-                    value={ethnicity}
-                    onChange={(e) => setEthnicity(e.target.value)}
-                    placeholder={isFr ? 'Ex: Européenne, Africaine, Métisse...' : 'e.g. Mixed, European, Black...'}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {isFr ? 'Spiritualité / Religion' : 'Religion / Faith'}
-                  </label>
-                  <input
-                    type="text"
-                    value={religion}
-                    onChange={(e) => setReligion(e.target.value)}
-                    placeholder={isFr ? 'Ex: Spirituel, Chrétien, Musulman, Laïque...' : 'e.g. Spiritual, Christian, Muslim, Secular...'}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {isFr ? 'Devise ou Motivation Personnelle (Optionnel)' : 'Personal Motto or Core Motivation (Optional)'}
+                </label>
+                <input
+                  type="text"
+                  value={coreValue}
+                  onChange={(e) => setCoreValue(e.target.value)}
+                  placeholder={isFr ? 'Ex: Retrouver mon souffle, inspirer mes proches, clarté mentale...' : 'e.g. Health, mental clarity, family, endurance...'}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500/50"
+                />
               </div>
 
               <div className="pt-1 border-t border-white/10">
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-emerald-400">
+                <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-emerald-400">
                   <Briefcase className="w-3.5 h-3.5" />
-                  <span>{isFr ? 'Situation Professionnelle & Revenus' : 'Career & Financial Profile'}</span>
+                  <span>{isFr ? 'Situation Professionnelle & Revenus (Optionnel)' : 'Career & Financial Profile (Optional)'}</span>
                 </div>
+                <p className="text-[10px] text-slate-400 mb-2">
+                  {isFr
+                    ? 'Le revenu est strictement confidentiel et optionnel. Il sert uniquement à évaluer le pouvoir d\'achat libéré et le budget économisé.'
+                    : 'Income is purely optional and confidential, used solely to compute your liberated budget and purchasing power.'}
+                </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -1228,27 +1219,77 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </button>
                 </div>
 
-                {!confirmReset ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmReset(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-rose-400 hover:text-rose-300"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isFr ? 'Réinitialiser' : 'Reset All'}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onResetData();
-                      onClose();
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs"
-                  >
-                    {isFr ? 'Confirmer la Réinitialisation ?' : 'Confirm Reset?'}
-                  </button>
-                )}
+                {/* GDPR Data Portability (Export JSON) */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        {isFr ? 'Portabilité des Données (RGPD Art. 20)' : 'Data Portability (GDPR Art. 20)'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 block">
+                        {isFr
+                          ? 'Téléchargez une copie intégrale de toutes vos données locales (format JSON universel).'
+                          : 'Download a complete copy of all your local data in universal JSON format.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        downloadUserDataJSON();
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Permanent Data Erasure */}
+                <div className="p-3.5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2">
+                  <div>
+                    <span className="text-xs font-bold text-rose-300 block">
+                      {isFr ? 'Suppression Définitive des Données (Droit à l\'oubli)' : 'Permanent Data Erasure (Right to be Forgotten)'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {isFr
+                        ? 'Efface définitivement toutes vos données PuffinLess stockées sur cet appareil.'
+                        : 'Permanently deletes all PuffinLess data stored locally on this device.'}
+                    </span>
+                  </div>
+
+                  {!confirmReset ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-rose-400 hover:text-rose-300 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isFr ? 'Supprimer toutes mes données' : 'Erase All My Data'}</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onResetData();
+                          onClose();
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs cursor-pointer hover:bg-rose-500 transition-all"
+                      >
+                        {isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(false)}
+                        className="px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white cursor-pointer"
+                      >
+                        {isFr ? 'Annuler' : 'Cancel'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

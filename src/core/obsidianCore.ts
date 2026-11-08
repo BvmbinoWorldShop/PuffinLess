@@ -402,15 +402,15 @@ export function buildCoreReport(input: {
     });
   }
 
-  if (profile.religion && profile.religion !== 'None' && profile.religion !== 'Secular') {
+  if (profile.customCoachGoal) {
     add({
-      id: 'spiritual-mindset',
+      id: 'personal-motto',
       tone: 'win',
       priority: 52,
-      title: isFr ? `Maîtrise & Clarté (${profile.religion})` : `Inner Sovereignty (${profile.religion})`,
+      title: isFr ? `Motivation : ${profile.customCoachGoal}` : `Personal Goal: ${profile.customCoachGoal}`,
       body: isFr
-        ? `Votre quête de clarté (${profile.religion}) honore le corps comme un temple. Chaque pulsion refusée réaffirme votre souveraineté sur les dépendances matérielles.`
-        : `Your values (${profile.religion}) honor mental clarity and bodily vitality. Every resisted urge reclaims sovereignty over material compulsions.`,
+        ? `Votre engagement ("${profile.customCoachGoal}") renforce votre détermination. Chaque pulsion surmontée réaffirme votre souveraineté sur les dépendances.`
+        : `Your commitment ("${profile.customCoachGoal}") reinforces your mindset. Every resisted urge reclaims sovereignty over chemical dependencies.`,
     });
   }
 

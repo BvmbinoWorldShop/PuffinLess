@@ -42,7 +42,7 @@ export function computeSleepEnergyCorrelation(entries: SleepEnergyEntry[], isFr:
   const avg = (list: SleepEnergyEntry[], key: 'sleepRating' | 'energyRating') =>
     Number((list.reduce((a, d) => a + d[key], 0) / list.length).toFixed(1));
 
-  const hasEnoughData = cleanDays.length > 0 && heavyDays.length > 0;
+  const hasEnoughData = cleanDays.length >= 3 && heavyDays.length >= 3;
   const avgCleanSleep = cleanDays.length ? avg(cleanDays, 'sleepRating') : 0;
   const avgHeavySleep = heavyDays.length ? avg(heavyDays, 'sleepRating') : 0;
   const avgCleanEnergy = cleanDays.length ? avg(cleanDays, 'energyRating') : 0;
@@ -55,11 +55,11 @@ export function computeSleepEnergyCorrelation(entries: SleepEnergyEntry[], isFr:
 
   const insightSummary = hasEnoughData
     ? isFr
-      ? `Les jours sans fumer, votre sommeil est noté ${avgCleanSleep}/10 contre ${avgHeavySleep}/10 les jours avec forte consommation (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), et votre énergie est multipliée par ${energyMultiplier}.`
-      : `On clean days your sleep scores ${avgCleanSleep}/10 vs ${avgHeavySleep}/10 on heavy days (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), and energy is ${energyMultiplier}x higher.`
+      ? `Tendance indicative (${cleanDays.length} j sobres vs ${heavyDays.length} j avec consommation) : sommeil noté ${avgCleanSleep}/10 vs ${avgHeavySleep}/10 (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), et énergie estimée à ${avgCleanEnergy}/10 vs ${avgHeavyEnergy}/10 (${energyMultiplier}x). Note : corrélation d'auto-évaluation, ne constitue pas une preuve de causalité directe.`
+      : `Indicative trend (${cleanDays.length} clean days vs ${heavyDays.length} consumption days): sleep self-rated ${avgCleanSleep}/10 vs ${avgHeavySleep}/10 (${sleepImprovementPercent >= 0 ? '+' : ''}${sleepImprovementPercent}%), and energy ${avgCleanEnergy}/10 vs ${avgHeavyEnergy}/10 (${energyMultiplier}x). Note: self-reported correlation, does not prove direct causation.`
     : isFr
-      ? 'Continuez à enregistrer votre sommeil et votre énergie les jours sobres et les jours avec fumée. Dès que vous aurez plusieurs relevés, PuffinLess comparera automatiquement vos progrès.'
-      : 'Keep logging sleep and energy on both clean and heavy days. Once you have both, PuffinLess will compare them for you.';
+      ? `Données insuffisantes pour dégager une tendance fiable (minimum requis : 3 jours sobres et 3 jours avec consommation — actuellement ${cleanDays.length}/3 sobres, ${heavyDays.length}/3 consommations). Poursuivez vos relevés quotidiens.`
+      : `Insufficient data for a reliable trend (minimum required: 3 clean days and 3 consumption days — currently ${cleanDays.length}/3 clean, ${heavyDays.length}/3 heavy). Keep logging daily.`;
 
   return {
     avgCleanSleep,

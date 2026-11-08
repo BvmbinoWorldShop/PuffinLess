@@ -819,3 +819,33 @@ export function saveForumPosts(posts: ForumPost[]): void {
     console.error('Error saving forum posts', e);
   }
 }
+
+/** Export all locally stored user data as a clean, unencrypted JSON payload (GDPR Art. 20 portability) */
+export function exportAllUserDataJSON(): string {
+  const exportPayload = {
+    exportedAt: new Date().toISOString(),
+    formatVersion: '1.0',
+    appName: 'PuffinLess',
+    profile: loadProfile(),
+    streaks: loadStreaks(),
+    cravings: loadCravings(),
+    substanceLogs: loadSubstanceLogs(),
+    smokeLogs: loadSmokeLog(),
+    expenses: loadExpenses(),
+    sleepEnergy: loadSleepEnergy(),
+    savingsGoals: loadSavingsGoals(),
+  };
+  return JSON.stringify(exportPayload, null, 2);
+}
+
+/** Trigger direct browser download of the user's exported data */
+export function downloadUserDataJSON(): void {
+  const jsonStr = exportAllUserDataJSON();
+  const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `puffinless-export-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}

@@ -26,7 +26,7 @@ interface RiskWindow {
 export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
   cravings,
   substanceLogs,
-  profile,
+  profile: _profile,
   language = 'en',
 }) => {
   const isFr = language === 'fr';
@@ -40,41 +40,49 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const totalEvents = cravings.length + substanceLogs.length;
+  // Deduplicate distinct user events: when a slip is logged, it creates a substanceLog
+  // and may also create a simultaneous craving entry. We group events within 60s as a single episode.
+  const uniqueEpisodes = useMemo(() => {
+    const episodes: Array<{ hour: number; trigger?: string }> = [];
+    const seenTimes: number[] = [];
+
+    // Substance logs (intake slips)
+    substanceLogs.forEach((l) => {
+      const t = new Date(l.timestamp).getTime();
+      seenTimes.push(t);
+      episodes.push({ hour: new Date(l.timestamp).getHours(), trigger: l.trigger });
+    });
+
+    // Craving logs (resisted urges and unlinked cravings)
+    cravings.forEach((c) => {
+      const t = new Date(c.timestamp).getTime();
+      const isDuplicate = seenTimes.some((st) => Math.abs(st - t) < 60000);
+      if (!isDuplicate) {
+        seenTimes.push(t);
+        episodes.push({ hour: new Date(c.timestamp).getHours(), trigger: c.trigger });
+      }
+    });
+
+    return episodes;
+  }, [cravings, substanceLogs]);
+
+  const totalEvents = uniqueEpisodes.length;
   const hasSufficientData = totalEvents >= 3;
 
-  // Compute empirical risk windows based solely on real user logs
+  // Compute empirical risk windows based strictly on real user logs (no artificial weights)
   const riskWindows: RiskWindow[] = useMemo(() => {
     if (!hasSufficientData) return [];
 
     const hourlyCounts = new Array(24).fill(0);
     const triggerCounts: Record<number, Record<string, number>> = {};
 
-    cravings.forEach((c) => {
-      const h = new Date(c.timestamp).getHours();
-      hourlyCounts[h] += 1;
-      if (c.trigger) {
-        if (!triggerCounts[h]) triggerCounts[h] = {};
-        triggerCounts[h][c.trigger] = (triggerCounts[h][c.trigger] || 0) + 1;
+    uniqueEpisodes.forEach((ep) => {
+      hourlyCounts[ep.hour] += 1;
+      if (ep.trigger) {
+        if (!triggerCounts[ep.hour]) triggerCounts[ep.hour] = {};
+        triggerCounts[ep.hour][ep.trigger] = (triggerCounts[ep.hour][ep.trigger] || 0) + 1;
       }
     });
-
-    substanceLogs.forEach((l) => {
-      const h = new Date(l.timestamp).getHours();
-      hourlyCounts[h] += 1;
-      if (l.trigger) {
-        if (!triggerCounts[h]) triggerCounts[h] = {};
-        triggerCounts[h][l.trigger] = (triggerCounts[h][l.trigger] || 0) + 1;
-      }
-    });
-
-    // Profile configured triggers weighting if user set peak triggers
-    const profileTriggers = profile.smokingHabitByDay?.peakTriggers || [];
-    if (profileTriggers.length > 0) {
-      hourlyCounts[8] += 0.5;
-      hourlyCounts[13] += 0.5;
-      hourlyCounts[18] += 0.5;
-    }
 
     const sorted = hourlyCounts
       .map((count, hour) => ({ hour, count }))
@@ -106,7 +114,7 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
       const fallbackTrig = item.hour < 11
         ? (isFr ? 'Café / Matin' : 'Morning Routine')
         : item.hour < 16
-        ? (isFr ? 'Pause / Après repas' : 'Post-Meal Break')
+        ? (isFr ? 'Pause / Avant/après repas' : 'Post-Meal Break')
         : (isFr ? 'Soirée détente' : 'Evening Relax');
 
       const trigLabel = topTrig || fallbackTrig;
@@ -127,7 +135,7 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
         isNext,
       };
     });
-  }, [cravings, substanceLogs, currentHour, hasSufficientData, profile.smokingHabitByDay?.peakTriggers, isFr]);
+  }, [uniqueEpisodes, currentHour, hasSufficientData, isFr]);
 
   const activeWindow = riskWindows.find((w) => w.isCurrent);
   const nextWindow = riskWindows.find((w) => w.isNext) || riskWindows[0];

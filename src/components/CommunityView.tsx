@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquareText, Heart, Plus, Send, X } from 'lucide-react';
+import { MessageSquareText, Heart, Plus, Send, X, Shield } from 'lucide-react';
 import type { ForumPost, UserProfile } from '../types';
 import { MorphicCard } from './MorphicCard';
 import { sound } from '../utils/audio';
@@ -89,6 +89,28 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </button>
         </div>
       </MorphicCard>
+
+      {/* Privacy & Demonstration Mode Notice */}
+      <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/10 text-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-lg bg-teal-500/20 text-teal-300">
+            <Shield className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-200 block text-[11px]">
+              {profile.language === 'fr' ? 'Espace d\'Inspiration & Entraide Locale' : 'Inspirational Tribe & Local Feed'}
+            </span>
+            <span className="text-[10px] text-slate-400 block">
+              {profile.language === 'fr'
+                ? 'Témoignages et réussites d\'inspiration. Vos partages restent 100% privés et stockés localement sur votre appareil.'
+                : 'Inspirational community milestones. Your shares remain 100% private and stored locally on your device.'}
+            </span>
+          </div>
+        </div>
+        <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 font-bold shrink-0">
+          {profile.language === 'fr' ? 'Mode Privé Local' : 'Local Private Mode'}
+        </span>
+      </div>
 
       {/* 2. Tag Filters */}
       <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
