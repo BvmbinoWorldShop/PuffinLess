@@ -5,7 +5,7 @@
  *
  * All data stored at rest in IndexedDB is encrypted with AES-256 via the device's local vault key.
  */
-import { encryptData, decryptData } from './crypto';
+import { encryptData, decryptData } from './crypto.ts';
 
 const DB_NAME = 'puffinless_indexeddb';
 const DB_VERSION = 1;
@@ -64,26 +64,27 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
 }
 
 /**
- * Retrieve a value by key from IndexedDB and decrypt it with AES-256.
+ * Retrieve a value by key from IndexedDB and decrypt it with AES-GCM (or legacy AES-CBC).
  */
 export async function idbGet<T>(key: string): Promise<T | null> {
   try {
     const db = await openPuffinLessDB();
-    return await new Promise<T | null>((resolve, reject) => {
+    const rawCipher = await new Promise<unknown>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
       const req = store.get(key);
 
       req.onsuccess = () => {
-        if (req.result === undefined || req.result === null) {
-          resolve(null);
-        } else {
-          // Transparently decrypt AES-256 payload (or handle legacy raw objects)
-          resolve(decryptData<T | null>(req.result, null));
-        }
+        resolve(req.result !== undefined ? req.result : null);
       };
       req.onerror = () => reject(req.error);
     });
+
+    if (rawCipher === null || rawCipher === undefined) {
+      return null;
+    }
+    // Transparently decrypt AES-GCM payload (or handle legacy AES-CBC / raw objects)
+    return await decryptData<T | null>(rawCipher, null);
   } catch (err) {
     console.warn(`[IndexedDB] Error reading key "${key}":`, err);
     return null;
@@ -91,13 +92,13 @@ export async function idbGet<T>(key: string): Promise<T | null> {
 }
 
 /**
- * Encrypt arbitrary value with AES-256 and store by key in IndexedDB.
+ * Encrypt arbitrary value with AES-GCM and store by key in IndexedDB.
  */
 export async function idbSet<T>(key: string, value: T): Promise<void> {
   try {
     const db = await openPuffinLessDB();
-    // Enforce AES-256 encryption before writing to disk
-    const encryptedPayload = encryptData(value);
+    // Enforce AES-GCM encryption with fresh unique IV before writing to disk
+    const encryptedPayload = await encryptData(value);
 
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -186,16 +187,29 @@ export async function idbGetAllEntries(): Promise<Record<string, unknown>> {
     return await new Promise<Record<string, unknown>>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
-      const results: Record<string, unknown> = {};
+      const rawEntries: Array<{ key: string; value: unknown }> = [];
 
       const req = store.openCursor();
       req.onsuccess = (e) => {
         const cursor = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
         if (cursor) {
-          results[String(cursor.key)] = decryptData(cursor.value, cursor.value);
+          rawEntries.push({ key: String(cursor.key), value: cursor.value });
           cursor.continue();
         } else {
-          resolve(results);
+          Promise.all(
+            rawEntries.map(async (entry) => {
+              const decrypted = await decryptData(entry.value, entry.value);
+              return { key: entry.key, value: decrypted };
+            })
+          )
+            .then((decryptedList) => {
+              const results: Record<string, unknown> = {};
+              decryptedList.forEach((item) => {
+                results[item.key] = item.value;
+              });
+              resolve(results);
+            })
+            .catch(reject);
         }
       };
       req.onerror = () => reject(req.error);

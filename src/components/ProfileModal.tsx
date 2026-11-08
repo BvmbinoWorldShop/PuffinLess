@@ -345,30 +345,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="profile-modal-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in"
+    >
       <div className="settings-modal relative w-full max-w-lg rounded-3xl glass-panel-elevated p-5 sm:p-7 border border-white/15 shadow-2xl my-auto max-h-[92vh] flex flex-col">
         {/* Close Button */}
         <button
+          type="button"
           onClick={() => {
             sound.playClick();
             onClose();
           }}
-          className="absolute top-5 right-5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
+          aria-label={isFr ? 'Fermer les paramètres' : 'Close settings'}
+          className="absolute top-5 right-5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Modal Header */}
         <div className="flex items-center gap-3.5 mb-4 shrink-0">
-          <div
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             title={isFr ? 'Changer de photo de profil' : 'Change profile picture'}
-            className="relative cursor-pointer group"
+            aria-label={isFr ? 'Changer la photo de profil' : 'Change profile picture'}
+            className="relative cursor-pointer group p-0 border-0 bg-transparent text-left"
           >
             <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-lg shadow-emerald-500/20 bg-slate-900">
               <img
                 src={avatar}
-                alt={name}
+                alt={name || 'User avatar'}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
               />
             </div>
@@ -378,11 +387,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             </span>
-          </div>
+          </button>
 
           <div className="min-w-0 pr-8">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-white tracking-tight truncate">
+              <h3 id="profile-modal-heading" className="text-lg font-bold text-white tracking-tight truncate">
                 {name || (isFr ? 'Profil Utilisateur' : 'User Profile')}
               </h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">

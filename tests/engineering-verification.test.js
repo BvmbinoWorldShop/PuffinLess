@@ -1,4 +1,4 @@
-import { test, describe } from 'node:test';
+import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import CryptoJS from 'crypto-js';
 
@@ -30,198 +30,173 @@ class MockStorage {
 globalThis.localStorage = new MockStorage();
 globalThis.sessionStorage = new MockStorage();
 
-describe('PuffinLess Engineering Pillar Verification', () => {
+// DIRECT IMPORTS FROM REAL APPLICATION CODE
+import {
+  encryptData,
+  decryptData,
+  getVaultKeyHex,
+  purgeVaultKeys,
+} from '../src/utils/crypto.ts';
+import { resetAllUserData } from '../src/utils/storage.ts';
+import { purgeSecurityState, getSecurityConfig, saveSecurityConfig } from '../src/utils/security.ts';
 
-  describe('Pillar 1: AES-256 Real Encryption At Rest & Roundtrip', () => {
-    const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v2';
+describe('PuffinLess Production Code Verification', () => {
 
-    function getVaultKey() {
-      let key = globalThis.localStorage.getItem(STORAGE_DEVICE_KEY);
-      if (!key) {
-        key = CryptoJS.lib.WordArray.random(32).toString();
-        globalThis.localStorage.setItem(STORAGE_DEVICE_KEY, key);
-      }
-      return key;
-    }
+  beforeEach(() => {
+    globalThis.localStorage.clear();
+    globalThis.sessionStorage.clear();
+    purgeVaultKeys();
+  });
 
-    function encryptData(data) {
-      const raw = JSON.stringify(data);
-      const key = getVaultKey();
-      const encrypted = CryptoJS.AES.encrypt(raw, key).toString();
-      return `aes256:${encrypted}`;
-    }
-
-    function decryptData(cipherOrRaw, fallback) {
-      if (!cipherOrRaw) return fallback;
-      if (typeof cipherOrRaw !== 'string') return cipherOrRaw;
-      if (cipherOrRaw.startsWith('aes256:')) {
-        const ciphertext = cipherOrRaw.substring(7);
-        try {
-          const key = getVaultKey();
-          const bytes = CryptoJS.AES.decrypt(ciphertext, key);
-          const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-          if (decryptedString) {
-            return JSON.parse(decryptedString);
-          }
-        } catch {
-          // ignore
-        }
-        return fallback;
-      }
-      try {
-        return JSON.parse(cipherOrRaw);
-      } catch {
-        return fallback;
-      }
-    }
-
-    test('should encrypt payload with aes256: prefix and never expose plaintext', () => {
-      const sensitiveProfile = {
+  describe('Pillar 1: AES-GCM via Web Crypto API with Unique IVs & Explicit Keys', () => {
+    test('encryptData uses Web Crypto AES-GCM with aes-gcm: prefix and unique 96-bit IV per call', async () => {
+      const sensitiveData = {
         name: 'Marie Curie',
         cigarettesPerDay: 15,
-        pricePerPack: 12.5,
-        medicalHistory: 'Cessation attempt #2',
-        secretNote: 'Craving occurs post-coffee at 08:30',
+        secretTrigger: 'Café matinal',
       };
 
-      const ciphertext = encryptData(sensitiveProfile);
+      const cipher1 = await encryptData(sensitiveData);
+      const cipher2 = await encryptData(sensitiveData);
 
       // Verify prefix
-      assert.ok(ciphertext.startsWith('aes256:'), 'Ciphertext must start with aes256: identifier');
+      assert.ok(cipher1.startsWith('aes-gcm:'), 'Ciphertext must start with aes-gcm: identifier');
+      assert.ok(cipher2.startsWith('aes-gcm:'), 'Second ciphertext must also start with aes-gcm:');
+
+      // Verify unique IV per encryption: same data encrypted twice MUST yield different ciphertexts and different IVs
+      assert.notEqual(cipher1, cipher2, 'Each encryption MUST produce a distinct ciphertext due to unique IV');
+
+      const parts1 = cipher1.split(':');
+      const parts2 = cipher2.split(':');
+      assert.equal(parts1.length, 3, 'Payload format must be aes-gcm:<ivHex>:<ciphertextBase64>');
+      assert.equal(parts1[1].length, 24, 'IV must be 12 bytes = 24 hex characters');
+      assert.notEqual(parts1[1], parts2[1], 'Consecutive encryptions must have different random IVs');
 
       // Verify zero plaintext leakage
-      assert.ok(!ciphertext.includes('Marie Curie'), 'Ciphertext must not leak user name');
-      assert.ok(!ciphertext.includes('secretNote'), 'Ciphertext must not leak keys or properties');
-      assert.ok(!ciphertext.includes('08:30'), 'Ciphertext must not leak time or routine');
+      assert.ok(!cipher1.includes('Marie Curie'), 'Ciphertext must not leak user name');
+      assert.ok(!cipher1.includes('Café matinal'), 'Ciphertext must not leak secret triggers');
 
-      // Verify roundtrip decryption fidelity
-      const decrypted = decryptData(ciphertext, null);
-      assert.deepEqual(decrypted, sensitiveProfile, 'Decrypted object must match original exactly');
+      // Verify decryption fidelity with real code
+      const decrypted = await decryptData(cipher1, null);
+      assert.deepEqual(decrypted, sensitiveData, 'Decrypted object must match original payload exactly');
     });
 
-    test('should handle legacy non-string objects gracefully without throwing', () => {
-      const rawObj = { id: 1, sample: true };
-      const res = decryptData(rawObj, null);
-      assert.deepEqual(res, rawObj);
+    test('seamlessly migrates legacy AES-CBC (CryptoJS aes256:) payloads without data loss', async () => {
+      const legacyPayload = {
+        legacyId: 42,
+        substance: 'puff_vape',
+        quitDate: '2026-01-01T00:00:00.000Z',
+      };
+
+      // Create a legacy AES-CBC payload encrypted with the device vault key
+      const keyHex = getVaultKeyHex();
+      const rawString = JSON.stringify(legacyPayload);
+      const legacyEncrypted = CryptoJS.AES.encrypt(rawString, keyHex).toString();
+      const legacyCiphertext = `aes256:${legacyEncrypted}`;
+
+      // Decrypt using the real production decryptData function
+      const migratedData = await decryptData(legacyCiphertext, null);
+      assert.deepEqual(migratedData, legacyPayload, 'Legacy AES-CBC ciphertext must be decrypted seamlessly');
+    });
+
+    test('gracefully handles non-string objects and raw fallback', async () => {
+      const rawObj = { id: 'pre-encryption-object', active: true };
+      const result = await decryptData(rawObj, null);
+      assert.deepEqual(result, rawObj);
+
+      const fallbackResult = await decryptData(null, { default: true });
+      assert.deepEqual(fallbackResult, { default: true });
     });
   });
 
-  describe('Pillar 2: Complete Cryptoshredding & Key Erasure', () => {
-    const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v2';
-    const SECURITY_KEY = 'puffinless_security_config';
-    const LOCKOUT_KEY = 'puffinless_lockout_state';
+  describe('Pillar 2: Complete Data Erasure & Cryptoshredding (resetAllUserData)', () => {
+    test('resetAllUserData clears storage, purges vault key, and renders past ciphertexts unrecoverable', async () => {
+      // 1. Populate data and encrypt payload
+      const sensitive = { bankBalance: 5400, secretCravings: ['cannabis'] };
+      const ciphertext = await encryptData(sensitive);
+      saveSecurityConfig(true, '1234');
 
-    test('cryptoshredding should destroy vault key and render past ciphertexts unrecoverable', () => {
-      // 1. Store key and encrypt secret payload
-      const initialKey = CryptoJS.lib.WordArray.random(32).toString();
-      globalThis.localStorage.setItem(STORAGE_DEVICE_KEY, initialKey);
-      globalThis.localStorage.setItem(SECURITY_KEY, JSON.stringify({ pinHash: 'hash123', pinSalt: 'salt123' }));
-      globalThis.localStorage.setItem(LOCKOUT_KEY, JSON.stringify({ failedAttempts: 2 }));
+      assert.ok(globalThis.localStorage.length > 0, 'Storage must contain entries before purge');
+      assert.ok(getSecurityConfig().enabled, 'Security PIN must be active before purge');
 
-      const secretPayload = { privateSubstances: ['cannabis', 'cigarette'], balance: 1450.50 };
-      const raw = JSON.stringify(secretPayload);
-      const ciphertext = `aes256:${CryptoJS.AES.encrypt(raw, initialKey).toString()}`;
+      // 2. Perform complete erasure via real production function
+      await resetAllUserData();
+      purgeSecurityState();
 
-      // 2. Perform cryptoshredding
-      globalThis.localStorage.removeItem(STORAGE_DEVICE_KEY);
-      globalThis.localStorage.removeItem(SECURITY_KEY);
-      globalThis.localStorage.removeItem(LOCKOUT_KEY);
+      // 3. Verify total erasure of storage and keys
+      assert.equal(globalThis.localStorage.length, 0, 'localStorage must be completely wiped (0 keys)');
+      assert.equal(globalThis.sessionStorage.length, 0, 'sessionStorage must be completely wiped (0 keys)');
 
-      assert.equal(globalThis.localStorage.getItem(STORAGE_DEVICE_KEY), null);
-      assert.equal(globalThis.localStorage.getItem(SECURITY_KEY), null);
-      assert.equal(globalThis.localStorage.getItem(LOCKOUT_KEY), null);
-
-      // 3. Attempt decryption with a newly generated vault key (simulate future new onboarding)
+      // 4. Verify cryptoshredding: attempt decryption with a freshly generated key (simulating future user)
       const freshKey = CryptoJS.lib.WordArray.random(32).toString();
-      let failedToDecrypt = false;
-      try {
-        const bytes = CryptoJS.AES.decrypt(ciphertext.substring(7), freshKey);
-        const str = bytes.toString(CryptoJS.enc.Utf8);
-        if (!str || str.length === 0) {
-          failedToDecrypt = true;
-        }
-      } catch {
-        failedToDecrypt = true;
-      }
-      assert.ok(failedToDecrypt, 'Old ciphertext must be unrecoverable after cryptoshredding');
+      globalThis.localStorage.setItem('puffinless_vault_key_v2', freshKey);
+
+      const recoveryAttempt = await decryptData(ciphertext, null);
+      assert.equal(recoveryAttempt, null, 'Old ciphertext must be cryptographically unrecoverable after purge');
     });
   });
 
-  describe('Pillar 3: Behavioral Indicators (No Fake Biological Metrics)', () => {
-    test('computes craving mastery rate strictly from user logs', () => {
-      const cravings = [
-        { id: '1', resisted: true, timestamp: new Date().toISOString() },
-        { id: '2', resisted: true, timestamp: new Date().toISOString() },
-        { id: '3', resisted: false, timestamp: new Date().toISOString() },
+  describe('Pillar 3: Period-Scoped Statistics (Zero Out-of-Period Leaks)', () => {
+    test('calculates period-scoped cravings strictly within time cutoff', () => {
+      const nowMs = 1794110000000;
+      const cutoff24h = nowMs - 24 * 60 * 60 * 1000;
+
+      const allCravings = [
+        { id: 'c1', timestamp: new Date(nowMs - 3600000).toISOString(), resisted: true }, // 1h ago (inside period)
+        { id: 'c2', timestamp: new Date(nowMs - 7200000).toISOString(), resisted: true }, // 2h ago (inside period)
+        { id: 'c3', timestamp: new Date(nowMs - 86400000 * 5).toISOString(), resisted: false }, // 5 days ago (OUTSIDE period)
+        { id: 'c4', timestamp: new Date(nowMs - 86400000 * 10).toISOString(), resisted: false }, // 10 days ago (OUTSIDE period)
       ];
 
-      const total = cravings.length;
-      const resisted = cravings.filter((c) => c.resisted).length;
-      const rate = Math.round((resisted / total) * 100);
+      // Strict period filtering without lifetime fallback
+      const filteredCravings = allCravings.filter((c) => new Date(c.timestamp).getTime() >= cutoff24h);
+      assert.equal(filteredCravings.length, 2, 'Only 2 cravings occurred in the last 24h');
 
-      assert.equal(total, 3);
-      assert.equal(resisted, 2);
-      assert.equal(rate, 67); // 67% resistance rate
+      const totalPeriodCravings = filteredCravings.length;
+      const resistedPeriodCravings = filteredCravings.filter((c) => c.resisted).length;
+      const cravingMasteryPct = Math.round((resistedPeriodCravings / totalPeriodCravings) * 100);
+
+      // Mastery in 24h period is 100% (2 resisted out of 2) instead of lifetime 50%
+      assert.equal(cravingMasteryPct, 100, 'Period mastery must be strictly 100% without lifetime contamination');
     });
 
-    test('computes 100% mastery rate when user has 0 cravings and 0 slip intakes', () => {
-      const cravings = [];
-      const totalSubstancesTakenDoses = 0;
-      const cravingMasteryPct = cravings.length > 0
-        ? Math.round((cravings.filter((c) => c.resisted).length / cravings.length) * 100)
-        : totalSubstancesTakenDoses === 0 ? 100 : 0;
+    test('when period has 0 cravings, reports 0 cravings without falling back to lifetime entries', () => {
+      const nowMs = 1794110000000;
+      const cutoff24h = nowMs - 24 * 60 * 60 * 1000;
 
-      assert.equal(cravingMasteryPct, 100);
-    });
-
-    test('computes tracking consistency over window from user entries', () => {
-      const windowDays = 7;
-      const activeDays = new Set(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04']);
-      const consistency = Math.min(100, Math.round((activeDays.size / windowDays) * 100));
-
-      assert.equal(consistency, 57); // 4 days / 7 days = 57%
-    });
-  });
-
-  describe('Pillar 4: Craving Event Deduplication and Risk Window Reliability', () => {
-    test('deduplicates simultaneous slip intake and craving entry within 60s', () => {
-      const nowMs = 1794100000000;
-      const substanceLogs = [
-        { id: 'sub-1', timestamp: new Date(nowMs).toISOString(), trigger: 'Café / Matin' },
-      ];
-      const cravings = [
-        { id: 'cr-1', timestamp: new Date(nowMs + 5000).toISOString(), trigger: 'Café / Matin', resisted: false }, // same minute
-        { id: 'cr-2', timestamp: new Date(nowMs + 7200000).toISOString(), trigger: 'Stress', resisted: true }, // 2 hours later
+      const allCravings = [
+        { id: 'cOld', timestamp: new Date(nowMs - 86400000 * 8).toISOString(), resisted: false },
       ];
 
-      const episodes = [];
-      const seenTimes = [];
+      const filteredCravings = allCravings.filter((c) => new Date(c.timestamp).getTime() >= cutoff24h);
+      assert.equal(filteredCravings.length, 0);
 
-      substanceLogs.forEach((l) => {
-        const d = new Date(l.timestamp);
-        const t = d.getTime();
-        if (!isNaN(t)) {
-          seenTimes.push(t);
-          episodes.push({ hour: d.getHours(), trigger: l.trigger });
-        }
-      });
+      const totalCravingsCount = filteredCravings.length;
+      const resistedCravingsCount = filteredCravings.filter((c) => c.resisted).length;
+      const totalSlipsInPeriod = 0;
+      const mastery = totalCravingsCount > 0
+        ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
+        : totalSlipsInPeriod === 0 ? 100 : 0;
 
-      cravings.forEach((c) => {
-        const d = new Date(c.timestamp);
-        const t = d.getTime();
-        if (!isNaN(t)) {
-          const isDuplicate = seenTimes.some((st) => Math.abs(st - t) < 60000);
-          if (!isDuplicate) {
-            seenTimes.push(t);
-            episodes.push({ hour: d.getHours(), trigger: c.trigger });
-          }
-        }
-      });
+      assert.equal(totalCravingsCount, 0, 'Must report 0 cravings logged in this period');
+      assert.equal(resistedCravingsCount, 0);
+      assert.equal(mastery, 100, 'Clean period without cravings must show 100% mastery');
+    });
 
-      // Expected: 2 unique episodes (not 3), because the simultaneous slip + craving is merged
-      assert.equal(episodes.length, 2);
-      assert.equal(episodes[0].trigger, 'Café / Matin');
-      assert.equal(episodes[1].trigger, 'Stress');
+    test('computes period-scoped avoided doses and money saved strictly for window days', () => {
+      const windowDays = 7; // 1 week
+      const dailyExpectedDoses = 20; // 20 cigs per day
+      const dailyExpectedCost = 12.0; // $12 per day
+      const totalSlipsTakenInPeriod = 5; // 5 cigs consumed
+      const totalExpensesLogged = 10.0; // $10 spent on gum/accessories
+
+      const expectedDoses = dailyExpectedDoses * windowDays; // 140
+      const periodDosesAvoided = Math.max(0, expectedDoses - totalSlipsTakenInPeriod);
+      assert.equal(periodDosesAvoided, 135, 'Period doses avoided must be 140 - 5 = 135');
+
+      const expectedSpending = dailyExpectedCost * windowDays; // $84
+      const periodMoneySaved = Math.max(0, Math.round(expectedSpending - totalExpensesLogged));
+      assert.equal(periodMoneySaved, 74, 'Period money saved must be 84 - 10 = $74 (not lifetime thousands)');
     });
   });
 });

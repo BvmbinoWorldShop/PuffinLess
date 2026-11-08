@@ -36,7 +36,17 @@
 - Daily rating for sleep (1-10) and energy levels (1-10).
 - 7-day trend chart with multi-substance bar comparisons demonstrating how smoking directly suppresses sleep quality and stamina.
 
-### 6. 📱 PWA Ready (Progressive Web App)
+### 6. 🔐 Zero-Knowledge Security & AES-GCM Web Crypto Architecture
+- **AES-GCM 256-bit Authenticated Encryption**: Powered by the native browser Web Crypto API (`crypto.subtle`) for high-speed, hardware-accelerated local encryption.
+- **Unique 96-bit IV per Encryption**: Every single save operation generates a cryptographically random 12-byte IV (`crypto.getRandomValues(new Uint8Array(12))`), ensuring ciphertexts never repeat even for identical data.
+- **Explicit Key Management**: True random 256-bit device vault key (`puffinless_vault_key_v2`). All deterministic key fallbacks have been eliminated for new encryptions.
+- **Seamless Legacy Migration**: Seamless backward compatibility for older AES-CBC (`aes256:`) payloads with zero data loss.
+- **Physical Cryptoshredding & Total Erasure (GDPR Art. 17)**: One-click "Erase All My Data" permanently deletes the IndexedDB database (`indexedDB.deleteDatabase`), shreds encryption vault keys, purges PIN credentials, and wipes all storage (`localStorage.clear()` / `sessionStorage.clear()`).
+- **Strictly Scoped Period Statistics**: Daily, weekly, and monthly reports filter metrics strictly within their timeframe with zero lifetime data contamination.
+- **100% User-Logged Empirical Metrics**: No simulated or fake physiological gauges (e.g. hypothetical lung cilia or dopamine bars); replaced with genuine user-entered craving mastery, tracking regularity, self-reported sleep, and vitality scores.
+- **WCAG Accessibility & Screen Reader Ready**: Fully equipped with accessible modal dialogs (`role="dialog"`, `aria-modal="true"`, `aria-labelledby`), `role="tablist"` navigation, and explicit `aria-label` controls.
+
+### 7. 📱 PWA Ready (Progressive Web App)
 - **Installable on iOS & Android**:
   - **iOS Safari**: Tap **Share** -> **Add to Home Screen**
   - **Android Chrome**: Tap the install banner or **Menu** -> **Install App**

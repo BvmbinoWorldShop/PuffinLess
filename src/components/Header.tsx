@@ -79,21 +79,25 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
+            type="button"
             onClick={() => { sound.playClick(); onToggleTheme(); }}
             title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="flex items-center justify-center w-8 h-8 rounded-xl glass-button text-slate-300"
+            aria-label={isDark ? 'Activer le mode clair' : 'Activer le mode sombre'}
+            className="flex items-center justify-center w-8 h-8 rounded-xl glass-button text-slate-300 cursor-pointer"
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400 animate-spin-slow" /> : <Moon className="w-4 h-4 text-indigo-500" />}
           </button>
 
           {/* Profile & Settings Button */}
           <button
+            type="button"
             onClick={() => { sound.playClick(); onOpenProfile(); }}
-            className={`w-8 h-8 rounded-xl p-0.5 border ${tierMeta.border} glass-button overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all ring-1 ring-white/10`}
+            className={`w-8 h-8 rounded-xl p-0.5 border ${tierMeta.border} glass-button overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all ring-1 ring-white/10 cursor-pointer`}
             title="Profile, Coach Settings & Avatar"
+            aria-label={isFr ? 'Profil et paramètres' : 'Profile and settings'}
           >
             {profile.avatar ? (
-              <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover rounded-lg" />
+              <img src={profile.avatar} alt={profile.name || 'User avatar'} className="w-full h-full object-cover rounded-lg" />
             ) : (
               <User className="w-4 h-4 text-slate-300" />
             )}
@@ -101,8 +105,10 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Craving button */}
           <button
+            type="button"
             onClick={() => { sound.playBreathTone(); onOpenSos(); }}
-            className="group relative flex items-center gap-1.5 pl-2.5 pr-3 h-8 rounded-xl bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 text-white keep-white font-bold text-[11px] tracking-wide shadow-lg shadow-rose-500/30 border border-rose-300/40 hover:scale-105 active:scale-95 transition-all"
+            aria-label={t('cravingButton', lang)}
+            className="group relative flex items-center gap-1.5 pl-2.5 pr-3 h-8 rounded-xl bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 text-white keep-white font-bold text-[11px] tracking-wide shadow-lg shadow-rose-500/30 border border-rose-300/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
           >
             <span className="absolute -inset-0.5 rounded-xl bg-rose-500/40 blur-sm -z-10 animate-pulse" />
             <Zap className="w-3.5 h-3.5 fill-white group-hover:rotate-12 transition-transform" />

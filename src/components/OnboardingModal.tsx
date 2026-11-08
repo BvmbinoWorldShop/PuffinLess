@@ -150,7 +150,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const isPwaStep = (isGuideMode && step === 3) || (!isGuideMode && step === 4);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-6 flex items-center justify-center min-h-screen">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={isFr ? 'Guide de démarrage PuffinLess' : 'PuffinLess Onboarding Guide'}
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-6 flex items-center justify-center min-h-screen"
+    >
       <div className="guide-modal relative w-full max-w-lg rounded-3xl glass-panel-elevated border border-white/15 shadow-2xl shadow-emerald-950/40 text-left my-auto max-h-[92vh] flex flex-col overflow-hidden">
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -208,7 +213,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <button
                 type="button"
                 onClick={() => { sound.playClick(); onClose(); }}
-                className="w-7 h-7 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white shrink-0 ml-1"
+                className="w-7 h-7 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white shrink-0 ml-1 cursor-pointer"
+                aria-label={isFr ? 'Fermer le guide' : 'Close guide'}
                 title={isFr ? 'Fermer' : 'Close'}
               >
                 <X className="w-3.5 h-3.5" />

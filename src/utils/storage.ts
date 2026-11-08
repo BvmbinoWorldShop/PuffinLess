@@ -11,9 +11,9 @@ import type {
   StreakRecord,
   Language,
 } from '../types';
-import { encryptData, decryptData, purgeVaultKeys } from './crypto';
-import { idbGet, idbSet, idbClear, deletePuffinLessDB } from './indexedDb';
-import { purgeSecurityState } from './security';
+import { encryptData, decryptData, purgeVaultKeys } from './crypto.ts';
+import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
+import { purgeSecurityState } from './security.ts';
 
 export const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -29,17 +29,30 @@ export const STORAGE_KEYS = {
 export function loadStreaks(): StreakRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.STREAKS);
-    return decryptData<StreakRecord[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as StreakRecord[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadStreaksAsync(): Promise<StreakRecord[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS);
+    return await decryptData<StreakRecord[]>(raw, []);
   } catch (e) {
     console.error('Error loading streaks', e);
   }
   return [];
 }
 
-export function saveStreaks(streaks: StreakRecord[]): void {
+export async function saveStreaks(streaks: StreakRecord[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.STREAKS, encryptData(streaks));
-    void idbSet(STORAGE_KEYS.STREAKS, streaks);
+    const cipher = await encryptData(streaks);
+    localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
+    await idbSet(STORAGE_KEYS.STREAKS, streaks);
   } catch (e) {
     console.error('Error saving streaks', e);
   }
@@ -620,19 +633,36 @@ export const WELLNESS_ARTICLES: WellnessArticle[] = [
   },
 ];
 
-// Helper functions for persistent storage with local AES-256 encryption at rest
+// Helper functions for persistent storage with local AES-GCM encryption at rest
 export function loadProfile(): UserProfile {
   const nowIso = new Date().toISOString();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
     if (raw) {
-      const parsed = decryptData<Partial<UserProfile>>(raw, {});
+      if (!raw.startsWith('aes-gcm:')) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_PROFILE, ...parsed };
+        }
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return { ...DEFAULT_PROFILE, createdAt: nowIso, quitDate: nowIso };
+}
+
+export async function loadProfileAsync(): Promise<UserProfile> {
+  const nowIso = new Date().toISOString();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
+    if (raw) {
+      const parsed = await decryptData<Partial<UserProfile>>(raw, {});
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         const merged: UserProfile = { ...DEFAULT_PROFILE, ...parsed };
         if (!merged.createdAt) {
           merged.createdAt = merged.quitDate || nowIso;
         }
-        // As default the app starts the count from the day it is used unless a specific date is entered by the user
         if (!merged.quitDate) {
           merged.quitDate = merged.createdAt;
         }
@@ -640,15 +670,16 @@ export function loadProfile(): UserProfile {
       }
     }
   } catch (e) {
-    console.error('Error loading profile', e);
+    console.error('Error loading profile async', e);
   }
   return { ...DEFAULT_PROFILE, createdAt: nowIso, quitDate: nowIso };
 }
 
-export function saveProfile(profile: UserProfile): void {
+export async function saveProfile(profile: UserProfile): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, encryptData(profile));
-    void idbSet(STORAGE_KEYS.PROFILE, profile);
+    const cipher = await encryptData(profile);
+    localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
+    await idbSet(STORAGE_KEYS.PROFILE, profile);
   } catch (e) {
     console.error('Error saving profile', e);
   }
@@ -657,17 +688,30 @@ export function saveProfile(profile: UserProfile): void {
 export function loadExpenses(): PurchaseExpense[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    return decryptData<PurchaseExpense[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as PurchaseExpense[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    return await decryptData<PurchaseExpense[]>(raw, []);
   } catch (e) {
     console.error('Error loading expenses', e);
   }
   return [];
 }
 
-export function saveExpenses(expenses: PurchaseExpense[]): void {
+export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, encryptData(expenses));
-    void idbSet(STORAGE_KEYS.EXPENSES, expenses);
+    const cipher = await encryptData(expenses);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
+    await idbSet(STORAGE_KEYS.EXPENSES, expenses);
   } catch (e) {
     console.error('Error saving expenses', e);
   }
@@ -676,17 +720,30 @@ export function saveExpenses(expenses: PurchaseExpense[]): void {
 export function loadSubstanceLogs(): SubstanceLog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG);
-    return decryptData<SubstanceLog[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as SubstanceLog[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG);
+    return await decryptData<SubstanceLog[]>(raw, []);
   } catch (e) {
     console.error('Error loading substance logs', e);
   }
   return [];
 }
 
-export function saveSubstanceLogs(logs: SubstanceLog[]): void {
+export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, encryptData(logs));
-    void idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
+    const cipher = await encryptData(logs);
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
+    await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
   } catch (e) {
     console.error('Error saving substance logs', e);
   }
@@ -695,17 +752,30 @@ export function saveSubstanceLogs(logs: SubstanceLog[]): void {
 export function loadSleepEnergy(): SleepEnergyEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY);
-    return decryptData<SleepEnergyEntry[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as SleepEnergyEntry[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY);
+    return await decryptData<SleepEnergyEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading sleep energy', e);
   }
   return [];
 }
 
-export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {
+export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, encryptData(entries));
-    void idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
+    const cipher = await encryptData(entries);
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
+    await idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
   } catch (e) {
     console.error('Error saving sleep energy', e);
   }
@@ -714,17 +784,30 @@ export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {
 export function loadSavingsGoals(): SavingsGoal[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS);
-    return decryptData<SavingsGoal[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as SavingsGoal[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS);
+    return await decryptData<SavingsGoal[]>(raw, []);
   } catch (e) {
     console.error('Error loading goals', e);
   }
   return [];
 }
 
-export function saveSavingsGoals(goals: SavingsGoal[]): void {
+export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, encryptData(goals));
-    void idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
+    const cipher = await encryptData(goals);
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
+    await idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
   } catch (e) {
     console.error('Error saving goals', e);
   }
@@ -733,17 +816,30 @@ export function saveSavingsGoals(goals: SavingsGoal[]): void {
 export function loadCravings(): CravingEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CRAVINGS);
-    return decryptData<CravingEntry[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as CravingEntry[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadCravingsAsync(): Promise<CravingEntry[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CRAVINGS);
+    return await decryptData<CravingEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading cravings', e);
   }
   return [];
 }
 
-export function saveCravings(cravings: CravingEntry[]): void {
+export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, encryptData(cravings));
-    void idbSet(STORAGE_KEYS.CRAVINGS, cravings);
+    const cipher = await encryptData(cravings);
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
+    await idbSet(STORAGE_KEYS.CRAVINGS, cravings);
   } catch (e) {
     console.error('Error saving cravings', e);
   }
@@ -752,17 +848,30 @@ export function saveCravings(cravings: CravingEntry[]): void {
 export function loadSmokeLog(): SmokeLogEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SMOKE_LOG);
-    return decryptData<SmokeLogEntry[]>(raw, []);
+    if (raw && !raw.startsWith('aes-gcm:')) {
+      return JSON.parse(raw) as SmokeLogEntry[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SMOKE_LOG);
+    return await decryptData<SmokeLogEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading smoke log', e);
   }
   return [];
 }
 
-export function saveSmokeLog(logs: SmokeLogEntry[]): void {
+export async function saveSmokeLog(logs: SmokeLogEntry[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, encryptData(logs));
-    void idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
+    const cipher = await encryptData(logs);
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
+    await idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
   } catch (e) {
     console.error('Error saving smoke log', e);
   }
@@ -811,13 +920,16 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
     }
 
     // First time IndexedDB migration from localStorage
-    const localProfile = loadProfile();
-    const localStreaks = loadStreaks();
-    const localCravings = loadCravings();
-    const localSubstances = loadSubstanceLogs();
-    const localExpenses = loadExpenses();
-    const localSleep = loadSleepEnergy();
-    const localGoals = loadSavingsGoals();
+    const [localProfile, localStreaks, localCravings, localSubstances, localExpenses, localSleep, localGoals] =
+      await Promise.all([
+        loadProfileAsync(),
+        loadStreaksAsync(),
+        loadCravingsAsync(),
+        loadSubstanceLogsAsync(),
+        loadExpensesAsync(),
+        loadSleepEnergyAsync(),
+        loadSavingsGoalsAsync(),
+      ]);
 
     await Promise.all([
       idbSet(STORAGE_KEYS.PROFILE, localProfile),
@@ -847,9 +959,9 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
 /**
  * Complete, irreversible cryptoshredding and data erasure.
  * - Deletes the IndexedDB database file from browser storage.
- * - Irrevocably destroys AES-256 vault encryption keys (cryptoshredding).
+ * - Irrevocably destroys AES vault encryption keys (cryptoshredding).
  * - Purges security PIN hashes, salts, and anti-brute-force lockout state.
- * - Purges all puffinless keys from localStorage and sessionStorage.
+ * - Purges all keys from localStorage and sessionStorage.
  */
 export async function resetAllUserData(): Promise<void> {
   // 1. Delete IndexedDB physical database
@@ -857,58 +969,67 @@ export async function resetAllUserData(): Promise<void> {
     await deletePuffinLessDB();
   } catch (err) {
     console.warn('[Storage] Error deleting IndexedDB physical database:', err);
-    try {
-      await idbClear();
-    } catch {
-      // ignore
-    }
   }
 
-  // 2. Cryptoshredding: purge device AES-256 encryption keys
+  // 2. Cryptoshredding: purge device AES encryption keys
   purgeVaultKeys();
 
   // 3. Purge PIN credentials and lockout logs
   purgeSecurityState();
 
-  // 4. Wipe all matching puffinless keys from browser storage
+  // 4. Wipe all browser storage completely
   if (typeof localStorage !== 'undefined') {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith('puffinless') || k.startsWith('puffinless_'))) {
-        keysToRemove.push(k);
-      }
+    try {
+      localStorage.clear();
+    } catch {
+      // Fallback key-by-key removal if clear() is restricted
+      Object.keys(localStorage).forEach((k) => localStorage.removeItem(k));
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
   }
 
   if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.clear();
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
   }
 }
 
 /** Export all locally stored user data as a clean, unencrypted JSON payload (GDPR Art. 20 portability) */
-export function exportAllUserDataJSON(): string {
+export async function exportAllUserDataJSON(): Promise<string> {
+  const [profile, streaks, cravings, substanceLogs, smokeLogs, expenses, sleepEnergy, savingsGoals] =
+    await Promise.all([
+      idbGet<UserProfile>(STORAGE_KEYS.PROFILE).then((p) => p || loadProfile()),
+      idbGet<StreakRecord[]>(STORAGE_KEYS.STREAKS).then((s) => s || []),
+      idbGet<CravingEntry[]>(STORAGE_KEYS.CRAVINGS).then((c) => c || []),
+      idbGet<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG).then((sl) => sl || []),
+      idbGet<SmokeLogEntry[]>(STORAGE_KEYS.SMOKE_LOG).then((sm) => sm || []),
+      idbGet<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES).then((e) => e || []),
+      idbGet<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY).then((se) => se || []),
+      idbGet<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS).then((g) => g || []),
+    ]);
+
   const exportPayload = {
     exportedAt: new Date().toISOString(),
-    formatVersion: '1.0',
+    formatVersion: '2.0',
+    encryptionStandard: 'AES-GCM (Web Crypto API)',
     appName: 'PuffinLess',
-    profile: loadProfile(),
-    streaks: loadStreaks(),
-    cravings: loadCravings(),
-    substanceLogs: loadSubstanceLogs(),
-    smokeLogs: loadSmokeLog(),
-    expenses: loadExpenses(),
-    sleepEnergy: loadSleepEnergy(),
-    savingsGoals: loadSavingsGoals(),
+    profile,
+    streaks,
+    cravings,
+    substanceLogs,
+    smokeLogs,
+    expenses,
+    sleepEnergy,
+    savingsGoals,
   };
   return JSON.stringify(exportPayload, null, 2);
 }
 
 /** Trigger direct browser download of the user's exported data */
-export function downloadUserDataJSON(): void {
-  const jsonStr = exportAllUserDataJSON();
+export async function downloadUserDataJSON(): Promise<void> {
+  const jsonStr = await exportAllUserDataJSON();
   const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

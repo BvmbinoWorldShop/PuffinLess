@@ -99,18 +99,25 @@ export const SosModal: React.FC<SosModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl overflow-y-auto animate-fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sos-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl overflow-y-auto animate-fade-in"
+    >
       <div className="relative w-full max-w-lg rounded-3xl glass-panel-elevated p-5 sm:p-7 border border-rose-500/30 shadow-2xl shadow-rose-950/60 text-left my-auto">
         {/* Glow backdrop */}
         <div className="absolute -top-20 inset-x-0 h-40 bg-gradient-to-b from-rose-500/20 to-transparent blur-2xl pointer-events-none" />
 
         {/* Close Button */}
         <button
+          type="button"
           onClick={() => {
             sound.playClick();
             onClose();
           }}
-          className="absolute top-5 right-5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
+          aria-label={language === 'fr' ? 'Fermer la modalité d\'urgence' : 'Close emergency modal'}
+          className="absolute top-5 right-5 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -121,7 +128,7 @@ export const SosModal: React.FC<SosModalProps> = ({
             <ShieldAlert className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <h3 id="sos-modal-title" className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
               {t('sosTitle', language)}
             </h3>
             <p className="text-xs text-rose-300">

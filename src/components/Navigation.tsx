@@ -25,7 +25,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab,
     <div className={`fixed bottom-0 inset-x-0 z-40 p-3 pb-6 sm:pb-4 pointer-events-none transition-all duration-300 transform ${
       isVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
     }`}>
-      <nav className="max-w-md mx-auto pointer-events-auto rounded-3xl glass-panel-elevated p-2 shadow-2xl shadow-black/80 flex items-center justify-around border border-white/10 backdrop-blur-2xl">
+      <nav role="tablist" aria-label="Navigation principale" className="max-w-md mx-auto pointer-events-auto rounded-3xl glass-panel-elevated p-2 shadow-2xl shadow-black/80 flex items-center justify-around border border-white/10 backdrop-blur-2xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
@@ -34,12 +34,13 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab,
               key={tab.id}
               role="tab"
               aria-selected={isActive}
+              aria-label={tab.label}
               onClick={() => {
                 sound.vibrate(55);
                 sound.playClick();
                 onSelectTab(tab.id);
               }}
-              className={`relative flex flex-col items-center justify-center py-2 px-4 rounded-2xl transition-all duration-300 ${
+              className={`relative flex flex-col items-center justify-center py-2 px-4 rounded-2xl transition-all duration-300 cursor-pointer ${
                 isActive
                   ? 'text-emerald-400 scale-105'
                   : 'text-slate-400 hover:text-slate-200'

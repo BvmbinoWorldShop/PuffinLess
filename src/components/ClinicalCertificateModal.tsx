@@ -83,8 +83,8 @@ function getCorrectiveAction(trigger: string, isFr: boolean): string {
       : 'Chamomile/lemon balm tea + screen curfew 30 min before bed';
   }
   return isFr
-    ? 'Règle pratique des 180 secondes : boire de l\'eau, le pic de pulsion s\'effondre'
-    : 'Empirical 180-second rule: sip cold water, the neural craving peak collapses';
+    ? 'Protocole comportemental des 180 secondes : temporiser avec un verre d\'eau, l\'intensité de la pulsion décroît naturellement'
+    : 'Behavioral 180-second rule: sip fresh water and pause, craving intensity naturally subsides';
 }
 
 export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> = ({
@@ -157,14 +157,22 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       })
     : currentDateStr;
 
-  const totalDosesAvoided = stats.cigarettesAvoided + stats.puffsAvoided + stats.gramsAvoided;
-
   const rawName = profile?.name?.trim() || (isFr ? 'MEMBRE CERTIFIÉ' : 'CERTIFIED MEMBER');
   const verificationHash = `PFL-${stats.days}D-${Math.abs(
     rawName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 1337)
   ).toString(16).toUpperCase()}-${now.getFullYear()}`;
 
-  // Filter Data by chosen Time Range
+  // Time Window in Days strictly matching selected timeRange
+  const windowDays = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : 30;
+
+  // Compute period sobriety duration (strictly capped by window duration)
+  const cleanDurationMs = Math.max(0, now.getTime() - new Date(profile?.quitDate || now).getTime());
+  const periodMaxMs = windowDays * 24 * 60 * 60 * 1000;
+  const periodCleanMs = Math.min(cleanDurationMs, periodMaxMs);
+  const periodCleanDays = Math.floor(periodCleanMs / (24 * 60 * 60 * 1000));
+  const periodCleanHours = Math.floor((periodCleanMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+
+  // Filter Data strictly by chosen Time Range
   const filteredSubstanceLogs = substanceLogs.filter(
     (log) => new Date(log.timestamp).getTime() >= cutoffMs
   );
@@ -176,7 +184,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   const cutoffDateStr = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-${String(cutoffDate.getDate()).padStart(2, '0')}`;
   const filteredSleepLogs = sleepLogs.filter((s) => s.date >= cutoffDateStr);
 
-  // Compute number of substances consumed in the selected time range
+  // Compute number of substances consumed strictly in the selected time range
   let totalCigarettesTaken = 0;
   let totalPuffsTaken = 0;
   let totalCannabisTaken = 0;
@@ -189,6 +197,25 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
   const totalSubstancesTakenDoses = totalCigarettesTaken + totalPuffsTaken + totalCannabisTaken;
   const totalIntakeEventsCount = filteredSubstanceLogs.length;
+
+  // Compute period-scoped avoided doses and money saved (no lifetime leakage)
+  const dailyExpectedCigs = profile?.cigarettesPerDay || 0;
+  const dailyExpectedPuffs = profile?.puffsPerDay || 0;
+  const dailyExpectedCannabis = (profile?.cannabisGramsPerWeek || 0) / 7;
+  const dailyExpectedDoses = dailyExpectedCigs + dailyExpectedPuffs + dailyExpectedCannabis;
+  const periodExpectedDoses = Math.round(dailyExpectedDoses * windowDays);
+  const periodDosesAvoided = Math.max(0, periodExpectedDoses - totalSubstancesTakenDoses);
+
+  const cigCostPerDay = dailyExpectedCigs > 0
+    ? (dailyExpectedCigs / (profile?.cigarettesInPack || 20)) * (profile?.pricePerPack || 12)
+    : 0;
+  const vapeCostPerDay = dailyExpectedPuffs > 0
+    ? (dailyExpectedPuffs / 600) * (profile?.podPrice || 18)
+    : 0;
+  const cannabisCostPerDay = dailyExpectedCannabis * (profile?.pricePerGram || 10);
+  const dailyExpectedSpending = cigCostPerDay + vapeCostPerDay + cannabisCostPerDay;
+  const periodExpectedSpending = dailyExpectedSpending * windowDays;
+  const periodMoneySaved = Math.max(0, Math.round(periodExpectedSpending - totalExpensesAmount));
 
   const substancesTakenSummaryStr = totalSubstancesTakenDoses > 0
     ? (isFr
@@ -204,34 +231,31 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           ].filter(Boolean).join(', ')})`)
     : (isFr ? '0 prise (100% Abstinence)' : '0 intake (100% Clean)');
 
-  // Process Sleep Trend (Last 7 days chronological - only real user logs, no mock fixtures)
-  const sourceSleepLogs = filteredSleepLogs.length >= 3 ? filteredSleepLogs : sleepLogs.length >= 3 ? sleepLogs : [];
-  const hasSufficientSleepData = sourceSleepLogs.length >= 3;
+  // Process Sleep Trend strictly for the chosen time range (no out-of-period lifetime fallback)
+  const hasSufficientSleepData = filteredSleepLogs.length > 0;
   const sleepTrendList = hasSufficientSleepData
-    ? [...sourceSleepLogs]
+    ? [...filteredSleepLogs]
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .slice(-7)
     : [];
 
   const avgSleep = hasSufficientSleepData
-    ? (sourceSleepLogs.reduce((acc, l) => acc + l.sleepRating, 0) / sourceSleepLogs.length).toFixed(1)
+    ? (filteredSleepLogs.reduce((acc, l) => acc + l.sleepRating, 0) / filteredSleepLogs.length).toFixed(1)
     : '--';
 
   const avgEnergy = hasSufficientSleepData
-    ? (sourceSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / sourceSleepLogs.length).toFixed(1)
+    ? (filteredSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / filteredSleepLogs.length).toFixed(1)
     : '--';
 
-  // 100% Real User-Logged Behavioral Indicators (Replacing theoretical/simulated biological gauges)
-  // 1. Craving Mastery Rate (% resisted out of total cravings)
-  const relevantCravings = filteredCravings.length > 0 ? filteredCravings : cravings;
-  const totalCravingsCount = relevantCravings.length;
-  const resistedCravingsCount = relevantCravings.filter((c) => c.resisted).length;
+  // 100% Real User-Logged Behavioral Indicators (Strictly within selected period)
+  // 1. Craving Mastery Rate (% resisted out of cravings logged in this period)
+  const totalCravingsCount = filteredCravings.length;
+  const resistedCravingsCount = filteredCravings.filter((c) => c.resisted).length;
   const cravingMasteryPct = totalCravingsCount > 0
     ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
     : totalSubstancesTakenDoses === 0 ? 100 : 0;
 
   // 2. Logging Consistency Rate (% of days in active window with at least 1 declared log)
-  const windowDays = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : 30;
   const activeLoggingDaysSet = new Set<string>();
   filteredSubstanceLogs.forEach((l) => {
     const d = new Date(l.timestamp);
@@ -939,26 +963,26 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
       <div class="grid-5">
         <div class="kpi-bubble">
-          <div class="kpi-val" style="color: #34d399;">${stats.days}j ${stats.hours}h</div>
-          <div class="kpi-lbl">${isFr ? 'Sobriété Globale' : 'Clean Duration'}</div>
+          <div class="kpi-val" style="color: #34d399;">${periodCleanDays}j ${periodCleanHours}h</div>
+          <div class="kpi-lbl">${isFr ? 'Période Sobre' : 'Period Clean'}</div>
         </div>
         <div class="kpi-bubble">
-          <div class="kpi-val" style="color: #fbbf24;">${currency}${Math.round(stats.moneySaved).toLocaleString()}</div>
-          <div class="kpi-lbl">${isFr ? 'Capital Économisé' : 'Money Saved'}</div>
+          <div class="kpi-val" style="color: #fbbf24;">${currency}${periodMoneySaved.toLocaleString()}</div>
+          <div class="kpi-lbl">${isFr ? 'Économies Période' : 'Period Savings'}</div>
         </div>
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: ${totalExpensesAmount > 0 ? '#f59e0b' : '#38bdf8'};">${currency}${Math.round(totalExpensesAmount).toLocaleString()}</div>
-          <div class="kpi-lbl">${isFr ? 'Achats Enregistrés' : 'Purchases Logged'}</div>
+          <div class="kpi-lbl">${isFr ? 'Achats Déclarés' : 'Purchases Logged'}</div>
         </div>
         <div class="kpi-bubble">
-          <div class="kpi-val" style="color: #38bdf8;">${totalDosesAvoided.toLocaleString()}</div>
-          <div class="kpi-lbl">${isFr ? 'Toxines Évitées' : 'Doses Avoided'}</div>
+          <div class="kpi-val" style="color: #38bdf8;">${periodDosesAvoided.toLocaleString()}</div>
+          <div class="kpi-lbl">${isFr ? 'Doses Évitées' : 'Doses Avoided'}</div>
         </div>
         <div class="kpi-bubble">
           <div class="kpi-val" style="color: ${totalSubstancesTakenDoses > 0 ? '#f43f5e' : '#34d399'};">
             ${totalSubstancesTakenDoses > 0 ? `${totalSubstancesTakenDoses}` : '0'}
           </div>
-          <div class="kpi-lbl">${isFr ? 'Substances Prises' : 'Substances Taken'}</div>
+          <div class="kpi-lbl">${isFr ? 'Prises Déclarées' : 'Intakes Logged'}</div>
         </div>
       </div>
 
@@ -1215,7 +1239,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <span style="font-weight: 800; font-size: 8px; color: #cbd5e1; text-transform: uppercase;">
               ${isFr ? 'Radar Déclencheurs IA' : 'AI Trigger Radar'}
             </span>
-            <span class="pill pill-gold" style="font-size: 6.5px; padding: 0.5px 3px;">${isFr ? 'Prédictif' : 'Predictive'}</span>
+            <span class="pill pill-gold" style="font-size: 6.5px; padding: 0.5px 3px;">${isFr ? 'Tendance Observée' : 'Observed Trend'}</span>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px;">
@@ -1424,7 +1448,12 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/95 backdrop-blur-2xl p-2 sm:p-5 flex items-center justify-center animate-fade-in print:hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="clinical-report-title"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/95 backdrop-blur-2xl p-2 sm:p-5 flex items-center justify-center animate-fade-in print:hidden"
+    >
       <div className="relative w-full max-w-4xl rounded-3xl glass-panel-elevated border border-white/20 shadow-2xl p-4 sm:p-6 my-auto max-h-[96vh] flex flex-col bg-slate-950/95 text-white">
         
         {/* Controls Header */}
@@ -1434,7 +1463,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 id="clinical-report-title" className="text-base font-bold text-white tracking-tight">
                 {isFr ? 'Rapport Personnel de Progression & Bilan' : 'Personal Recovery & Progress Report'}
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -1449,6 +1478,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <button
               type="button"
               onClick={handlePrint}
+              aria-label={isFr ? 'Imprimer ou exporter en PDF' : 'Print or export as PDF'}
               className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               title={isFr ? 'Imprimer ou Enregistrer en PDF (2 pages A4 nettes)' : 'Print or Save as PDF (Clean 2-page A4)'}
             >
@@ -1459,6 +1489,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <button
               type="button"
               onClick={handleOpenFullscreen}
+              aria-label={isFr ? 'Ouvrir le rapport plein écran' : 'Open fullscreen report'}
               className="px-3 py-2.5 rounded-xl glass-button text-xs font-bold text-amber-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
               title={isFr ? 'Ouvrir le rapport plein écran dans un nouvel onglet' : 'Open fullscreen report in new tab'}
             >
@@ -1468,6 +1499,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <button
               type="button"
               onClick={handleDownloadHtml}
+              aria-label={isFr ? 'Télécharger le rapport HTML' : 'Download HTML report'}
               className="px-3 py-2.5 rounded-xl glass-button text-xs font-bold text-slate-200 hover:text-white flex items-center gap-1.5 cursor-pointer"
               title={isFr ? 'Télécharger le fichier rapport autonome' : 'Download standalone report file'}
             >
@@ -1481,6 +1513,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 sound.playClick();
                 onClose();
               }}
+              aria-label={isFr ? 'Fermer le bilan clinique' : 'Close clinical report'}
               className="w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
@@ -1640,23 +1673,23 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Clock className="w-5 h-5 mx-auto mb-1 text-emerald-400" />
-                  <div className="text-base sm:text-lg font-black text-white tabular-nums">{stats.days}j {stats.hours}h</div>
-                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Sobriété Globale' : 'Clean Time'}</div>
+                  <div className="text-base sm:text-lg font-black text-white tabular-nums">{periodCleanDays}j {periodCleanHours}h</div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Période Sobre' : 'Period Clean'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Wallet className="w-5 h-5 mx-auto mb-1 text-amber-400" />
-                  <div className="text-base sm:text-lg font-black text-amber-300 tabular-nums">{currency}{Math.round(stats.moneySaved).toLocaleString()}</div>
-                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Économies' : 'Saved'}</div>
+                  <div className="text-base sm:text-lg font-black text-amber-300 tabular-nums">{currency}{periodMoneySaved.toLocaleString()}</div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Économies Période' : 'Period Saved'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <ShoppingBag className="w-5 h-5 mx-auto mb-1 text-amber-500" />
                   <div className="text-base sm:text-lg font-black text-amber-400 tabular-nums">{currency}{Math.round(totalExpensesAmount).toLocaleString()}</div>
-                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Achats Enregistrés' : 'Purchases'}</div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Achats Déclarés' : 'Purchases'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <Heart className="w-5 h-5 mx-auto mb-1 text-cyan-400" />
-                  <div className="text-base sm:text-lg font-black text-cyan-300 tabular-nums">{totalDosesAvoided.toLocaleString()}</div>
-                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Toxines Évitées' : 'Avoided'}</div>
+                  <div className="text-base sm:text-lg font-black text-cyan-300 tabular-nums">{periodDosesAvoided.toLocaleString()}</div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">{isFr ? 'Doses Évitées' : 'Avoided'}</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/90 border border-white/10">
                   <AlertCircle className={`w-5 h-5 mx-auto mb-1 ${totalSubstancesTakenDoses > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
@@ -1664,7 +1697,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     {totalSubstancesTakenDoses}
                   </div>
                   <div className="text-[9px] uppercase font-bold text-slate-400">
-                    {isFr ? 'Substances Prises' : 'Substances Taken'}
+                    {isFr ? 'Prises Déclarées' : 'Intakes Logged'}
                   </div>
                 </div>
               </div>
@@ -1954,8 +1987,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
 
                 <p className="text-[11px] text-amber-200/90 leading-relaxed pt-1">
                   <b>💡 {isFr ? 'Protocole d\'Anticipation :' : 'Anticipation Protocol :'}</b> {isFr
-                    ? `Désamorcer le pic dopaminergique 15 minutes avant ${peakWindowStart}. Boire un grand verre d'eau glacée, exécuter 3 cycles de respiration 4-7-8 et changer d'environnement physique.`
-                    : `Neutralize the dopamine surge 15 minutes before ${peakWindowStart}. Drink ice-cold water, perform 3 cycles of 4-7-8 breathing, and change your physical environment.`}
+                    ? `Anticiper la fenêtre habituelle de pulsion 15 minutes avant ${peakWindowStart} (observée dans vos relevés). Boire un grand verre d'eau fraîche, exécuter 3 cycles de respiration 4-7-8 et changer d'environnement physique.`
+                    : `Anticipate the recurring urge window 15 minutes before ${peakWindowStart} (observed in your logs). Drink fresh cold water, perform 3 cycles of 4-7-8 breathing, and change your physical environment.`}
                 </p>
               </div>
 
