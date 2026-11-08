@@ -11,8 +11,9 @@ import type {
   StreakRecord,
   Language,
 } from '../types';
-import { encryptData, decryptData } from './crypto';
-import { idbGet, idbSet, idbClear } from './indexedDb';
+import { encryptData, decryptData, purgeVaultKeys } from './crypto';
+import { idbGet, idbSet, idbClear, deletePuffinLessDB } from './indexedDb';
+import { purgeSecurityState } from './security';
 
 export const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -843,10 +844,48 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   }
 }
 
-/** Clear all data across both IndexedDB and localStorage */
+/**
+ * Complete, irreversible cryptoshredding and data erasure.
+ * - Deletes the IndexedDB database file from browser storage.
+ * - Irrevocably destroys AES-256 vault encryption keys (cryptoshredding).
+ * - Purges security PIN hashes, salts, and anti-brute-force lockout state.
+ * - Purges all puffinless keys from localStorage and sessionStorage.
+ */
 export async function resetAllUserData(): Promise<void> {
-  await idbClear();
-  Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+  // 1. Delete IndexedDB physical database
+  try {
+    await deletePuffinLessDB();
+  } catch (err) {
+    console.warn('[Storage] Error deleting IndexedDB physical database:', err);
+    try {
+      await idbClear();
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Cryptoshredding: purge device AES-256 encryption keys
+  purgeVaultKeys();
+
+  // 3. Purge PIN credentials and lockout logs
+  purgeSecurityState();
+
+  // 4. Wipe all matching puffinless keys from browser storage
+  if (typeof localStorage !== 'undefined') {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('puffinless') || k.startsWith('puffinless_'))) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+  }
+
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.clear();
+  }
 }
 
 /** Export all locally stored user data as a clean, unencrypted JSON payload (GDPR Art. 20 portability) */

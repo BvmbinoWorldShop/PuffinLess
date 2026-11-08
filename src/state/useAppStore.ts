@@ -108,32 +108,33 @@ export function useAppStore() {
   /** Log a cigarette / puffs / joint. This ends the current streak and restarts the Clean Breath Counter. */
   const logSubstance = (substance: SubstanceType, count: number, trigger?: string, intensity?: number) => {
     const now = new Date();
+    const cleanTrigger = trigger && trigger.trim().length > 0 ? trigger.trim() : 'Habitude / Routine';
+    const cleanIntensity = Math.min(10, Math.max(1, intensity ?? 5));
+
     const entry: SubstanceLog = {
       id: generateSecureId('sub'),
       substance,
       count,
       timestamp: now.toISOString(),
-      trigger,
+      trigger: cleanTrigger,
     };
     const logs = [entry, ...substanceLogs];
     setSubstanceLogs(logs);
     saveSubstanceLogs(logs);
 
-    // Also record a craving entry with resisted: false if triggered or with intensity
-    if (intensity !== undefined || trigger) {
-      const craveEntry: CravingEntry = {
-        id: generateSecureId('c'),
-        timestamp: now.toISOString(),
-        intensity: intensity ?? 5,
-        trigger: trigger || 'Stress',
-        resisted: false,
-        substance,
-        note: 'Slip logged with craving motivation',
-      };
-      const nextCravings = [craveEntry, ...cravings];
-      setCravings(nextCravings);
-      saveCravings(nextCravings);
-    }
+    // Record an unresisted craving entry (slip event) to ensure complete behavioral correlation
+    const craveEntry: CravingEntry = {
+      id: generateSecureId('c'),
+      timestamp: now.toISOString(),
+      intensity: cleanIntensity,
+      trigger: cleanTrigger,
+      resisted: false,
+      substance,
+      note: 'Slip logged with craving motivation',
+    };
+    const nextCravings = [craveEntry, ...cravings];
+    setCravings(nextCravings);
+    saveCravings(nextCravings);
 
     // Close the streak (ignore accidental double taps under a minute)
     const streakLength = now.getTime() - new Date(profile.quitDate).getTime();
@@ -164,6 +165,7 @@ export function useAppStore() {
     const today = localDateStr();
     let remainingToRemove = count;
     const newLogs: SubstanceLog[] = [];
+    const removedLogTimes: number[] = [];
     let modified = false;
 
     // Iterate through logs and decrement/remove today's matches
@@ -171,6 +173,7 @@ export function useAppStore() {
       const isToday = localDateStr(log.timestamp) === today;
       if (isToday && log.substance === substance && remainingToRemove > 0) {
         modified = true;
+        removedLogTimes.push(new Date(log.timestamp).getTime());
         if (log.count <= remainingToRemove) {
           remainingToRemove -= log.count;
           // Omit this log
@@ -186,6 +189,17 @@ export function useAppStore() {
     if (modified) {
       setSubstanceLogs(newLogs);
       saveSubstanceLogs(newLogs);
+
+      // Clean up corresponding unresisted craving entries from the same time
+      if (removedLogTimes.length > 0) {
+        const cleanedCravings = cravings.filter((c) => {
+          if (c.resisted) return true;
+          const cTime = new Date(c.timestamp).getTime();
+          return !removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
+        });
+        setCravings(cleanedCravings);
+        saveCravings(cleanedCravings);
+      }
 
       // If today is now clean and a streak was broken TODAY, safely restore previous streak start
       const todayTotal = sumIntake(newLogs, today);
@@ -207,13 +221,15 @@ export function useAppStore() {
 
   /** Mark a craving as resisted (from the Craving button). Remembered by the Core. */
   const resistCraving = (trigger: string, intensity: number, substance?: SubstanceType) => {
+    const cleanTrigger = trigger && trigger.trim().length > 0 ? trigger.trim() : 'Pulsion spontanée';
+    const cleanIntensity = Math.min(10, Math.max(1, Math.round(intensity || 5)));
     const entry: CravingEntry = {
       id: generateSecureId('c'),
       timestamp: new Date().toISOString(),
-      intensity,
-      trigger,
+      intensity: cleanIntensity,
+      trigger: cleanTrigger,
       resisted: true,
-      substance,
+      substance: substance || profile.primarySubstance || 'puff_vape',
       note: 'Resisted with PuffinLess Craving tools',
     };
     const next = [entry, ...cravings];
@@ -257,10 +273,9 @@ export function useAppStore() {
 
   const completeOnboarding = (p: UserProfile) => updateProfile(p);
 
-  const resetAll = () => {
-    void resetAllUserData();
-    const now = new Date().toISOString();
-    setProfile({ ...DEFAULT_PROFILE, quitDate: now, createdAt: now });
+  const resetAll = async () => {
+    await resetAllUserData();
+    setProfile({ ...DEFAULT_PROFILE, isOnboarded: false, quitDate: '', createdAt: '' });
     setGoals([]);
     setExpenses([]);
     setSleepLogs([]);

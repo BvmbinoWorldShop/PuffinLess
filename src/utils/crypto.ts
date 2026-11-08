@@ -14,7 +14,7 @@ const LEGACY_VAULT_SALT = 'puffinless_aes256_client_vault_stable_key_v2_offline'
 /**
  * Gets or initializes a cryptographically random local 256-bit encryption key on the device.
  */
-function getVaultKey(): string {
+export function getVaultKey(): string {
   try {
     let key = localStorage.getItem(STORAGE_DEVICE_KEY);
     if (!key) {
@@ -37,7 +37,7 @@ function getVaultKey(): string {
 /**
  * Legacy key retriever for backward compatibility migration
  */
-function getLegacyVaultKey(): string {
+export function getLegacyVaultKey(): string {
   try {
     const key = localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
     if (key) return key;
@@ -45,6 +45,25 @@ function getLegacyVaultKey(): string {
     // ignore
   }
   return CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex);
+}
+
+/**
+ * Irrevocably destroys encryption keys from local storage (Cryptoshredding).
+ * Without these keys, any remaining stored ciphertext is mathematically unrecoverable.
+ */
+export function purgeVaultKeys(): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_DEVICE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(STORAGE_DEVICE_KEY);
+      sessionStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+    }
+  } catch (err) {
+    console.error('[Crypto] Failed to purge vault keys:', err);
+  }
 }
 
 /**
@@ -64,11 +83,16 @@ export function encryptData<T>(data: T): string {
 }
 
 /**
- * Decrypts AES-256 ciphertext from localStorage.
- * Automatically migrates legacy keys and handles backwards-compatible raw JSON strings.
+ * Decrypts AES-256 ciphertext from localStorage or IndexedDB.
+ * Handles encrypted strings, legacy migration, and pre-encryption raw JSON.
  */
-export function decryptData<T>(cipherOrRaw: string | null, fallback: T): T {
-  if (!cipherOrRaw) return fallback;
+export function decryptData<T>(cipherOrRaw: unknown, fallback: T): T {
+  if (cipherOrRaw === null || cipherOrRaw === undefined) return fallback;
+
+  // If already a parsed JS object (e.g. legacy IndexedDB entry), return directly
+  if (typeof cipherOrRaw !== 'string') {
+    return cipherOrRaw as T;
+  }
 
   // Check if encrypted with our AES-256 vault prefix
   if (cipherOrRaw.startsWith('aes256:')) {

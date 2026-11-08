@@ -48,18 +48,24 @@ export const CravingPredictionCard: React.FC<CravingPredictionCardProps> = ({
 
     // Substance logs (intake slips)
     substanceLogs.forEach((l) => {
-      const t = new Date(l.timestamp).getTime();
-      seenTimes.push(t);
-      episodes.push({ hour: new Date(l.timestamp).getHours(), trigger: l.trigger });
+      const d = new Date(l.timestamp);
+      const t = d.getTime();
+      if (!isNaN(t)) {
+        seenTimes.push(t);
+        episodes.push({ hour: d.getHours(), trigger: l.trigger });
+      }
     });
 
     // Craving logs (resisted urges and unlinked cravings)
     cravings.forEach((c) => {
-      const t = new Date(c.timestamp).getTime();
-      const isDuplicate = seenTimes.some((st) => Math.abs(st - t) < 60000);
-      if (!isDuplicate) {
-        seenTimes.push(t);
-        episodes.push({ hour: new Date(c.timestamp).getHours(), trigger: c.trigger });
+      const d = new Date(c.timestamp);
+      const t = d.getTime();
+      if (!isNaN(t)) {
+        const isDuplicate = seenTimes.some((st) => Math.abs(st - t) < 60000);
+        if (!isDuplicate) {
+          seenTimes.push(t);
+          episodes.push({ hour: d.getHours(), trigger: c.trigger });
+        }
       }
     });
 

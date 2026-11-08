@@ -158,14 +158,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     : currentDateStr;
 
   const totalDosesAvoided = stats.cigarettesAvoided + stats.puffsAvoided + stats.gramsAvoided;
-  const lifeSavedHours = Math.round((stats.days * 24 * 60 * 0.15) / 60);
-
-  // Theoretical benchmarks estimated from clean sobriety duration (scientific cessation models)
-  const totalCleanHours = Math.max(0, stats.days * 24 + stats.hours);
-  const coPct = Math.min(100, Math.round((totalCleanHours / 24) * 100));
-  const cilsPct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (30 * 24)) * 100)));
-  const dopaminePct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (90 * 24)) * 100)));
-  const vigueurPct = Math.min(100, Math.max(0, Math.round((totalCleanHours / (60 * 24)) * 100)));
 
   const rawName = profile?.name?.trim() || (isFr ? 'MEMBRE CERTIFIÉ' : 'CERTIFIED MEMBER');
   const verificationHash = `PFL-${stats.days}D-${Math.abs(
@@ -228,6 +220,37 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   const avgEnergy = hasSufficientSleepData
     ? (sourceSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / sourceSleepLogs.length).toFixed(1)
     : '--';
+
+  // 100% Real User-Logged Behavioral Indicators (Replacing theoretical/simulated biological gauges)
+  // 1. Craving Mastery Rate (% resisted out of total cravings)
+  const relevantCravings = filteredCravings.length > 0 ? filteredCravings : cravings;
+  const totalCravingsCount = relevantCravings.length;
+  const resistedCravingsCount = relevantCravings.filter((c) => c.resisted).length;
+  const cravingMasteryPct = totalCravingsCount > 0
+    ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
+    : totalSubstancesTakenDoses === 0 ? 100 : 0;
+
+  // 2. Logging Consistency Rate (% of days in active window with at least 1 declared log)
+  const windowDays = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : 30;
+  const activeLoggingDaysSet = new Set<string>();
+  filteredSubstanceLogs.forEach((l) => {
+    const d = new Date(l.timestamp);
+    if (!isNaN(d.getTime())) activeLoggingDaysSet.add(d.toISOString().slice(0, 10));
+  });
+  filteredCravings.forEach((c) => {
+    const d = new Date(c.timestamp);
+    if (!isNaN(d.getTime())) activeLoggingDaysSet.add(d.toISOString().slice(0, 10));
+  });
+  filteredSleepLogs.forEach((s) => {
+    if (s.date) activeLoggingDaysSet.add(s.date.slice(0, 10));
+  });
+  const loggingConsistencyPct = Math.min(100, Math.round((activeLoggingDaysSet.size / windowDays) * 100));
+
+  // 3. User Reported Sleep Quality (out of 10 scaled to %)
+  const sleepScorePct = avgSleep !== '--' ? Math.min(100, Math.round(parseFloat(avgSleep) * 10)) : 0;
+
+  // 4. User Reported Energy & Vitality (out of 10 scaled to %)
+  const energyScorePct = avgEnergy !== '--' ? Math.min(100, Math.round(parseFloat(avgEnergy) * 10)) : 0;
 
   // Process Unified Activity & Intake Logs with Take Numbers & Explicit Substance Attribution
   const unifiedEvents: ActivityEvent[] = [];
@@ -332,11 +355,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     .slice(0, 4);
 
   // Craving resistance percentage
-  const totalCravingsCount = filteredCravings.length;
-  const resistedCravingsCount = filteredCravings.filter((c) => c.resisted).length;
-  const resistanceRatePercent = totalCravingsCount > 0
-    ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
-    : 100;
+  const resistanceRatePercent = cravingMasteryPct;
 
   // Hourly Distribution & Critical Watchout Tendencies Analysis
   const hourlyCount: number[] = new Array(24).fill(0);
@@ -951,47 +970,47 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="section-title">
-        <span>${isFr ? '1. Repères Physiologiques Théoriques & Progression' : '1. Theoretical Recovery Benchmarks & Milestones'}</span>
+        <span>${isFr ? '1. Indicateurs Comportementaux Déclarés & Régularité' : '1. Real Behavioral Indicators & Logging Regularity'}</span>
         <span class="pill pill-emerald">Rang ${stats.level.tier.toUpperCase()} — Niv. ${stats.level.levelNumber}</span>
       </div>
       <div class="glass-bubble-emerald" style="margin-bottom: 8px; font-size: 10px; color: #a7f3d0; line-height: 1.4;">
         <b style="color: #ffffff;">${stats.level.rankTitle} :</b> ${isFr
-          ? `Progression basée sur ${stats.unlockedBadgeIds.length} jalons d'abstinence franchis. Les repères théoriques ci-dessous représentent des estimations moyennes de rétablissement physiologique issues de la littérature scientifique.`
-          : `Progression based on ${stats.unlockedBadgeIds.length} sobriety milestones achieved. Benchmarks below represent theoretical recovery estimates derived from published scientific literature.`}
-        ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Temps de vie théorique préservé : +${lifeSavedHours} h` : `Theoretical life preserved: +${lifeSavedHours} h`}</span>` : ''}
+          ? `Indicateurs empiriques calculés exclusivement à partir de vos saisies utilisateur (résistance aux pulsions, rigueur du suivi, sommeil et vitalité ressentie).`
+          : `Empirical indicators calculated exclusively from your logged entries (craving resistance, logging consistency, reported sleep and vitality).`}
+        ${report ? `<br><span style="color: #fde68a; font-weight: 700; margin-top: 3px; display: block;">• Centre de Contrôle : ${report.headline} • ${isFr ? `Pulsions surmontées : ${resistedCravingsCount}/${totalCravingsCount}` : `Cravings resisted: ${resistedCravingsCount}/${totalCravingsCount}`}</span>` : ''}
 
-        <!-- Theoretical Benchmarks Progress Trend (Dynamically calculated based on clean hours) -->
+        <!-- Empirical Behavioral Indicators (100% User-Logged Data) -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(52, 211, 153, 0.25);">
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #6ee7b7; margin-bottom: 2px;">
-              <span>CO Sanguin (théorique)</span><span>${coPct}%</span>
+              <span>${isFr ? 'Maîtrise Pulsions' : 'Craving Mastery'}</span><span>${cravingMasteryPct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: ${coPct}%; height: 100%; background: linear-gradient(90deg, #059669, #34d399);"></div>
+              <div style="width: ${cravingMasteryPct}%; height: 100%; background: linear-gradient(90deg, #059669, #34d399);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #38bdf8; margin-bottom: 2px;">
-              <span>Cils Pulmonaires (théorique)</span><span>${cilsPct}%</span>
+              <span>${isFr ? 'Régularité Suivi' : 'Log Regularity'}</span><span>${loggingConsistencyPct}%</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: ${cilsPct}%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+              <div style="width: ${loggingConsistencyPct}%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #c084fc; margin-bottom: 2px;">
-              <span>Sensibilité Dopamine</span><span>${dopaminePct}%</span>
+              <span>${isFr ? 'Sommeil Déclaré' : 'Reported Sleep'}</span><span>${avgSleep !== '--' ? avgSleep + '/10' : '--'}</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: ${dopaminePct}%; height: 100%; background: linear-gradient(90deg, #9333ea, #c084fc);"></div>
+              <div style="width: ${sleepScorePct}%; height: 100%; background: linear-gradient(90deg, #9333ea, #c084fc);"></div>
             </div>
           </div>
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; color: #fbbf24; margin-bottom: 2px;">
-              <span>Vigueur Somatique</span><span>${vigueurPct}%</span>
+              <span>${isFr ? 'Énergie Ressentie' : 'Reported Vitality'}</span><span>${avgEnergy !== '--' ? avgEnergy + '/10' : '--'}</span>
             </div>
             <div style="height: 5px; background: rgba(0,0,0,0.4); border-radius: 99px; overflow: hidden;">
-              <div style="width: ${vigueurPct}%; height: 100%; background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
+              <div style="width: ${energyScorePct}%; height: 100%; background: linear-gradient(90deg, #d97706, #fbbf24);"></div>
             </div>
           </div>
         </div>
@@ -1673,42 +1692,42 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {isFr
-                    ? `Progression théorique estimée sur ${stats.unlockedBadgeIds.length} jalons franchis. Temps de vie théorique préservé : +${lifeSavedHours} h.`
-                    : `Theoretical progression estimated across ${stats.unlockedBadgeIds.length} milestones. Theoretical life preserved: +${lifeSavedHours} h.`}
+                    ? `Indicateurs empiriques réels : ${resistedCravingsCount} pulsion(s) surmontée(s) sur ${totalCravingsCount} enregistrée(s). Régularité de suivi : ${loggingConsistencyPct}%.`
+                    : `Real empirical indicators: ${resistedCravingsCount} craving(s) resisted out of ${totalCravingsCount} logged. Logging consistency: ${loggingConsistencyPct}%.`}
                 </p>
 
-                {/* Theoretical Progress Bars in Modal Preview */}
+                {/* Real Behavioral Indicators in Modal Preview */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 pt-2.5 border-t border-emerald-500/20">
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-emerald-300">
-                      <span>CO Sanguin (théorique)</span><span>{coPct}%</span>
+                      <span>{isFr ? 'Maîtrise Pulsions' : 'Craving Mastery'}</span><span>{cravingMasteryPct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-emerald-400" style={{ width: `${coPct}%` }}></div>
+                      <div className="h-full bg-emerald-400" style={{ width: `${cravingMasteryPct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-cyan-300">
-                      <span>Cils Pulmonaires (théorique)</span><span>{cilsPct}%</span>
+                      <span>{isFr ? 'Régularité Suivi' : 'Log Regularity'}</span><span>{loggingConsistencyPct}%</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-cyan-400" style={{ width: `${cilsPct}%` }}></div>
+                      <div className="h-full bg-cyan-400" style={{ width: `${loggingConsistencyPct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-purple-300">
-                      <span>Sensibilité Dopamine</span><span>{dopaminePct}%</span>
+                      <span>{isFr ? 'Sommeil Déclaré' : 'Reported Sleep'}</span><span>{avgSleep !== '--' ? `${avgSleep}/10` : '--'}</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-purple-400" style={{ width: `${dopaminePct}%` }}></div>
+                      <div className="h-full bg-purple-400" style={{ width: `${sleepScorePct}%` }}></div>
                     </div>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
                     <div className="flex justify-between text-[10px] font-bold text-amber-300">
-                      <span>Vigueur Somatique</span><span>{vigueurPct}%</span>
+                      <span>{isFr ? 'Énergie Ressentie' : 'Reported Vitality'}</span><span>{avgEnergy !== '--' ? `${avgEnergy}/10` : '--'}</span>
                     </div>
                     <div className="h-1.5 bg-black/50 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-amber-400" style={{ width: `${vigueurPct}%` }}></div>
+                      <div className="h-full bg-amber-400" style={{ width: `${energyScorePct}%` }}></div>
                     </div>
                   </div>
                 </div>

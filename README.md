@@ -90,6 +90,9 @@ npm run dev
 # Run lint audit
 npm run lint
 
+# Run automated engineering & encryption test suite
+npm test
+
 # Compile production build
 npm run build
 ```

@@ -176,3 +176,21 @@ export function verifyPin(enteredPin: string): VerifyPinResult {
     remainingAttempts: Math.max(0, MAX_FAILED_ATTEMPTS - nextFailed),
   };
 }
+
+/**
+ * Irrevocably purges PIN hash, salt, and brute-force lockout states.
+ */
+export function purgeSecurityState(): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LOCKOUT_KEY);
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(LOCKOUT_KEY);
+    }
+  } catch (err) {
+    console.error('[Security] Failed to purge security state:', err);
+  }
+}
