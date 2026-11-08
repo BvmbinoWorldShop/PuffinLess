@@ -80,9 +80,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onRerunOnboarding,
   onResetData,
 }) => {
-  // Navigation tabs within profile
-  const [activeSection, setActiveSection] = useState<'identity' | 'habits' | 'coach' | 'app'>('identity');
-
   // Language & Theme
   const [lang, setLang] = useState<Language>(profile.language || 'en');
   const [theme, setTheme] = useState<AppTheme>(profile.theme || 'dark');
@@ -439,43 +436,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Section Navigation Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-900/60 rounded-xl border border-white/10 mb-4 shrink-0 overflow-x-auto scrollbar-none">
-          {[
-            { id: 'identity', label: isFr ? 'Identité' : 'Identity', icon: User },
-            { id: 'habits', label: isFr ? 'Habitudes' : 'Habits', icon: Flame },
-            { id: 'coach', label: isFr ? 'Coach IA' : 'AI Coach', icon: Brain },
-            { id: 'app', label: isFr ? 'Système' : 'System', icon: Activity },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const active = activeSection === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  sound.playClick();
-                  setActiveSection(tab.id as typeof activeSection);
-                }}
-                className={`flex-1 min-w-[85px] py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
-                  active
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Form Body - Scrollable */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 pr-1">
+        {/* Form Body - Scrollable from up to down */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 pr-1 custom-scrollbar">
           {/* SECTION 1: IDENTITY & LIFE CONTEXT */}
-          {activeSection === 'identity' && (
-            <div className="space-y-3.5 animate-fade-in">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 flex items-start gap-2">
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+                <User className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '1. Identité & Profil Personnel' : '1. Personal Identity & Profile'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Objectif, photo, nom et situation personnelle' : 'Goal, picture, name, and personal context'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 flex items-start gap-2">
                 <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
                   {isFr
@@ -704,27 +683,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                 )}
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    setActiveSection('habits');
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-white/10"
-                >
-                  <span>{isFr ? 'Passer aux Habitudes' : 'Continue to Habits'}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* SECTION 2: SUBSTANCE HABITS & DIAGNOSIS */}
-          {activeSection === 'habits' && (
-            <div className="space-y-4 animate-fade-in">
+          <div className="space-y-3.5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400">
+                <Flame className="w-4 h-4" />
+              </div>
               <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '2. Habitudes de Consommation & Objectifs' : '2. Substance Habits & Objectives'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Substances suivies, dépenses, déclencheurs et date d\'arrêt' : 'Tracked substances, spend, triggers, and quit date'}
+                </p>
+              </div>
+            </div>
+
+            <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   {isFr ? 'Vos Substances Actuelles (sélection multiple)' : 'Your Current Substances (Multi-select)'}
                 </label>
@@ -971,27 +948,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   />
                 </div>
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    setActiveSection('coach');
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-white/10"
-                >
-                  <span>{isFr ? 'Voir le Diagnostic Coach IA' : 'View AI Coach Blueprint'}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* SECTION 3: AI COACH BLUEPRINT & PERSONALIZED LIFE INTEGRATION */}
-          {activeSection === 'coach' && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="coach-ai-card keep-white p-4 rounded-3xl bg-slate-950 border border-emerald-500/40 shadow-2xl space-y-3">
+          <div className="space-y-3.5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-teal-500/20 text-teal-400">
+                <Brain className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '3. Stratégie & Diagnostic Coach IA' : '3. AI Coach Blueprint & Insights'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Analyse personnalisée de votre énergie, finances et mental' : 'Personalized breakdown of stamina, wealth, and focus'}
+                </p>
+              </div>
+            </div>
+
+            <div className="coach-ai-card keep-white p-4 rounded-3xl bg-slate-950 border border-emerald-500/40 shadow-2xl space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40">
                     <Brain className="w-4 h-4" />
@@ -1061,12 +1036,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   ))}
                 </div>
               </div>
-            </div>
-          )}
+          </div>
 
-          {/* SECTION 4: SYSTEM PREFERENCES (THEME, SOUND, RESET) */}
-          {activeSection === 'app' && (
-            <div className="space-y-4 animate-fade-in">
+          {/* ========================================================= */}
+          {/* SECTION 4: SYSTEM PREFERENCES & SECURITY                  */}
+          {/* ========================================================= */}
+          <div className="space-y-3.5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-indigo-500/20 text-indigo-400">
+                <Activity className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '4. Préférences & Sécurité Système' : '4. System Preferences & Security'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Thème visuel, sons et verrouillage par code PIN' : 'Visual theme, audio feedback, and PIN protection'}
+                </p>
+              </div>
+            </div>
               {/* Theme Selector */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -1190,109 +1178,167 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                 )}
               </div>
+          </div>
 
-              {/* Reset / Onboarding re-run */}
-              <div className="pt-2 flex items-center justify-between gap-2 border-t border-white/10">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onRerunOnboarding(1);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isFr ? 'Revoir le Guide' : 'Rerun Tour'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onRerunOnboarding(4);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 text-teal-400" />
-                    <span>{isFr ? 'Guide Mobile PWA' : 'PWA Guide'}</span>
-                  </button>
-                </div>
-
-                {/* GDPR Data Portability (Export JSON) */}
-                <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <span className="text-xs font-bold text-white block">
-                        {isFr ? 'Portabilité des Données (RGPD Art. 20)' : 'Data Portability (GDPR Art. 20)'}
-                      </span>
-                      <span className="text-[11px] text-slate-400 block">
-                        {isFr
-                          ? 'Téléchargez une copie intégrale de toutes vos données locales (format JSON universel).'
-                          : 'Download a complete copy of all your local data in universal JSON format.'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playClick();
-                        downloadUserDataJSON();
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Permanent Data Erasure */}
-                <div className="p-3.5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2">
-                  <div>
-                    <span className="text-xs font-bold text-rose-300 block">
-                      {isFr ? 'Suppression Définitive des Données (Droit à l\'oubli)' : 'Permanent Data Erasure (Right to be Forgotten)'}
-                    </span>
-                    <span className="text-[11px] text-slate-400 block">
-                      {isFr
-                        ? 'Efface définitivement toutes vos données PuffinLess stockées sur cet appareil.'
-                        : 'Permanently deletes all PuffinLess data stored locally on this device.'}
-                    </span>
-                  </div>
-
-                  {!confirmReset ? (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReset(true)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-rose-400 hover:text-rose-300 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{isFr ? 'Supprimer toutes mes données' : 'Erase All My Data'}</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onResetData();
-                          onClose();
-                        }}
-                        className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs cursor-pointer hover:bg-rose-500 transition-all"
-                      >
-                        {isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmReset(false)}
-                        className="px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white cursor-pointer"
-                      >
-                        {isFr ? 'Annuler' : 'Cancel'}
-                      </button>
-                    </div>
-                  )}
-                </div>
+          {/* ========================================================= */}
+          {/* SECTION 5: SAUVEGARDE & GESTION DES DONNÉES (RGPD)        */}
+          {/* ========================================================= */}
+          <div className="space-y-3.5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
+                <Shield className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '5. Sauvegarde & Gestion des Données' : '5. Data Backup & Storage Management'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Stockage IndexedDB local, export JSON complet et droit à l\'effacement' : 'Local IndexedDB storage, JSON export, and permanent erasure'}
+                </p>
               </div>
             </div>
-          )}
+
+            {/* Save All Data Section (Export JSON) */}
+            <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                <div>
+                  <span className="text-xs font-bold text-white block">
+                    {isFr ? 'Sauvegarder & Exporter les Données (JSON)' : 'Save & Export All Data (JSON)'}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">
+                    {isFr
+                      ? '100% de vos données sont stockées sur cet appareil (IndexedDB). Téléchargez une sauvegarde intégrale non chiffrée (RGPD Art. 20).'
+                      : '100% of your data remains on this device (IndexedDB). Download an unencrypted full backup (GDPR Art. 20).'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    downloadUserDataJSON();
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Delete Data Section */}
+            <div className="p-3.5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2">
+              <div>
+                <span className="text-xs font-bold text-rose-300 block">
+                  {isFr ? 'Suppression Définitive des Données (Droit à l\'oubli)' : 'Permanent Data Erasure (Right to be Forgotten)'}
+                </span>
+                <span className="text-[11px] text-slate-400 block">
+                  {isFr
+                    ? 'Efface définitivement toutes vos données PuffinLess stockées sur cet appareil (IndexedDB & stockage local).'
+                    : 'Permanently deletes all PuffinLess data stored on this device (IndexedDB & local cache).'}
+                </span>
+              </div>
+
+              {!confirmReset ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-rose-400 hover:text-rose-300 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isFr ? 'Supprimer toutes mes données' : 'Erase All My Data'}</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onResetData();
+                      onClose();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs cursor-pointer hover:bg-rose-500 transition-all"
+                  >
+                    {isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(false)}
+                    className="px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white cursor-pointer"
+                  >
+                    {isFr ? 'Annuler' : 'Cancel'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* SECTION 6: GUIDES D'UTILISATION & INSTALLATION PWA        */}
+          {/* ========================================================= */}
+          <div className="space-y-3.5 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+              <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  {isFr ? '6. Guides d\'Utilisation & Installation PWA' : '6. User Guides & PWA Installation'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {isFr ? 'Visite guidée interactive et astuces pour fixer l\'app sur l\'écran d\'accueil' : 'Interactive onboarding tour and tips to install as standalone mobile app'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onRerunOnboarding(1);
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-xs text-slate-300 hover:text-white transition-all group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 group-hover:scale-105 transition-transform">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-white block text-xs">
+                      {isFr ? 'Revoir la Visite Guidée' : 'Rerun Onboarding Tour'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {isFr ? 'Redécouvrir les outils clés' : 'Walk through key app tools'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onRerunOnboarding(4);
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-xs text-slate-300 hover:text-white transition-all group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-teal-500/15 text-teal-400 group-hover:scale-105 transition-transform">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-white block text-xs">
+                      {isFr ? 'Guide d\'Installation Mobile PWA' : 'Mobile PWA Installation Guide'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {isFr ? 'Fixer sur iOS / Android plein écran' : 'Install on iOS / Android home screen'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 transition-colors" />
+              </button>
+            </div>
+          </div>
 
           {/* Primary Action Button (Always visible at bottom) */}
           <div className="pt-3 border-t border-white/10 shrink-0">
