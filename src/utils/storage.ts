@@ -3,7 +3,6 @@ import type {
   SavingsGoal,
   CravingEntry,
   SmokeLogEntry,
-  ForumPost,
   WellnessArticle,
   Quote,
   PurchaseExpense,
@@ -13,8 +12,9 @@ import type {
   Language,
 } from '../types';
 import { encryptData, decryptData } from './crypto';
+import { idbGet, idbSet, idbClear } from './indexedDb';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
   SAVINGS_GOALS: 'puffinless_savings_goals_v2',
   CRAVINGS: 'puffinless_cravings_v2',
@@ -22,7 +22,6 @@ const STORAGE_KEYS = {
   SUBSTANCE_LOG: 'puffinless_substance_log_v2',
   EXPENSES: 'puffinless_expenses_v2',
   SLEEP_ENERGY: 'puffinless_sleep_energy_v2',
-  FORUM_POSTS: 'puffinless_forum_v2',
   STREAKS: 'puffinless_streaks_v2',
 };
 
@@ -39,6 +38,7 @@ export function loadStreaks(): StreakRecord[] {
 export function saveStreaks(streaks: StreakRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.STREAKS, encryptData(streaks));
+    void idbSet(STORAGE_KEYS.STREAKS, streaks);
   } catch (e) {
     console.error('Error saving streaks', e);
   }
@@ -619,48 +619,6 @@ export const WELLNESS_ARTICLES: WellnessArticle[] = [
   },
 ];
 
-export const DEFAULT_FORUM_POSTS: ForumPost[] = [
-  {
-    id: 'post-1',
-    authorName: 'Marcus Bennett',
-    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
-    smokeFreeDays: 14,
-    timestamp: '2 hours ago',
-    tag: 'Milestone',
-    title: '2 Full Weeks clean from cigarettes and puffs! Ran 5K this morning 🏃‍♂️',
-    content: 'Honestly I thought I was doomed to wake up wheezing forever. Today at the 14-day mark, my lung capacity felt completely different. Cold mornings used to hurt, now I just feel alive. Week 2 is where the magic happens!',
-    likes: 42,
-    userLiked: false,
-    commentsCount: 9,
-  },
-  {
-    id: 'post-2',
-    authorName: 'Elena Rostova',
-    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80',
-    smokeFreeDays: 3,
-    timestamp: '4 hours ago',
-    tag: 'SOS Help',
-    title: 'Day 3 evening craving hitting hard after dinner...',
-    content: 'Just finished dinner and my brain went straight on autopilot reaching for my vape. Did the 4-7-8 breathing circle twice and read the lesson on Delta-FosB. Reminding myself I already saved $28. Anyone online?',
-    likes: 29,
-    userLiked: true,
-    commentsCount: 16,
-  },
-  {
-    id: 'post-3',
-    authorName: 'David Chen',
-    authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&q=80',
-    smokeFreeDays: 45,
-    timestamp: '1 day ago',
-    tag: 'Wins',
-    title: 'Stopped smoking weed & cigs: My REM deep sleep jumped from 4 to 8.5/10! 😴',
-    content: 'Used to think weed helped me sleep. In reality, it was destroying my REM stages. After 30 days clean, my mornings are crisp, my mind is razor sharp, and I bought my dream espresso machine with the money saved.',
-    likes: 88,
-    userLiked: false,
-    commentsCount: 23,
-  },
-];
-
 // Helper functions for persistent storage with local AES-256 encryption at rest
 export function loadProfile(): UserProfile {
   const nowIso = new Date().toISOString();
@@ -689,6 +647,7 @@ export function loadProfile(): UserProfile {
 export function saveProfile(profile: UserProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PROFILE, encryptData(profile));
+    void idbSet(STORAGE_KEYS.PROFILE, profile);
   } catch (e) {
     console.error('Error saving profile', e);
   }
@@ -707,6 +666,7 @@ export function loadExpenses(): PurchaseExpense[] {
 export function saveExpenses(expenses: PurchaseExpense[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.EXPENSES, encryptData(expenses));
+    void idbSet(STORAGE_KEYS.EXPENSES, expenses);
   } catch (e) {
     console.error('Error saving expenses', e);
   }
@@ -725,6 +685,7 @@ export function loadSubstanceLogs(): SubstanceLog[] {
 export function saveSubstanceLogs(logs: SubstanceLog[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, encryptData(logs));
+    void idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
   } catch (e) {
     console.error('Error saving substance logs', e);
   }
@@ -743,6 +704,7 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
 export function saveSleepEnergy(entries: SleepEnergyEntry[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, encryptData(entries));
+    void idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
   } catch (e) {
     console.error('Error saving sleep energy', e);
   }
@@ -761,6 +723,7 @@ export function loadSavingsGoals(): SavingsGoal[] {
 export function saveSavingsGoals(goals: SavingsGoal[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, encryptData(goals));
+    void idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
   } catch (e) {
     console.error('Error saving goals', e);
   }
@@ -779,6 +742,7 @@ export function loadCravings(): CravingEntry[] {
 export function saveCravings(cravings: CravingEntry[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.CRAVINGS, encryptData(cravings));
+    void idbSet(STORAGE_KEYS.CRAVINGS, cravings);
   } catch (e) {
     console.error('Error saving cravings', e);
   }
@@ -797,27 +761,92 @@ export function loadSmokeLog(): SmokeLogEntry[] {
 export function saveSmokeLog(logs: SmokeLogEntry[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, encryptData(logs));
+    void idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
   } catch (e) {
     console.error('Error saving smoke log', e);
   }
 }
 
-export function loadForumPosts(): ForumPost[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.FORUM_POSTS);
-    return decryptData<ForumPost[]>(raw, DEFAULT_FORUM_POSTS);
-  } catch (e) {
-    console.error('Error loading forum posts', e);
-  }
-  return DEFAULT_FORUM_POSTS;
+export interface HydratedStorageData {
+  profile?: UserProfile;
+  goals?: SavingsGoal[];
+  cravings?: CravingEntry[];
+  expenses?: PurchaseExpense[];
+  substanceLogs?: SubstanceLog[];
+  sleepLogs?: SleepEnergyEntry[];
+  streaks?: StreakRecord[];
 }
 
-export function saveForumPosts(posts: ForumPost[]): void {
+/**
+ * Initializes and syncs IndexedDB storage.
+ * - If IndexedDB is already populated, returns the stored data.
+ * - If IndexedDB is empty (first run), migrates existing localStorage data into IndexedDB.
+ */
+export async function initIndexedDBStorage(): Promise<HydratedStorageData | null> {
+  if (typeof window === 'undefined') return null;
+
   try {
-    localStorage.setItem(STORAGE_KEYS.FORUM_POSTS, encryptData(posts));
-  } catch (e) {
-    console.error('Error saving forum posts', e);
+    const idbProfile = await idbGet<UserProfile>(STORAGE_KEYS.PROFILE);
+
+    if (idbProfile) {
+      const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
+        idbGet<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS),
+        idbGet<CravingEntry[]>(STORAGE_KEYS.CRAVINGS),
+        idbGet<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES),
+        idbGet<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG),
+        idbGet<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY),
+        idbGet<StreakRecord[]>(STORAGE_KEYS.STREAKS),
+      ]);
+
+      return {
+        profile: idbProfile,
+        goals: goals || undefined,
+        cravings: cravings || undefined,
+        expenses: expenses || undefined,
+        substanceLogs: substanceLogs || undefined,
+        sleepLogs: sleepLogs || undefined,
+        streaks: streaks || undefined,
+      };
+    }
+
+    // First time IndexedDB migration from localStorage
+    const localProfile = loadProfile();
+    const localStreaks = loadStreaks();
+    const localCravings = loadCravings();
+    const localSubstances = loadSubstanceLogs();
+    const localExpenses = loadExpenses();
+    const localSleep = loadSleepEnergy();
+    const localGoals = loadSavingsGoals();
+
+    await Promise.all([
+      idbSet(STORAGE_KEYS.PROFILE, localProfile),
+      idbSet(STORAGE_KEYS.STREAKS, localStreaks),
+      idbSet(STORAGE_KEYS.CRAVINGS, localCravings),
+      idbSet(STORAGE_KEYS.SUBSTANCE_LOG, localSubstances),
+      idbSet(STORAGE_KEYS.EXPENSES, localExpenses),
+      idbSet(STORAGE_KEYS.SLEEP_ENERGY, localSleep),
+      idbSet(STORAGE_KEYS.SAVINGS_GOALS, localGoals),
+    ]);
+
+    return {
+      profile: localProfile,
+      goals: localGoals,
+      cravings: localCravings,
+      expenses: localExpenses,
+      substanceLogs: localSubstances,
+      sleepLogs: localSleep,
+      streaks: localStreaks,
+    };
+  } catch (err) {
+    console.warn('[Storage] IndexedDB initialization error, operating with local fallback:', err);
+    return null;
   }
+}
+
+/** Clear all data across both IndexedDB and localStorage */
+export async function resetAllUserData(): Promise<void> {
+  await idbClear();
+  Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
 }
 
 /** Export all locally stored user data as a clean, unencrypted JSON payload (GDPR Art. 20 portability) */

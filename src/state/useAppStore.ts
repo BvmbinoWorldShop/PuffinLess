@@ -4,7 +4,6 @@ import type {
   Language,
   SavingsGoal,
   CravingEntry,
-  ForumPost,
   PurchaseExpense,
   SubstanceLog,
   SubstanceType,
@@ -18,9 +17,9 @@ import {
   loadExpenses, saveExpenses,
   loadSubstanceLogs, saveSubstanceLogs,
   loadSleepEnergy, saveSleepEnergy,
-  loadForumPosts, saveForumPosts,
   loadStreaks, saveStreaks,
-  DEFAULT_PROFILE, DEFAULT_FORUM_POSTS,
+  initIndexedDBStorage, resetAllUserData,
+  DEFAULT_PROFILE,
 } from '../utils/storage';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
@@ -37,6 +36,7 @@ function generateSecureId(prefix: string = ''): string {
 /**
  * Central app store. Owns all persisted state and every action, so screens stay thin and the
  * Obsidian Core always reads one consistent source of truth.
+ * Powered by high-capacity IndexedDB with instantaneous in-memory bootstrap.
  */
 export function useAppStore() {
   const [profile, setProfile] = useState<UserProfile>(loadProfile);
@@ -45,10 +45,27 @@ export function useAppStore() {
   const [expenses, setExpenses] = useState<PurchaseExpense[]>(loadExpenses);
   const [substanceLogs, setSubstanceLogs] = useState<SubstanceLog[]>(loadSubstanceLogs);
   const [sleepLogs, setSleepLogs] = useState<SleepEnergyEntry[]>(loadSleepEnergy);
-  const [posts, setPosts] = useState<ForumPost[]>(loadForumPosts);
   const [streaks, setStreaks] = useState<StreakRecord[]>(loadStreaks);
 
   const [tick, setTick] = useState(0);
+
+  // Hydrate from IndexedDB on startup (with automatic migration of localStorage on first run)
+  useEffect(() => {
+    let isMounted = true;
+    initIndexedDBStorage().then((data) => {
+      if (!isMounted || !data) return;
+      if (data.profile) setProfile(data.profile);
+      if (data.goals) setGoals(data.goals);
+      if (data.cravings) setCravings(data.cravings);
+      if (data.expenses) setExpenses(data.expenses);
+      if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
+      if (data.sleepLogs) setSleepLogs(data.sleepLogs);
+      if (data.streaks) setStreaks(data.streaks);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Theme + audio side-effects
   useEffect(() => {
@@ -238,38 +255,13 @@ export function useAppStore() {
     saveSavingsGoals(next);
   };
 
-  const addPost = (p: ForumPost) => {
-    const next = [p, ...posts];
-    setPosts(next);
-    saveForumPosts(next);
-  };
-  const toggleLike = (id: string) => {
-    const next = posts.map((p) =>
-      p.id === id ? { ...p, userLiked: !p.userLiked, likes: p.userLiked ? Math.max(0, p.likes - 1) : p.likes + 1 } : p
-    );
-    setPosts(next);
-    saveForumPosts(next);
-  };
-
   const completeOnboarding = (p: UserProfile) => updateProfile(p);
 
   const resetAll = () => {
-    // Only remove PuffinLess-namespaced keys from localStorage
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('puffinless_') || k.startsWith('puffinless-'))) {
-          keysToRemove.push(k);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-    } catch (e) {
-      console.error('Error in targeted reset', e);
-    }
-    setProfile({ ...DEFAULT_PROFILE, quitDate: new Date().toISOString() });
+    void resetAllUserData();
+    const now = new Date().toISOString();
+    setProfile({ ...DEFAULT_PROFILE, quitDate: now, createdAt: now });
     setGoals([]);
-    setPosts(DEFAULT_FORUM_POSTS);
     setExpenses([]);
     setSleepLogs([]);
     setSubstanceLogs([]);
@@ -278,11 +270,11 @@ export function useAppStore() {
   };
 
   return {
-    profile, goals, cravings, expenses, substanceLogs, sleepLogs, posts, streaks,
+    profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, addPost, toggleLike, completeOnboarding, resetAll,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll,
     },
   };
 }

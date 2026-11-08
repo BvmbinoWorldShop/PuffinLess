@@ -160,20 +160,6 @@ export interface Badge {
   conditionValue: number;
 }
 
-export interface ForumPost {
-  id: string;
-  authorName: string;
-  authorAvatar: string;
-  smokeFreeDays: number;
-  timestamp: string;
-  tag: 'Milestone' | 'SOS Help' | 'Advice' | 'Wins' | 'General';
-  title: string;
-  content: string;
-  likes: number;
-  userLiked?: boolean;
-  commentsCount: number;
-}
-
 export interface WellnessArticle {
   id: string;
   title: string;
