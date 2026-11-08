@@ -5,6 +5,7 @@ import {
   Lock, Download, RefreshCw
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
+import confetti from 'canvas-confetti';
 import { sound } from '../utils/audio';
 import {
   downloadUserDataJSON,
@@ -22,6 +23,7 @@ interface ProfileModalProps {
   onRerunOnboarding: (step?: number) => void;
   onResetData: () => Promise<void> | void;
   onRecoverData?: () => Promise<any>;
+  onRestoreCleanDays?: (days?: number) => Promise<UserProfile>;
 }
 
 const PRESET_AVATARS = [
@@ -83,6 +85,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onRerunOnboarding,
   onResetData,
   onRecoverData,
+  onRestoreCleanDays,
 }) => {
   // Language & Theme
   const [lang, setLang] = useState<Language>(profile.language || 'en');
@@ -1334,15 +1337,52 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       : 'Deep-scans your device to locate and restore your profile, smoke-free days, and full history with zero data loss.'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  disabled={isRecovering}
-                  onClick={handleRecoverData}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-extrabold transition-all shrink-0 cursor-pointer shadow-md disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRecovering ? 'animate-spin' : ''}`} />
-                  <span>{isRecovering ? (isFr ? 'Scan...' : 'Scanning...') : (isFr ? 'Récupérer mes données' : 'Recover Data')}</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <button
+                    type="button"
+                    disabled={isRecovering}
+                    onClick={handleRecoverData}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-extrabold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRecovering ? 'animate-spin' : ''}`} />
+                    <span>{isRecovering ? (isFr ? 'Scan...' : 'Scanning...') : (isFr ? 'Récupérer mes données' : 'Recover Data')}</span>
+                  </button>
+
+                  {onRestoreCleanDays && (
+                    <button
+                      type="button"
+                      disabled={isRecovering}
+                      onClick={async () => {
+                        setIsRecovering(true);
+                        try {
+                          sound.playCelebration();
+                          try {
+                            confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+                          } catch {
+                            // ignore
+                          }
+                          await onRestoreCleanDays(7);
+                          setRecoveryMessage(
+                            isFr
+                              ? '✓ Vos 7 jours d\'abstinence ont été rétablis avec succès !'
+                              : '✓ Your 7 days of clean time have been restored!'
+                          );
+                        } catch {
+                          setRecoveryMessage(
+                            isFr ? 'Erreur lors du rétablissement.' : 'Restore failed.'
+                          );
+                        } finally {
+                          setIsRecovering(false);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                      title={isFr ? "Rétablir immédiatement 7 jours d'abstinence sans perte" : "Immediately restore 7 days clean time"}
+                    >
+                      <span>⚡</span>
+                      <span>{isFr ? 'Rétablir 7 jours d\'abstinence' : 'Restore 7 days clean'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
               {recoveryMessage && (
                 <div

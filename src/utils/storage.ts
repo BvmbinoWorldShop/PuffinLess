@@ -33,6 +33,7 @@ import { purgeSecurityState } from './security.ts';
 import {
   recoverAllDeviceData,
   createDeviceRescueSnapshot,
+  getDeviceRescueSnapshot,
   mergeStreaks,
   mergeCravings,
   mergeSubstances,
@@ -676,11 +677,30 @@ export function loadProfile(): UserProfile {
   }
 
   // Persistent user state check (prevents presentation/onboarding loop on cold restart)
-  const isUserOnboarded = typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_is_onboarded') === 'true';
+  const isUserOnboarded =
+    typeof localStorage !== 'undefined' &&
+    (localStorage.getItem('puffinless_is_onboarded') === 'true' ||
+      Boolean(localStorage.getItem('puffinless_quit_date')) ||
+      Boolean(localStorage.getItem('puffinless_profile_v2')) ||
+      Boolean(localStorage.getItem('puffinless_profile')) ||
+      Boolean(localStorage.getItem('puffinless_device_rescue_backup_v2')));
+
   const savedName = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_user_name')) || '';
-  const savedQuitDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
-  const savedLang = (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_app_lang') as Language)) || 'en';
-  const savedTheme = (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_app_theme') as AppTheme)) || 'dark';
+  let savedQuitDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
+  if (!savedQuitDate) {
+    const snap = getDeviceRescueSnapshot();
+    if (snap?.profile?.quitDate) {
+      savedQuitDate = snap.profile.quitDate;
+    }
+  }
+  const savedLang =
+    (typeof localStorage !== 'undefined' &&
+      ((localStorage.getItem('puffinless_app_lang') || localStorage.getItem('puffinless_lang')) as Language)) ||
+    'fr';
+  const savedTheme =
+    (typeof localStorage !== 'undefined' &&
+      ((localStorage.getItem('puffinless_app_theme') || localStorage.getItem('puffinless_theme')) as AppTheme)) ||
+    'dark';
 
   return {
     ...DEFAULT_PROFILE,
@@ -730,8 +750,14 @@ export async function saveProfile(profile: UserProfile): Promise<void> {
     localStorage.setItem('puffinless_is_onboarded', 'true');
     if (profile.name) localStorage.setItem('puffinless_user_name', profile.name);
     if (profile.quitDate) localStorage.setItem('puffinless_quit_date', profile.quitDate);
-    if (profile.language) localStorage.setItem('puffinless_app_lang', profile.language);
-    if (profile.theme) localStorage.setItem('puffinless_app_theme', profile.theme);
+    if (profile.language) {
+      localStorage.setItem('puffinless_app_lang', profile.language);
+      localStorage.setItem('puffinless_lang', profile.language);
+    }
+    if (profile.theme) {
+      localStorage.setItem('puffinless_app_theme', profile.theme);
+      localStorage.setItem('puffinless_theme', profile.theme);
+    }
   }
   createDeviceRescueSnapshot({ profile });
 }
@@ -957,18 +983,31 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   if (typeof window === 'undefined') return null;
 
   try {
-    // 1. Check IndexedDB
+    // 1. Check IndexedDB across primary and legacy keys
     let idbProfile: UserProfile | null = null;
-    const idbProfileRaw = await idbGet<unknown>(STORAGE_KEYS.PROFILE);
+    const idbProfileRaw =
+      (await idbGet<unknown>(STORAGE_KEYS.PROFILE)) ||
+      (await idbGet<unknown>('profile')) ||
+      (await idbGet<unknown>('puffinless_profile')) ||
+      (await idbGet<unknown>('puffinless_user_profile'));
     if (idbProfileRaw) {
       idbProfile = await decryptData<UserProfile>(idbProfileRaw, null as any);
     }
 
-    // 2. Check localStorage
+    // 2. Check localStorage across primary, legacy and rescue backup keys
     let localProfile: UserProfile | null = null;
-    const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILE);
+    const localRaw =
+      localStorage.getItem(STORAGE_KEYS.PROFILE) ||
+      localStorage.getItem('puffinless_profile') ||
+      localStorage.getItem('puffinless_user_profile');
     if (localRaw) {
       localProfile = await decryptData<UserProfile>(localRaw, null as any);
+    }
+    if (!localProfile) {
+      const snap = getDeviceRescueSnapshot();
+      if (snap?.profile) {
+        localProfile = snap.profile;
+      }
     }
 
     const hasActiveIdb = Boolean(

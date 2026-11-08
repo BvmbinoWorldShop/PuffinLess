@@ -31,7 +31,6 @@ import {
 } from './crypto.ts';
 import {
   idbSet,
-  openPuffinLessDB,
 } from './indexedDb.ts';
 import { DEFAULT_PROFILE } from './storage.ts';
 
@@ -213,38 +212,88 @@ export function mergeGoals(a: SavingsGoal[], b: SavingsGoal[]): SavingsGoal[] {
 }
 
 /**
- * Helper to safely read all records from IndexedDB kv_store without throwing
+ * Helper to safely read all records from IndexedDB across all known databases and stores without throwing
  */
 async function dumpIndexedDBRecords(): Promise<Map<string, unknown>> {
   const records = new Map<string, unknown>();
   if (typeof window === 'undefined' || !window.indexedDB) {
     return records;
   }
-  try {
-    const db = await openPuffinLessDB();
 
-    if (!db.objectStoreNames.contains('kv_store')) {
-      return records;
+  const dbNamesToTry = new Set<string>([
+    'puffinless_indexeddb',
+    'puffinless_key_vault',
+    'PuffinLessDB',
+    'puffinless-db',
+    'puffinless',
+    'keyval-store',
+  ]);
+
+  if (typeof window.indexedDB.databases === 'function') {
+    try {
+      const dbs = await window.indexedDB.databases();
+      for (const d of dbs) {
+        if (d.name) dbNamesToTry.add(d.name);
+      }
+    } catch {
+      // ignore
     }
-
-    await new Promise<void>((resolve) => {
-      const tx = db.transaction('kv_store', 'readonly');
-      const store = tx.objectStore('kv_store');
-      const req = store.openCursor();
-      req.onsuccess = (e) => {
-        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          records.set(String(cursor.key), cursor.value);
-          cursor.continue();
-        } else {
-          resolve();
-        }
-      };
-      req.onerror = () => resolve();
-    });
-  } catch (err) {
-    console.warn('[Recovery] Could not dump IndexedDB records:', err);
   }
+
+  for (const dbName of dbNamesToTry) {
+    try {
+      await new Promise<void>((resolveDb) => {
+        const req = window.indexedDB.open(dbName);
+        req.onerror = () => resolveDb();
+        req.onsuccess = () => {
+          const db = req.result;
+          const storeNames = Array.from(db.objectStoreNames);
+          if (storeNames.length === 0) {
+            db.close();
+            return resolveDb();
+          }
+
+          let remainingStores = storeNames.length;
+          for (const sName of storeNames) {
+            try {
+              const tx = db.transaction(sName, 'readonly');
+              const store = tx.objectStore(sName);
+              const cursorReq = store.openCursor();
+              cursorReq.onsuccess = (e) => {
+                const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+                if (cursor) {
+                  records.set(`${dbName}:${sName}:${String(cursor.key)}`, cursor.value);
+                  cursor.continue();
+                } else {
+                  remainingStores--;
+                  if (remainingStores <= 0) {
+                    db.close();
+                    resolveDb();
+                  }
+                }
+              };
+              cursorReq.onerror = () => {
+                remainingStores--;
+                if (remainingStores <= 0) {
+                  db.close();
+                  resolveDb();
+                }
+              };
+            } catch {
+              remainingStores--;
+              if (remainingStores <= 0) {
+                db.close();
+                resolveDb();
+              }
+            }
+          }
+        };
+      });
+    } catch {
+      // next db
+    }
+  }
+
   return records;
 }
 
@@ -255,6 +304,7 @@ async function dumpIndexedDBRecords(): Promise<Map<string, unknown>> {
 export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   const sources: string[] = [];
   const candidateProfiles: UserProfile[] = [];
+  const candidateQuitDates: string[] = [];
   let candidateStreaks: StreakRecord[] = [];
   let candidateCravings: CravingEntry[] = [];
   let candidateSubstances: SubstanceLog[] = [];
@@ -263,33 +313,82 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   let candidateGoals: SavingsGoal[] = [];
   let candidateSmokeLogs: SmokeLogEntry[] = [];
 
+  // Helper to extract known entities regardless of key names
+  const classifyAndExtract = (val: unknown) => {
+    if (!val) return;
+
+    // If string, try to parse JSON or detect ISO date
+    if (typeof val === 'string') {
+      if (val.startsWith('{') || val.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(val);
+          classifyAndExtract(parsed);
+          return;
+        } catch {
+          // ignore
+        }
+      }
+      if (val.length >= 10 && !isNaN(Date.parse(val))) {
+        const time = Date.parse(val);
+        if (time > 946684800000 && time <= Date.now() + 86400000) {
+          candidateQuitDates.push(val);
+        }
+      }
+      return;
+    }
+
+    if (typeof val !== 'object') return;
+
+    // Full snapshot or composite backup
+    if ('profile' in val || 'cravings' in val || 'streaks' in val) {
+      const s = val as any;
+      if (s.profile) candidateProfiles.push(s.profile);
+      if (Array.isArray(s.streaks)) candidateStreaks = mergeStreaks(candidateStreaks, s.streaks);
+      if (Array.isArray(s.cravings)) candidateCravings = mergeCravings(candidateCravings, s.cravings);
+      if (Array.isArray(s.substanceLogs)) candidateSubstances = mergeSubstances(candidateSubstances, s.substanceLogs);
+      if (Array.isArray(s.expenses)) candidateExpenses = mergeExpenses(candidateExpenses, s.expenses);
+      if (Array.isArray(s.sleepLogs)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleepLogs);
+      if (Array.isArray(s.goals)) candidateGoals = mergeGoals(candidateGoals, s.goals);
+      return;
+    }
+
+    // UserProfile
+    if ('quitDate' in val || 'cigarettesPerDay' in val || 'quitMode' in val || 'primarySubstance' in val) {
+      const p = val as UserProfile;
+      if (p.quitDate || p.isOnboarded || p.name) {
+        candidateProfiles.push(p);
+      }
+      return;
+    }
+
+    // Array of items
+    if (Array.isArray(val) && val.length > 0) {
+      const first = val[0];
+      if (!first || typeof first !== 'object') return;
+
+      if ('intensity' in first || ('timestamp' in first && 'substance' in first && !('count' in first))) {
+        candidateCravings = mergeCravings(candidateCravings, val as CravingEntry[]);
+      } else if ('start' in first) {
+        candidateStreaks = mergeStreaks(candidateStreaks, val as StreakRecord[]);
+      } else if ('count' in first && 'substance' in first) {
+        candidateSubstances = mergeSubstances(candidateSubstances, val as SubstanceLog[]);
+      } else if ('itemType' in first || ('price' in first && 'quantity' in first)) {
+        candidateExpenses = mergeExpenses(candidateExpenses, val as PurchaseExpense[]);
+      } else if ('sleepRating' in first || 'energyRating' in first) {
+        candidateSleep = mergeSleepLogs(candidateSleep, val as SleepEnergyEntry[]);
+      } else if ('targetAmount' in first || ('title' in first && 'price' in first)) {
+        candidateGoals = mergeGoals(candidateGoals, val as SavingsGoal[]);
+      }
+    }
+  };
+
   // =========================================================================
   // 1. SCAN RESCUE SNAPSHOT
   // =========================================================================
   const snapshot = getDeviceRescueSnapshot();
   if (snapshot) {
     sources.push('Rescue Snapshot');
-    if (snapshot.profile && (snapshot.profile.isOnboarded || snapshot.profile.quitDate)) {
-      candidateProfiles.push(snapshot.profile);
-    }
-    if (Array.isArray(snapshot.streaks)) {
-      candidateStreaks = mergeStreaks(candidateStreaks, snapshot.streaks);
-    }
-    if (Array.isArray(snapshot.cravings)) {
-      candidateCravings = mergeCravings(candidateCravings, snapshot.cravings);
-    }
-    if (Array.isArray(snapshot.substanceLogs)) {
-      candidateSubstances = mergeSubstances(candidateSubstances, snapshot.substanceLogs);
-    }
-    if (Array.isArray(snapshot.expenses)) {
-      candidateExpenses = mergeExpenses(candidateExpenses, snapshot.expenses);
-    }
-    if (Array.isArray(snapshot.sleepLogs)) {
-      candidateSleep = mergeSleepLogs(candidateSleep, snapshot.sleepLogs);
-    }
-    if (Array.isArray(snapshot.goals)) {
-      candidateGoals = mergeGoals(candidateGoals, snapshot.goals);
-    }
+    classifyAndExtract(snapshot);
   }
 
   // =========================================================================
@@ -298,52 +397,25 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   const idbRecords = await dumpIndexedDBRecords();
   if (idbRecords.size > 0) {
     sources.push(`IndexedDB (${idbRecords.size} keys)`);
-    for (const [key, rawValue] of idbRecords.entries()) {
+    for (const [, rawValue] of idbRecords.entries()) {
       try {
-        if (key.includes('profile')) {
-          const prof = await decryptData<UserProfile | null>(rawValue, null);
-          if (prof && typeof prof === 'object' && (prof.isOnboarded || prof.quitDate)) {
-            candidateProfiles.push(prof);
+        if (typeof rawValue === 'object') {
+          classifyAndExtract(rawValue);
+        } else if (typeof rawValue === 'string') {
+          if (rawValue.startsWith('{') || rawValue.startsWith('[')) {
+            try { classifyAndExtract(JSON.parse(rawValue)); } catch {}
           }
-        } else if (key.includes('streak')) {
-          const list = await decryptData<StreakRecord[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateStreaks = mergeStreaks(candidateStreaks, list);
-          }
-        } else if (key.includes('craving')) {
-          const list = await decryptData<CravingEntry[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateCravings = mergeCravings(candidateCravings, list);
-          }
-        } else if (key.includes('substance')) {
-          const list = await decryptData<SubstanceLog[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateSubstances = mergeSubstances(candidateSubstances, list);
-          }
-        } else if (key.includes('expense')) {
-          const list = await decryptData<PurchaseExpense[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateExpenses = mergeExpenses(candidateExpenses, list);
-          }
-        } else if (key.includes('sleep')) {
-          const list = await decryptData<SleepEnergyEntry[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateSleep = mergeSleepLogs(candidateSleep, list);
-          }
-        } else if (key.includes('goal')) {
-          const list = await decryptData<SavingsGoal[]>(rawValue, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateGoals = mergeGoals(candidateGoals, list);
-          }
+          const decrypted = await decryptData<any>(rawValue, null);
+          if (decrypted) classifyAndExtract(decrypted);
         }
       } catch {
-        // try next record
+        // try next
       }
     }
   }
 
   // =========================================================================
-  // 3. SCAN LOCALSTORAGE (MODERN & LEGACY KEYS)
+  // 3. SCAN LOCALSTORAGE & SESSIONSTORAGE (ALL KEYS)
   // =========================================================================
   if (typeof localStorage !== 'undefined') {
     const candidateKeys = [
@@ -370,60 +442,41 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       'puffinless_smoke_log',
     ];
 
-    // Also check every key currently in localStorage matching puffinless_
+    const allKeys = new Set<string>(candidateKeys);
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('puffinless_') && !candidateKeys.includes(k)) {
-        candidateKeys.push(k);
-      }
+      if (k) allKeys.add(k);
     }
 
-    for (const key of candidateKeys) {
+    for (const key of allKeys) {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
 
       try {
-        if (key.includes('profile')) {
-          const prof = await decryptData<UserProfile | null>(raw, null);
-          if (prof && typeof prof === 'object' && (prof.isOnboarded || prof.quitDate)) {
-            candidateProfiles.push(prof);
-          }
-        } else if (key.includes('streak')) {
-          const list = await decryptData<StreakRecord[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateStreaks = mergeStreaks(candidateStreaks, list);
-          }
-        } else if (key.includes('craving')) {
-          const list = await decryptData<CravingEntry[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateCravings = mergeCravings(candidateCravings, list);
-          }
-        } else if (key.includes('substance')) {
-          const list = await decryptData<SubstanceLog[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateSubstances = mergeSubstances(candidateSubstances, list);
-          }
-        } else if (key.includes('expense')) {
-          const list = await decryptData<PurchaseExpense[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateExpenses = mergeExpenses(candidateExpenses, list);
-          }
-        } else if (key.includes('sleep')) {
-          const list = await decryptData<SleepEnergyEntry[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateSleep = mergeSleepLogs(candidateSleep, list);
-          }
-        } else if (key.includes('goal')) {
-          const list = await decryptData<SavingsGoal[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateGoals = mergeGoals(candidateGoals, list);
-          }
-        } else if (key.includes('smoke')) {
-          const list = await decryptData<SmokeLogEntry[]>(raw, []);
-          if (Array.isArray(list) && list.length > 0) {
-            candidateSmokeLogs = [...candidateSmokeLogs, ...list];
-          }
+        if (raw.startsWith('{') || raw.startsWith('[')) {
+          try { classifyAndExtract(JSON.parse(raw)); } catch {}
         }
+        const decrypted = await decryptData<any>(raw, null);
+        if (decrypted) classifyAndExtract(decrypted);
+      } catch {
+        // try next
+      }
+    }
+  }
+
+  if (typeof sessionStorage !== 'undefined') {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (!k) continue;
+      const raw = sessionStorage.getItem(k);
+      if (!raw) continue;
+
+      try {
+        if (raw.startsWith('{') || raw.startsWith('[')) {
+          try { classifyAndExtract(JSON.parse(raw)); } catch {}
+        }
+        const decrypted = await decryptData<any>(raw, null);
+        if (decrypted) classifyAndExtract(decrypted);
       } catch {
         // try next
       }
@@ -449,8 +502,16 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   }
 
   // If profile was lost but streaks, cravings or date markers exist, reconstruct active profile anchored to earliest timestamp
-  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')))) {
+  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || candidateQuitDates.length > 0 || (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_quit_date') || localStorage.getItem('puffinless_is_onboarded') === 'true')))) {
     let earliestDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
+    if (!earliestDate && candidateQuitDates.length > 0) {
+      const validTimes = candidateQuitDates
+        .map((d) => new Date(d).getTime())
+        .filter((t) => !isNaN(t) && t <= Date.now());
+      if (validTimes.length > 0) {
+        earliestDate = new Date(Math.min(...validTimes)).toISOString();
+      }
+    }
     if (!earliestDate) {
       if (candidateStreaks.length > 0) {
         const dates = candidateStreaks.map((s) => new Date(s.start).getTime()).filter((t) => !isNaN(t));
@@ -469,8 +530,8 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       quitDate: earliestDate || new Date().toISOString(),
       createdAt: earliestDate || new Date().toISOString(),
       customQuitDate: Boolean(earliestDate),
-      language: (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_lang') as any)) || 'fr',
-      theme: 'dark',
+      language: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_lang') || localStorage.getItem('puffinless_lang')) as any)) || 'fr',
+      theme: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_theme') || localStorage.getItem('puffinless_theme')) as any)) || 'dark',
     };
   }
 
@@ -487,7 +548,8 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     candidateStreaks.length > 0 ||
     candidateCravings.length > 0 ||
     candidateSubstances.length > 0 ||
-    candidateExpenses.length > 0
+    candidateExpenses.length > 0 ||
+    candidateGoals.length > 0
   );
 
   // =========================================================================
@@ -535,8 +597,14 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
         localStorage.setItem('puffinless_is_onboarded', 'true');
         if (bestProfile.quitDate) localStorage.setItem('puffinless_quit_date', bestProfile.quitDate);
         if (bestProfile.name) localStorage.setItem('puffinless_user_name', bestProfile.name);
-        if (bestProfile.language) localStorage.setItem('puffinless_lang', bestProfile.language);
-        if (bestProfile.theme) localStorage.setItem('puffinless_theme', bestProfile.theme);
+        if (bestProfile.language) {
+          localStorage.setItem('puffinless_lang', bestProfile.language);
+          localStorage.setItem('puffinless_app_lang', bestProfile.language);
+        }
+        if (bestProfile.theme) {
+          localStorage.setItem('puffinless_theme', bestProfile.theme);
+          localStorage.setItem('puffinless_app_theme', bestProfile.theme);
+        }
 
         // Also persist to IndexedDB
         await Promise.all([

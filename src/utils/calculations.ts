@@ -74,7 +74,7 @@ export function calculateStats(
 
   // Streak memory
   const pastDurations = streaks.map((s) =>
-    Math.max(0, Math.floor((new Date(s.end).getTime() - new Date(s.start).getTime()) / 1000))
+    Math.max(0, Math.floor((new Date(s.end || Date.now()).getTime() - new Date(s.start).getTime()) / 1000))
   );
   const bestStreakSeconds = Math.max(elapsedSeconds, ...pastDurations, 0);
   const totalCleanSeconds = elapsedSeconds + pastDurations.reduce((a, b) => a + b, 0);

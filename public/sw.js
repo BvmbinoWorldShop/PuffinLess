@@ -1,4 +1,4 @@
-const CACHE_NAME = 'puffinless-v3';
+const CACHE_NAME = 'puffinless-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

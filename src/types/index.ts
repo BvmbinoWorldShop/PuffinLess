@@ -18,8 +18,8 @@ export interface SubstanceLog {
 export interface StreakRecord {
   id: string;
   start: string;
-  end: string;
-  brokenBy: SubstanceType;
+  end?: string;
+  brokenBy?: SubstanceType;
 }
 
 export type ExpenseItemType = 

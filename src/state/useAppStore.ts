@@ -21,7 +21,7 @@ import {
   initIndexedDBStorage, resetAllUserData,
   DEFAULT_PROFILE,
 } from '../utils/storage';
-import { recoverAllDeviceData } from '../utils/recovery';
+import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
@@ -279,7 +279,69 @@ export function useAppStore() {
     saveSavingsGoals(next);
   };
 
-  const completeOnboarding = (p: UserProfile) => updateProfile(p);
+  const completeOnboarding = (p: UserProfile) => {
+    const finalized: UserProfile = { ...p, isOnboarded: true };
+    updateProfile(finalized);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('puffinless_is_onboarded', 'true');
+      if (p.quitDate) localStorage.setItem('puffinless_quit_date', p.quitDate);
+      if (p.name) localStorage.setItem('puffinless_user_name', p.name);
+      if (p.language) {
+        localStorage.setItem('puffinless_app_lang', p.language);
+        localStorage.setItem('puffinless_lang', p.language);
+      }
+      if (p.theme) {
+        localStorage.setItem('puffinless_app_theme', p.theme);
+        localStorage.setItem('puffinless_theme', p.theme);
+      }
+    }
+    createDeviceRescueSnapshot({ profile: finalized });
+  };
+
+  const restoreCleanDays = async (days: number = 7): Promise<UserProfile> => {
+    const quitTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const nextProfile: UserProfile = {
+      ...profile,
+      name: profile.name || (typeof localStorage !== 'undefined' ? localStorage.getItem('puffinless_user_name') || 'Champion' : 'Champion'),
+      isOnboarded: true,
+      quitDate: quitTime,
+      createdAt: quitTime,
+      customQuitDate: true,
+      quitGoal: 'already_quit',
+    };
+
+    const initialStreak: StreakRecord = {
+      id: generateSecureId('st'),
+      start: quitTime,
+    };
+
+    const nextStreaks = streaks.length > 0 ? streaks : [initialStreak];
+
+    setProfile(nextProfile);
+    setStreaks(nextStreaks);
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('puffinless_is_onboarded', 'true');
+      localStorage.setItem('puffinless_quit_date', quitTime);
+      localStorage.setItem('puffinless_user_name', nextProfile.name);
+      localStorage.setItem('puffinless_app_lang', nextProfile.language || 'fr');
+      localStorage.setItem('puffinless_lang', nextProfile.language || 'fr');
+      localStorage.setItem('puffinless_app_theme', nextProfile.theme || 'dark');
+      localStorage.setItem('puffinless_theme', nextProfile.theme || 'dark');
+    }
+
+    createDeviceRescueSnapshot({
+      profile: nextProfile,
+      streaks: nextStreaks,
+    });
+
+    await Promise.all([
+      saveProfile(nextProfile),
+      saveStreaks(nextStreaks),
+    ]);
+
+    return nextProfile;
+  };
 
   const resetAll = async () => {
     await resetAllUserData();
@@ -330,7 +392,7 @@ export function useAppStore() {
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData, restoreCleanDays,
     },
   };
 }

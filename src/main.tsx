@@ -16,6 +16,7 @@ if ('serviceWorker' in navigator && !window.location.host.includes('localhost'))
     navigator.serviceWorker
       .register('/sw.js')
       .then((reg) => {
+        reg.update();
         console.log('PuffinLess PWA ServiceWorker active:', reg.scope);
       })
       .catch((err) => {

@@ -359,13 +359,29 @@ export async function getAllCandidateCryptoKeys(): Promise<CryptoKey[]> {
     }
   }
 
-  // 4. Deterministic legacy salt key
-  try {
-    const saltSha = CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex);
-    const saltKey = await importOrDeriveKeyFromString(saltSha);
-    keys.push(saltKey);
-  } catch {
-    // ignore
+  // 4. Deterministic legacy salt keys and all known project fallbacks
+  const legacyFallbackStrings = [
+    CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex),
+    LEGACY_VAULT_SALT,
+    'puffinless_offline_aes256_secure_fallback_key',
+    CryptoJS.SHA256('puffinless_offline_aes256_secure_fallback_key').toString(CryptoJS.enc.Hex),
+    'puffinless_aes256_client_vault_stable_key_v2_offline',
+    'puffinless_aes256_client_vault_stable_key_v1_offline',
+    CryptoJS.SHA256('puffinless_aes256_client_vault_stable_key_v1_offline').toString(CryptoJS.enc.Hex),
+    'device_master_key',
+    'puffinless_master_key_v2',
+    'puffinless_vault_key_v1',
+    'puffinless_vault_key_v2',
+    'puffinless',
+  ];
+
+  for (const str of legacyFallbackStrings) {
+    try {
+      const k = await importOrDeriveKeyFromString(str);
+      if (!keys.includes(k)) keys.push(k);
+    } catch {
+      // ignore
+    }
   }
 
   return keys;
@@ -701,6 +717,16 @@ export async function decryptData<T>(
     const legacySaltSha = CryptoJS.SHA256(LEGACY_VAULT_SALT).toString(CryptoJS.enc.Hex);
     if (!candidateStrings.includes(legacySaltSha)) candidateStrings.push(legacySaltSha);
     if (!candidateStrings.includes(LEGACY_VAULT_SALT)) candidateStrings.push(LEGACY_VAULT_SALT);
+    candidateStrings.push('puffinless_offline_aes256_secure_fallback_key');
+    candidateStrings.push(CryptoJS.SHA256('puffinless_offline_aes256_secure_fallback_key').toString(CryptoJS.enc.Hex));
+    candidateStrings.push('puffinless_aes256_client_vault_stable_key_v2_offline');
+    candidateStrings.push('puffinless_aes256_client_vault_stable_key_v1_offline');
+    candidateStrings.push(CryptoJS.SHA256('puffinless_aes256_client_vault_stable_key_v1_offline').toString(CryptoJS.enc.Hex));
+    candidateStrings.push('device_master_key');
+    candidateStrings.push('puffinless_master_key_v2');
+    candidateStrings.push('puffinless_vault_key_v1');
+    candidateStrings.push('puffinless_vault_key_v2');
+    candidateStrings.push('puffinless');
 
     for (const keyCandidate of candidateStrings) {
       try {

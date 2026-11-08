@@ -26,14 +26,34 @@ export function App() {
   const [isManualOnboardingOpen, setIsManualOnboardingOpen] = useState(false);
   const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(() => {
     if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem('puffinless_is_onboarded') === 'true';
+      return (
+        localStorage.getItem('puffinless_is_onboarded') === 'true' ||
+        Boolean(localStorage.getItem('puffinless_quit_date')) ||
+        Boolean(localStorage.getItem('puffinless_profile_v2')) ||
+        Boolean(localStorage.getItem('puffinless_profile')) ||
+        Boolean(localStorage.getItem('puffinless_device_rescue_backup_v2'))
+      );
     }
     return false;
   });
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const isOnboardingOpen = isManualOnboardingOpen || (isHydrated && !profile.isOnboarded && !isOnboardingDismissed);
+  // Synchronize onboarding state with profile to permanently prevent presentation guide loop
+  useEffect(() => {
+    if (profile.isOnboarded || (profile.quitDate && profile.quitDate !== '')) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('puffinless_is_onboarded', 'true');
+      }
+    }
+  }, [profile.isOnboarded, profile.quitDate]);
+
+  const hasOnboardedEvidence =
+    profile.isOnboarded ||
+    Boolean(profile.quitDate && profile.quitDate !== '') ||
+    isOnboardingDismissed;
+
+  const isOnboardingOpen = isManualOnboardingOpen || (isHydrated && !hasOnboardedEvidence);
 
   // Auto-hide bottom navigation on scroll down, show on scroll up
   const [showBottomNav, setShowBottomNav] = useState(true);
@@ -176,13 +196,21 @@ export function App() {
         initialProfile={profile}
         initialStep={onboardingStep}
         onRecover={actions.recoverLocalData}
+        onRestoreCleanDays={actions.restoreCleanDays}
         onClose={() => {
           setIsManualOnboardingOpen(false);
           setIsOnboardingDismissed(true);
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('puffinless_is_onboarded', 'true');
+          }
         }}
         onComplete={(p) => {
           actions.completeOnboarding(p);
           setIsManualOnboardingOpen(false);
+          setIsOnboardingDismissed(true);
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('puffinless_is_onboarded', 'true');
+          }
         }}
       />
 
@@ -194,6 +222,7 @@ export function App() {
           onClose={() => setIsProfileOpen(false)}
           onSaveProfile={actions.updateProfile}
           onRecoverData={actions.recoverLocalData}
+          onRestoreCleanDays={actions.restoreCleanDays}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
             setIsOnboardingDismissed(false);
