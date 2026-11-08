@@ -29,6 +29,11 @@ import {
   decryptData,
   encryptData,
 } from './crypto.ts';
+import {
+  idbSet,
+  openPuffinLessDB,
+} from './indexedDb.ts';
+import { DEFAULT_PROFILE } from './storage.ts';
 
 export const RESCUE_BACKUP_KEY = 'puffinless_device_rescue_backup_v2';
 export const LEGACY_RESCUE_KEY = 'puffinless_device_rescue_backup';
@@ -216,14 +221,9 @@ async function dumpIndexedDBRecords(): Promise<Map<string, unknown>> {
     return records;
   }
   try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = window.indexedDB.open('puffinless_indexeddb', 1);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+    const db = await openPuffinLessDB();
 
     if (!db.objectStoreNames.contains('kv_store')) {
-      db.close();
       return records;
     }
 
@@ -241,7 +241,6 @@ async function dumpIndexedDBRecords(): Promise<Map<string, unknown>> {
         }
       };
       req.onerror = () => resolve();
-      tx.oncomplete = () => db.close();
     });
   } catch (err) {
     console.warn('[Recovery] Could not dump IndexedDB records:', err);
@@ -449,6 +448,32 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     });
   }
 
+  // If profile was lost but streaks, cravings or date markers exist, reconstruct active profile anchored to earliest timestamp
+  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')))) {
+    let earliestDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
+    if (!earliestDate) {
+      if (candidateStreaks.length > 0) {
+        const dates = candidateStreaks.map((s) => new Date(s.start).getTime()).filter((t) => !isNaN(t));
+        if (dates.length > 0) earliestDate = new Date(Math.min(...dates)).toISOString();
+      } else if (candidateCravings.length > 0) {
+        const dates = candidateCravings.map((c) => new Date(c.timestamp).getTime()).filter((t) => !isNaN(t));
+        if (dates.length > 0) earliestDate = new Date(Math.min(...dates)).toISOString();
+      }
+    }
+    const savedName = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_user_name')) || '';
+
+    bestProfile = {
+      ...DEFAULT_PROFILE,
+      name: savedName,
+      isOnboarded: true,
+      quitDate: earliestDate || new Date().toISOString(),
+      createdAt: earliestDate || new Date().toISOString(),
+      customQuitDate: Boolean(earliestDate),
+      language: (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_lang') as any)) || 'fr',
+      theme: 'dark',
+    };
+  }
+
   // Calculate days since quit if profile exists
   let daysSinceQuit = 0;
   if (bestProfile?.quitDate) {
@@ -485,7 +510,7 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
         smokeLogs: candidateSmokeLogs,
       });
 
-      // Encrypt and persist to localStorage
+      // Encrypt and persist to localStorage and IndexedDB
       if (typeof localStorage !== 'undefined') {
         const [profCipher, strkCipher, cravCipher, subCipher, expCipher, slpCipher, golCipher] =
           await Promise.all([
@@ -505,6 +530,24 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
         localStorage.setItem('puffinless_expenses_v2', expCipher);
         localStorage.setItem('puffinless_sleep_energy_v2', slpCipher);
         localStorage.setItem('puffinless_savings_goals_v2', golCipher);
+
+        // Synchronous non-sensitive markers to avoid presentation loops
+        localStorage.setItem('puffinless_is_onboarded', 'true');
+        if (bestProfile.quitDate) localStorage.setItem('puffinless_quit_date', bestProfile.quitDate);
+        if (bestProfile.name) localStorage.setItem('puffinless_user_name', bestProfile.name);
+        if (bestProfile.language) localStorage.setItem('puffinless_lang', bestProfile.language);
+        if (bestProfile.theme) localStorage.setItem('puffinless_theme', bestProfile.theme);
+
+        // Also persist to IndexedDB
+        await Promise.all([
+          idbSet('profile', profCipher).catch(() => {}),
+          idbSet('streaks', strkCipher).catch(() => {}),
+          idbSet('cravings', cravCipher).catch(() => {}),
+          idbSet('substances', subCipher).catch(() => {}),
+          idbSet('expenses', expCipher).catch(() => {}),
+          idbSet('sleep', slpCipher).catch(() => {}),
+          idbSet('goals', golCipher).catch(() => {}),
+        ]);
       }
     } catch (persistErr) {
       console.warn('[Recovery] Warning during recovery persistence:', persistErr);

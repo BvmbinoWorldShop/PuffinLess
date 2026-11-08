@@ -40,14 +40,6 @@ export function getVaultConfig(): VaultConfig | null {
   return null;
 }
 
-export function isPassphraseVaultEnabled(): boolean {
-  return getVaultConfig()?.mode === 'passphrase';
-}
-
-export function isVaultUnlocked(): boolean {
-  return cachedCryptoKey !== null;
-}
-
 /** In-memory fallback and test store */
 const inMemoryKeyStore = new Map<string, CryptoKey>();
 let cachedCryptoKey: CryptoKey | null = null;
@@ -297,10 +289,37 @@ export async function getAllCandidateCryptoKeys(): Promise<CryptoKey[]> {
     if (memKey && !keys.includes(memKey)) keys.push(memKey);
   }
 
-  // Load from IndexedDB Key Vault
+  // Load master key from IndexedDB Key Vault
   try {
     const stored = await loadKeyFromVault(MASTER_KEY_ID);
     if (stored && !keys.includes(stored)) keys.push(stored);
+  } catch {
+    // ignore
+  }
+
+  // Scan all keys in IndexedDB Key Vault
+  try {
+    const db = await openKeyVaultDB();
+    if (db.objectStoreNames.contains(KEY_STORE_NAME)) {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(KEY_STORE_NAME, 'readonly');
+        const store = tx.objectStore(KEY_STORE_NAME);
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+          if (cursor) {
+            const val = cursor.value;
+            if (val && typeof val === 'object' && !keys.includes(val)) {
+              keys.push(val as CryptoKey);
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => resolve();
+      });
+    }
   } catch {
     // ignore
   }
@@ -355,28 +374,21 @@ export async function getAllCandidateCryptoKeys(): Promise<CryptoKey[]> {
 /**
  * Retrieves or initializes the non-extractable AES-GCM 256-bit CryptoKey.
  * - Stores non-extractable CryptoKey in IndexedDB (strictly zero raw key material in localStorage).
- * - Enforces fail-closed security for Passphrase Vault mode.
- * - Automatically purges any legacy raw keys from localStorage after migration.
+ * - Automatically purges any legacy raw keys or obsolete vault configs from localStorage after migration.
  */
 export async function getSubtleCryptoKey(): Promise<CryptoKey> {
   if (cachedCryptoKey) {
     return cachedCryptoKey;
   }
 
-  const cryptoInstance = getCrypto();
-
-  // 1. If Passphrase Vault is active, require unlock (genuinely revokes key access when locked)
-  const vaultConfig = getVaultConfig();
-  if (vaultConfig && vaultConfig.mode === 'passphrase') {
-    if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
-      const key = inMemoryKeyStore.get(MASTER_KEY_ID)!;
-      cachedCryptoKey = key;
-      return key;
-    }
-    throw new DecryptionError('Coffre verrouillé : veuillez entrer votre phrase secrète.');
+  // Ensure any leftover vault config from legacy passphrase mode is purged
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(VAULT_CONFIG_KEY);
   }
 
-  // 2. Retrieve non-extractable key from IndexedDB key vault
+  const cryptoInstance = getCrypto();
+
+  // 1. Retrieve non-extractable key from IndexedDB key vault
   const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
   if (storedKey) {
     cachedCryptoKey = storedKey;
@@ -389,7 +401,7 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
     return storedKey;
   }
 
-  // 3. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
+  // 2. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
   if (typeof localStorage !== 'undefined') {
     const legacyRaw =
       localStorage.getItem(DEVICE_RECOVERY_KEY) ||
@@ -412,7 +424,7 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
     }
   }
 
-  // 4. Initial Boot on Device: Generate fresh 32-byte entropy seed and store ONLY non-extractable key in IndexedDB
+  // 3. Initial Boot on Device: Generate fresh 32-byte entropy seed and store ONLY non-extractable key in IndexedDB
   const freshSeed = new Uint8Array(32);
   cryptoInstance.getRandomValues(freshSeed);
   const freshKey = await createKeyFromSeed(freshSeed);
@@ -429,92 +441,34 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
 }
 
 /**
- * Activates Passphrase Vault mode.
- * Derives a non-extractable AES-GCM 256-bit key from user passphrase using PBKDF2 (600,000 iterations).
- * Stores key ONLY in volatile memory during active session; never persisted raw or in IndexedDB.
+ * Passphrase Vault mode has been completely removed to avoid accidental lockouts.
+ * Returns false always.
  */
-export async function enablePassphraseVault(passphrase: string): Promise<CryptoKey> {
-  const cleanPass = passphrase.trim();
-  const cryptoInstance = getCrypto();
-  const salt = new Uint8Array(16);
-  cryptoInstance.getRandomValues(salt);
-  const derivedKey = await deriveKeyFromPassphrase(cleanPass, salt, 600000);
-
-  // Encrypt canary verification payload with the new passphrase key
-  const canaryCipher = await encryptWithKey('PUFFINLESS_CANARY_VAULT_OK', derivedKey);
-
-  const config: VaultConfig = {
-    mode: 'passphrase',
-    saltHex: toHex(salt),
-    iterations: 600000,
-    canaryCipher,
-  };
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(VAULT_CONFIG_KEY, JSON.stringify(config));
-  }
-
-  // Set in-memory only; remove device master key from IndexedDB
-  cachedCryptoKey = derivedKey;
-  inMemoryKeyStore.set(MASTER_KEY_ID, derivedKey);
-  await removeKeyFromVault(MASTER_KEY_ID);
-
-  return derivedKey;
+export function isPassphraseVaultEnabled(): boolean {
+  return false;
 }
 
-/**
- * Unlocks the Passphrase Vault using the user-entered passphrase.
- */
-export async function unlockPassphraseVault(passphrase: string): Promise<boolean> {
-  const config = getVaultConfig();
-  if (!config || config.mode !== 'passphrase' || !config.saltHex || !config.canaryCipher) {
-    return true; // Not in passphrase mode
-  }
-
-  try {
-    const salt = fromHex(config.saltHex);
-    const testKey = await deriveKeyFromPassphrase(passphrase.trim(), salt, config.iterations || 600000);
-
-    // Verify canary using test key
-    const cryptoInstance = getCrypto();
-    const parts = config.canaryCipher.split(':');
-    const iv = fromHex(parts[1]);
-    const cipherBytes = fromBase64(parts[2]);
-
-    const decryptedBuffer = await cryptoInstance.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv as unknown as BufferSource },
-      testKey,
-      cipherBytes as unknown as BufferSource
-    );
-    const decryptedStr = new TextDecoder().decode(decryptedBuffer);
-
-    if (decryptedStr === '"PUFFINLESS_CANARY_VAULT_OK"' || decryptedStr === 'PUFFINLESS_CANARY_VAULT_OK') {
-      // Valid! Keep key in volatile memory ONLY
-      cachedCryptoKey = testKey;
-      inMemoryKeyStore.set(MASTER_KEY_ID, testKey);
-      return true;
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
+export function isVaultUnlocked(): boolean {
+  return true;
 }
 
-/**
- * Disables Passphrase Vault mode and restores device-bound master key.
- */
+export async function enablePassphraseVault(_passphrase?: string): Promise<CryptoKey> {
+  return await getSubtleCryptoKey();
+}
+
+export async function unlockPassphraseVault(_passphrase?: string): Promise<boolean> {
+  return true;
+}
+
 export async function disablePassphraseVault(): Promise<CryptoKey> {
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem(VAULT_CONFIG_KEY);
   }
-  cachedCryptoKey = null;
-  inMemoryKeyStore.clear();
   return await getSubtleCryptoKey();
 }
 
 /**
- * Sets an active custom CryptoKey (e.g. unlocked via user passphrase) in volatile memory
+ * Sets an active custom CryptoKey in volatile memory
  */
 export function setActiveVaultKey(key: CryptoKey): void {
   cachedCryptoKey = key;
@@ -522,11 +476,10 @@ export function setActiveVaultKey(key: CryptoKey): void {
 }
 
 /**
- * Clears the in-memory cached CryptoKey, genuinely removing all access to the vault key.
+ * Clears volatile memory cache
  */
 export function lockCryptographicVault(): void {
   cachedCryptoKey = null;
-  inMemoryKeyStore.clear();
 }
 
 /**

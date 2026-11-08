@@ -53,8 +53,8 @@ export const STORAGE_KEYS = {
 
 export function loadStreaks(): StreakRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS) || localStorage.getItem('puffinless_streaks');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as StreakRecord[];
     }
   } catch {
@@ -65,7 +65,7 @@ export function loadStreaks(): StreakRecord[] {
 
 export async function loadStreaksAsync(): Promise<StreakRecord[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS);
+    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS) || localStorage.getItem('puffinless_streaks');
     return await decryptData<StreakRecord[]>(raw, []);
   } catch (e) {
     console.error('Error loading streaks', e);
@@ -659,7 +659,10 @@ export const WELLNESS_ARTICLES: WellnessArticle[] = [
 export function loadProfile(): UserProfile {
   const nowIso = new Date().toISOString();
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.PROFILE) ||
+      localStorage.getItem('puffinless_profile') ||
+      localStorage.getItem('puffinless_user_profile');
     if (raw) {
       if (!raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
         const parsed = JSON.parse(raw);
@@ -693,7 +696,10 @@ export function loadProfile(): UserProfile {
 export async function loadProfileAsync(): Promise<UserProfile> {
   const nowIso = new Date().toISOString();
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.PROFILE) ||
+      localStorage.getItem('puffinless_profile') ||
+      localStorage.getItem('puffinless_user_profile');
     if (raw) {
       const parsed = await decryptData<Partial<UserProfile>>(raw, {});
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
@@ -744,7 +750,7 @@ export function loadExpenses(): PurchaseExpense[] {
 
 export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES) || localStorage.getItem('puffinless_expenses');
     return await decryptData<PurchaseExpense[]>(raw, []);
   } catch (e) {
     console.error('Error loading expenses', e);
@@ -761,8 +767,11 @@ export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
 
 export function loadSubstanceLogs(): SubstanceLog[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG) ||
+      localStorage.getItem('puffinless_substance_log') ||
+      localStorage.getItem('puffinless_substances');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as SubstanceLog[];
     }
   } catch {
@@ -773,7 +782,10 @@ export function loadSubstanceLogs(): SubstanceLog[] {
 
 export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG) ||
+      localStorage.getItem('puffinless_substance_log') ||
+      localStorage.getItem('puffinless_substances');
     return await decryptData<SubstanceLog[]>(raw, []);
   } catch (e) {
     console.error('Error loading substance logs', e);
@@ -790,8 +802,11 @@ export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
 
 export function loadSleepEnergy(): SleepEnergyEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY) ||
+      localStorage.getItem('puffinless_sleep') ||
+      localStorage.getItem('puffinless_sleep_energy');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as SleepEnergyEntry[];
     }
   } catch {
@@ -802,7 +817,10 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
 
 export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY) ||
+      localStorage.getItem('puffinless_sleep') ||
+      localStorage.getItem('puffinless_sleep_energy');
     return await decryptData<SleepEnergyEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading sleep energy', e);
@@ -819,8 +837,10 @@ export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void
 
 export function loadSavingsGoals(): SavingsGoal[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS) ||
+      localStorage.getItem('puffinless_savings_goals');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as SavingsGoal[];
     }
   } catch {
@@ -831,7 +851,9 @@ export function loadSavingsGoals(): SavingsGoal[] {
 
 export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS) ||
+      localStorage.getItem('puffinless_savings_goals');
     return await decryptData<SavingsGoal[]>(raw, []);
   } catch (e) {
     console.error('Error loading goals', e);
@@ -848,8 +870,11 @@ export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
 
 export function loadCravings(): CravingEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CRAVINGS);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.CRAVINGS) ||
+      localStorage.getItem('puffinless_cravings') ||
+      localStorage.getItem('puffinless_craving_logs');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as CravingEntry[];
     }
   } catch {
@@ -860,7 +885,10 @@ export function loadCravings(): CravingEntry[] {
 
 export async function loadCravingsAsync(): Promise<CravingEntry[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CRAVINGS);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.CRAVINGS) ||
+      localStorage.getItem('puffinless_cravings') ||
+      localStorage.getItem('puffinless_craving_logs');
     return await decryptData<CravingEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading cravings', e);
@@ -877,8 +905,10 @@ export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
 
 export function loadSmokeLog(): SmokeLogEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SMOKE_LOG);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SMOKE_LOG) ||
+      localStorage.getItem('puffinless_smoke_log');
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as SmokeLogEntry[];
     }
   } catch {
@@ -889,7 +919,9 @@ export function loadSmokeLog(): SmokeLogEntry[] {
 
 export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SMOKE_LOG);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.SMOKE_LOG) ||
+      localStorage.getItem('puffinless_smoke_log');
     return await decryptData<SmokeLogEntry[]>(raw, []);
   } catch (e) {
     console.error('Error loading smoke log', e);
@@ -994,6 +1026,22 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       const consolidatedStreaks = mergeStreaks(streaks || [], localStreaks || []);
       const consolidatedSubstances = mergeSubstances(substanceLogs || [], localSubstances || []);
 
+      // If both streaks and cravings are empty, run deep scan to recover any historical data
+      if (consolidatedCravings.length === 0 && consolidatedStreaks.length === 0) {
+        const deepScan = await recoverAllDeviceData();
+        if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
+          return {
+            profile: deepScan.profile || idbProfile,
+            goals: deepScan.goals.length > 0 ? deepScan.goals : (goals || undefined),
+            cravings: deepScan.cravings,
+            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : (expenses || undefined),
+            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : consolidatedSubstances,
+            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : (sleepLogs || undefined),
+            streaks: deepScan.streaks,
+          };
+        }
+      }
+
       createDeviceRescueSnapshot({
         profile: idbProfile,
         goals: goals || undefined,
@@ -1025,6 +1073,21 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
         loadSleepEnergyAsync(),
         loadSavingsGoalsAsync(),
       ]);
+
+      if (cravings.length === 0 && streaks.length === 0) {
+        const deepScan = await recoverAllDeviceData();
+        if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
+          return {
+            profile: deepScan.profile || localProfile,
+            goals: deepScan.goals.length > 0 ? deepScan.goals : goals,
+            cravings: deepScan.cravings,
+            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : expenses,
+            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : substances,
+            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : sleep,
+            streaks: deepScan.streaks,
+          };
+        }
+      }
 
       // Sync active localProfile into IndexedDB safely
       await Promise.all([

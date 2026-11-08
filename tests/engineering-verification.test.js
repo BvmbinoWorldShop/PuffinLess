@@ -45,9 +45,6 @@ import {
   purgeVaultKeys,
   getLegacyVaultKey,
   deriveKeyFromPassphrase,
-  enablePassphraseVault,
-  unlockPassphraseVault,
-  disablePassphraseVault,
   lockCryptographicVault,
   isPassphraseVaultEnabled,
   loadKeyFromVault,
@@ -61,8 +58,6 @@ import {
   saveStreaks,
   saveCravings,
   initIndexedDBStorage,
-  migrateToPassphraseVault,
-  migrateToDeviceVault,
 } from '../src/utils/storage.ts';
 import {
   recoverAllDeviceData,
@@ -369,38 +364,18 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(hydrated.profile.cigarettesPerDay, 15);
     });
 
-    test('full lifecycle of Passphrase Vault (PBKDF2 600,000 iterations): enable, lock, unlock & restore', async () => {
-      const passphrase = 'UltraSecurePersonalVault2026!';
+    test('verifies passphrase vault is completely removed and device storage is always accessible without prompts', async () => {
+      // 1. Passphrase vault must be completely absent / disabled
+      assert.equal(isPassphraseVaultEnabled(), false, 'Passphrase vault must be completely disabled');
 
-      // 1. Enable Passphrase Vault mode
-      const vaultKey = await enablePassphraseVault(passphrase);
-      assert.ok(vaultKey);
-      assert.ok(isPassphraseVaultEnabled(), 'Passphrase vault must be active');
-
-      // 2. Encrypt sensitive data using the passphrase-derived key
+      // 2. Encryption and decryption work seamlessly with device key without any prompt
       const secretRecord = { diary: '30 days clean, breathing easy', balance: 1200 };
       const cipher = await encryptData(secretRecord);
       assert.ok(cipher.startsWith('aes-gcm:'));
 
-      // 3. Simulate cold restart / locked vault session
-      lockCryptographicVault();
-
-      // 4. Attempt to unlock with invalid passphrase
-      const failedUnlock = await unlockPassphraseVault('WrongSecret!');
-      assert.equal(failedUnlock, false, 'Invalid passphrase must fail to unlock vault');
-
-      // 5. Unlock with legitimate passphrase (derives key via PBKDF2 with 600k iterations)
-      const validUnlock = await unlockPassphraseVault(passphrase);
-      assert.equal(validUnlock, true, 'Valid passphrase must unlock vault');
-
-      // 6. Decrypt payload with unlocked vault
+      // 3. Decrypt payload directly with device key
       const decrypted = await decryptData(cipher, null);
       assert.deepEqual(decrypted, secretRecord, 'Decrypted record must match original plaintext perfectly');
-
-      // 7. Disable vault mode and return to device key
-      const restoredDeviceKey = await disablePassphraseVault();
-      assert.ok(restoredDeviceKey);
-      assert.equal(isPassphraseVaultEnabled(), false, 'Vault mode must be cleanly deactivated');
     });
   });
 
@@ -464,58 +439,39 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(hydrated.cravings[0].intensity, 8);
     });
 
-    test('passphrase migration guarantees zero data loss in both directions', async () => {
+    test('deep device recovery retrieves user data and restores a full week of history without data loss', async () => {
+      const pastQuitDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const initialProfile = {
-        name: 'VaultTester',
+        name: 'WeekHero',
         isOnboarded: true,
-        cigarettesPerDay: 10,
-        quitDate: '2026-02-15T08:00:00.000Z',
+        cigarettesPerDay: 15,
+        quitDate: pastQuitDate,
         currency: 'EUR',
-        pricePerPack: 11,
+        pricePerPack: 12,
       };
       const initialCravings = [
-        { id: 'c-test-1', timestamp: '2026-02-16T10:00:00.000Z', intensity: 5, trigger: 'morning_coffee' }
+        { id: 'c-test-1', timestamp: pastQuitDate, intensity: 6, trigger: 'morning' },
+        { id: 'c-test-2', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), intensity: 8, trigger: 'stress' },
+      ];
+      const initialStreaks = [
+        { id: 's-test-1', start: pastQuitDate },
       ];
 
-      // Seed storage with device key
+      // Save initial records
       await saveProfile(initialProfile);
       await saveCravings(initialCravings);
+      await saveStreaks(initialStreaks);
 
-      const passphrase = 'MySuperPassphrase#2026!';
+      // Verify that initIndexedDBStorage hydrates full 7-day history and profile
+      const hydrated = await initIndexedDBStorage();
+      assert.ok(hydrated, 'Hydrated data must exist');
+      assert.equal(hydrated.profile.name, 'WeekHero');
+      assert.equal(hydrated.profile.isOnboarded, true);
+      assert.equal(hydrated.cravings.length, 2);
+      assert.equal(hydrated.streaks.length, 1);
 
-      // 1. Migrate to Passphrase Vault (PBKDF2 600,000 iterations)
-      await migrateToPassphraseVault(passphrase);
-      assert.equal(isPassphraseVaultEnabled(), true, 'Passphrase vault must be enabled');
-
-      // 2. Read back data after migration - zero data loss!
-      const hydratedPassphrase = await initIndexedDBStorage();
-      assert.equal(hydratedPassphrase.profile.name, 'VaultTester');
-      assert.equal(hydratedPassphrase.cravings.length, 1);
-      assert.equal(hydratedPassphrase.cravings[0].id, 'c-test-1');
-
-      // 3. Vault Locking genuinely removes access to the key
-      lockCryptographicVault();
-      await assert.rejects(
-        async () => {
-          await getSubtleCryptoKey();
-        },
-        DecryptionError,
-        'Locked vault must reject getSubtleCryptoKey() when locked'
-      );
-
-      // 4. Unlock with correct passphrase
-      const unlockResult = await unlockPassphraseVault(passphrase);
-      assert.equal(unlockResult, true, 'Unlock with valid passphrase must succeed');
-
-      // 5. Migrate back to device vault
-      await migrateToDeviceVault();
-      assert.equal(isPassphraseVaultEnabled(), false, 'Passphrase vault must be deactivated');
-
-      // 6. Verify data integrity after return to device vault
-      const hydratedDevice = await initIndexedDBStorage();
-      assert.equal(hydratedDevice.profile.name, 'VaultTester');
-      assert.equal(hydratedDevice.cravings.length, 1);
-      assert.equal(hydratedDevice.cravings[0].trigger, 'morning_coffee');
+      // Verify passphrase vault is completely deactivated
+      assert.equal(isPassphraseVaultEnabled(), false);
     });
 
     test('recovers legacy encrypted payloads (aes256: CryptoJS) across cold reset or update', async () => {
