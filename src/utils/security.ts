@@ -1,4 +1,17 @@
-// Security & App Lock utilities with local Salted SHA-256 PIN & Anti-Brute-Force Lockout
+/**
+ * INTERFACE DISPLAY PIN LOCK & ANTI-BRUTE-FORCE PROTECTION
+ * --------------------------------------------------------
+ * Explicit Architectural Separation:
+ * 1. Interface Screen Lock (PIN):
+ *    - Shields the visual screen against snooping on an unlocked device.
+ *    - Session state lives in sessionStorage: survives standby / sleep mode,
+ *      prompts PIN strictly upon complete app close and cold restart.
+ *    - Uses salted PBKDF2 (100,000 iterations) with exponential anti-brute-force backoff.
+ *    - STRICTLY INDEPENDENT of cryptographic storage keys. Does NOT encrypt, lock, or purge the database.
+ * 2. Cryptographic Storage Lifecycle:
+ *    - Manages non-extractable AES-GCM 256-bit encryption of database at rest in IndexedDB.
+ *    - Remains operational and transparent to the app regardless of UI PIN lock state.
+ */
 import CryptoJS from 'crypto-js';
 
 export interface SecurityConfig {

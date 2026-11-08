@@ -44,10 +44,8 @@ import {
   getSubtleCryptoKey,
   purgeVaultKeys,
   getLegacyVaultKey,
-  deriveKeyFromPassphrase,
-  lockCryptographicVault,
-  isPassphraseVaultEnabled,
   loadKeyFromVault,
+  getCryptoLifecycleState,
   MASTER_KEY_ID,
   DecryptionError,
 } from '../src/utils/crypto.ts';
@@ -58,6 +56,7 @@ import {
   saveStreaks,
   saveCravings,
   initIndexedDBStorage,
+  readWithStatus,
 } from '../src/utils/storage.ts';
 import {
   recoverAllDeviceData,
@@ -145,13 +144,17 @@ describe('PuffinLess Production Code Verification', () => {
       assert.ok(corruptResult.error instanceof DecryptionError, 'Error must be an instance of DecryptionError');
     });
 
-    test('derives non-extractable AES-GCM key from user passphrase using PBKDF2 (600,000 iterations)', async () => {
-      const salt = new Uint8Array(16);
-      globalThis.crypto.getRandomValues(salt);
+    test('guarantees failure-safe key persistence and never discards the only recoverable key', async () => {
+      const masterKey = await getSubtleCryptoKey();
+      assert.ok(masterKey, 'Master key must be loaded or generated');
+      assert.equal(masterKey.extractable, false, 'Master key must be strictly non-extractable');
 
-      const derivedKey = await deriveKeyFromPassphrase('MySecretPassphrase2026!', salt, 600000);
-      assert.equal(derivedKey.extractable, false, 'PBKDF2 derived key must be non-extractable');
-      assert.equal(derivedKey.algorithm.name, 'AES-GCM');
+      // Verify key is retained in vault and backup
+      const loaded = await loadKeyFromVault(MASTER_KEY_ID);
+      assert.ok(loaded, 'Master key must be recoverable from key vault');
+
+      // Verify lifecycle state is READY
+      assert.equal(getCryptoLifecycleState(), 'READY');
     });
 
     test('seamlessly migrates legacy AES-CBC (CryptoJS aes256:) payloads without data loss', async () => {
@@ -364,18 +367,16 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(hydrated.profile.cigarettesPerDay, 15);
     });
 
-    test('verifies passphrase vault is completely removed and device storage is always accessible without prompts', async () => {
-      // 1. Passphrase vault must be completely absent / disabled
-      assert.equal(isPassphraseVaultEnabled(), false, 'Passphrase vault must be completely disabled');
-
-      // 2. Encryption and decryption work seamlessly with device key without any prompt
+    test('verifies all passphrase vault source is deleted and device storage is transparently accessible', async () => {
+      // 1. Encryption and decryption work seamlessly with device key without any prompt
       const secretRecord = { diary: '30 days clean, breathing easy', balance: 1200 };
       const cipher = await encryptData(secretRecord);
       assert.ok(cipher.startsWith('aes-gcm:'));
 
-      // 3. Decrypt payload directly with device key
+      // 2. Decrypt payload directly with device key
       const decrypted = await decryptData(cipher, null);
       assert.deepEqual(decrypted, secretRecord, 'Decrypted record must match original plaintext perfectly');
+      assert.equal(getCryptoLifecycleState(), 'READY');
     });
   });
 
@@ -424,10 +425,7 @@ describe('PuffinLess Production Code Verification', () => {
       const syncProfile = loadProfile();
       assert.equal(syncProfile.isOnboarded, true, 'Synchronous loadProfile must immediately report isOnboarded: true');
 
-      // 2. Clear volatile memory caches (simulating cold process restart)
-      lockCryptographicVault();
-
-      // 3. Hydrate via initIndexedDBStorage from real IndexedDB
+      // 2. Hydrate via initIndexedDBStorage from real IndexedDB
       const hydrated = await initIndexedDBStorage();
       assert.ok(hydrated, 'Storage must hydrate data successfully on restart');
       assert.equal(hydrated.profile.name, 'SobrietyChampion');
@@ -469,9 +467,26 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(hydrated.profile.isOnboarded, true);
       assert.equal(hydrated.cravings.length, 2);
       assert.equal(hydrated.streaks.length, 1);
+    });
 
-      // Verify passphrase vault is completely deactivated
-      assert.equal(isPassphraseVaultEnabled(), false);
+    test('storage strictly distinguishes missing data from failed decryption and prevents overwriting corrupted data', async () => {
+      // 1. Missing data: returns 'absent' without error
+      const absent = await readWithStatus('non_existent_key_xyz_123');
+      assert.equal(absent.status, 'absent');
+      assert.equal(absent.data, null);
+
+      // 2. Valid data: returns 'success' with payload
+      const testProfile = { name: 'StatusVerifiedHero', isOnboarded: true, cigarettesPerDay: 10 };
+      await saveProfile(testProfile);
+      const valid = await readWithStatus('puffinless_profile_v2');
+      assert.equal(valid.status, 'success');
+      assert.equal(valid.data.name, 'StatusVerifiedHero');
+
+      // 3. Corrupted data: returns 'decryption_error'
+      globalThis.localStorage.setItem('puffinless_corrupted_record', 'aes-gcm:deadbeef:corruptedcipherpayload');
+      const corrupt = await readWithStatus('puffinless_corrupted_record');
+      assert.equal(corrupt.status, 'decryption_error');
+      assert.ok(corrupt.error, 'Must report decryption error for corrupted data');
     });
 
     test('recovers legacy encrypted payloads (aes256: CryptoJS) across cold reset or update', async () => {

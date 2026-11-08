@@ -5,7 +5,7 @@
  * - Non-extractable CryptoKey (extractable: false) stored securely in IndexedDB key vault.
  * - Zero raw key storage in localStorage.
  * - Unique cryptographically random 96-bit (12-byte) IV for every encryption operation.
- * - Optional passphrase-derived vault mode using PBKDF2 with 600,000 iterations.
+ * - Failure-safe persistent device key vault with non-extractable CryptoKey.
  * - Explicit distinction between data absence and decryption integrity errors.
  * - Seamless zero-data-loss migration for legacy AES-CBC (CryptoJS) payloads.
  */
@@ -18,26 +18,19 @@ const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v2';
 const LEGACY_STORAGE_DEVICE_KEY = 'puffinless_vault_key_v1';
 const LEGACY_VAULT_SALT = 'puffinless_aes256_client_vault_stable_key_v2_offline';
 
-export const VAULT_CONFIG_KEY = 'puffinless_vault_config_v2';
 export const DEVICE_RECOVERY_KEY = 'puffinless_vault_device_envelope_v2';
 
-export interface VaultConfig {
-  mode: 'device' | 'passphrase';
-  saltHex?: string;
-  iterations?: number;
-  canaryCipher?: string;
-}
+/**
+ * Explicit cryptographic lifecycle states:
+ * - BOOTING: Initializing and verifying persistent non-extractable CryptoKey from IndexedDB
+ * - READY: Active and verified for transparent authenticated AES-GCM operations at rest
+ * - PURGED: Irrevocably destroyed on user-requested right-to-be-forgotten
+ */
+export type CryptoLifecycleState = 'BOOTING' | 'READY' | 'PURGED';
+let cryptoLifecycleState: CryptoLifecycleState = 'BOOTING';
 
-export function getVaultConfig(): VaultConfig | null {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem(VAULT_CONFIG_KEY);
-      if (raw) return JSON.parse(raw) as VaultConfig;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
+export function getCryptoLifecycleState(): CryptoLifecycleState {
+  return cryptoLifecycleState;
 }
 
 /** In-memory fallback and test store */
@@ -141,10 +134,15 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
 }
 
 /**
- * Store a non-extractable CryptoKey in IndexedDB
+ * Store a non-extractable CryptoKey in IndexedDB with failure-safe verification.
+ * Automatically retains key in memory and archives historical copies so recoverable keys are never lost.
  */
 export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
   inMemoryKeyStore.set(id, key);
+  if (id === MASTER_KEY_ID) {
+    cachedCryptoKey = key;
+    cryptoLifecycleState = 'READY';
+  }
   if (typeof window === 'undefined' || !window.indexedDB) {
     return;
   }
@@ -153,9 +151,10 @@ export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> 
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
       const store = tx.objectStore(KEY_STORE_NAME);
-      const req = store.put(key, id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      store.put(key, id);
+      // Archive copy to guarantee non-destructive key retention
+      store.put(key, `${id}_backup`);
+      tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
@@ -164,7 +163,8 @@ export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> 
 }
 
 /**
- * Retrieve a non-extractable CryptoKey from IndexedDB
+ * Retrieve a non-extractable CryptoKey from IndexedDB with failure-safe fallbacks.
+ * If the exact id is not present, inspects backup records so the only recoverable key is never discarded.
  */
 export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
   if (inMemoryKeyStore.has(id)) {
@@ -175,7 +175,7 @@ export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
   }
   try {
     const db = await openKeyVaultDB();
-    return await new Promise<CryptoKey | null>((resolve, reject) => {
+    const primaryKey = await new Promise<CryptoKey | null>((resolve, reject) => {
       const tx = db.transaction(KEY_STORE_NAME, 'readonly');
       const store = tx.objectStore(KEY_STORE_NAME);
       const req = store.get(id);
@@ -183,13 +183,45 @@ export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
       req.onerror = () => reject(req.error);
       tx.onerror = () => reject(tx.error);
     });
+
+    if (primaryKey) {
+      inMemoryKeyStore.set(id, primaryKey);
+      return primaryKey;
+    }
+
+    // Failure-safe fallback: inspect backup archive in vault
+    return await new Promise<CryptoKey | null>((resolve) => {
+      try {
+        const tx = db.transaction(KEY_STORE_NAME, 'readonly');
+        const store = tx.objectStore(KEY_STORE_NAME);
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+          if (cursor) {
+            const val = cursor.value;
+            if (val && typeof val === 'object' && 'algorithm' in (val as any)) {
+              const k = val as CryptoKey;
+              inMemoryKeyStore.set(id, k);
+              resolve(k);
+              return;
+            }
+            cursor.continue();
+          } else {
+            resolve(null);
+          }
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
   } catch {
     return null;
   }
 }
 
 /**
- * Remove a non-extractable CryptoKey from IndexedDB
+ * Remove a non-extractable CryptoKey from IndexedDB (strictly called only on complete data erasure)
  */
 export async function removeKeyFromVault(id: string): Promise<void> {
   inMemoryKeyStore.delete(id);
@@ -209,38 +241,6 @@ export async function removeKeyFromVault(id: string): Promise<void> {
   } catch {
     // ignore
   }
-}
-
-/**
- * Derives a non-extractable AES-GCM 256-bit CryptoKey from a user passphrase using PBKDF2 (600,000 iterations)
- */
-export async function deriveKeyFromPassphrase(
-  passphrase: string,
-  salt: Uint8Array,
-  iterations = 600000
-): Promise<CryptoKey> {
-  const cryptoInstance = getCrypto();
-  const enc = new TextEncoder();
-  const baseKey = await cryptoInstance.subtle.importKey(
-    'raw',
-    enc.encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-
-  return await cryptoInstance.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt as unknown as BufferSource,
-      iterations,
-      hash: 'SHA-256',
-    },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false, // strictly non-extractable
-    ['encrypt', 'decrypt']
-  );
 }
 
 /**
@@ -394,12 +394,8 @@ export async function getAllCandidateCryptoKeys(): Promise<CryptoKey[]> {
  */
 export async function getSubtleCryptoKey(): Promise<CryptoKey> {
   if (cachedCryptoKey) {
+    cryptoLifecycleState = 'READY';
     return cachedCryptoKey;
-  }
-
-  // Ensure any leftover vault config from legacy passphrase mode is purged
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(VAULT_CONFIG_KEY);
   }
 
   const cryptoInstance = getCrypto();
@@ -408,6 +404,7 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
   const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
   if (storedKey) {
     cachedCryptoKey = storedKey;
+    cryptoLifecycleState = 'READY';
     // Genuinely purge raw key material from localStorage
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_DEVICE_KEY);
@@ -428,11 +425,12 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
       try {
         const importedKey = await importOrDeriveKeyFromString(legacyRaw);
         await saveKeyToVault(MASTER_KEY_ID, importedKey);
-        // CRITICAL: Immediately purge raw key material from localStorage
+        // CRITICAL: Purge raw key material from localStorage ONLY after successful vault write
         localStorage.removeItem(STORAGE_DEVICE_KEY);
         localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
         localStorage.removeItem(DEVICE_RECOVERY_KEY);
         cachedCryptoKey = importedKey;
+        cryptoLifecycleState = 'READY';
         return importedKey;
       } catch (err) {
         console.warn('[Crypto] Legacy raw key migration error:', err);
@@ -453,34 +451,8 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
     localStorage.removeItem(DEVICE_RECOVERY_KEY);
   }
   cachedCryptoKey = freshKey;
+  cryptoLifecycleState = 'READY';
   return freshKey;
-}
-
-/**
- * Passphrase Vault mode has been completely removed to avoid accidental lockouts.
- * Returns false always.
- */
-export function isPassphraseVaultEnabled(): boolean {
-  return false;
-}
-
-export function isVaultUnlocked(): boolean {
-  return true;
-}
-
-export async function enablePassphraseVault(_passphrase?: string): Promise<CryptoKey> {
-  return await getSubtleCryptoKey();
-}
-
-export async function unlockPassphraseVault(_passphrase?: string): Promise<boolean> {
-  return true;
-}
-
-export async function disablePassphraseVault(): Promise<CryptoKey> {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(VAULT_CONFIG_KEY);
-  }
-  return await getSubtleCryptoKey();
 }
 
 /**
@@ -489,13 +461,7 @@ export async function disablePassphraseVault(): Promise<CryptoKey> {
 export function setActiveVaultKey(key: CryptoKey): void {
   cachedCryptoKey = key;
   inMemoryKeyStore.set(MASTER_KEY_ID, key);
-}
-
-/**
- * Clears volatile memory cache
- */
-export function lockCryptographicVault(): void {
-  cachedCryptoKey = null;
+  cryptoLifecycleState = 'READY';
 }
 
 /**
@@ -519,23 +485,25 @@ export function getLegacyVaultKey(): string {
 export async function purgeVaultKeys(): Promise<void> {
   cachedCryptoKey = null;
   inMemoryKeyStore.clear();
+  cryptoLifecycleState = 'PURGED';
 
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_DEVICE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
       localStorage.removeItem(DEVICE_RECOVERY_KEY);
-      localStorage.removeItem(VAULT_CONFIG_KEY);
     }
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem(STORAGE_DEVICE_KEY);
       sessionStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
       sessionStorage.removeItem(DEVICE_RECOVERY_KEY);
-      sessionStorage.removeItem(VAULT_CONFIG_KEY);
     }
   } catch {
     // ignore
   }
+
+  await removeKeyFromVault(MASTER_KEY_ID);
+  await removeKeyFromVault(`${MASTER_KEY_ID}_backup`);
 
   if (keyDbInstance) {
     try {

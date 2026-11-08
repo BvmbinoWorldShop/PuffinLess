@@ -15,18 +15,8 @@ import type {
 import {
   encryptData,
   decryptData,
+  decryptWithStatus,
   purgeVaultKeys,
-  setActiveVaultKey,
-  deriveKeyFromPassphrase,
-  encryptWithKey,
-  toHex,
-  getCrypto,
-  createKeyFromSeed,
-  saveKeyToVault,
-  removeKeyFromVault,
-  MASTER_KEY_ID,
-  VAULT_CONFIG_KEY,
-  type VaultConfig,
 } from './crypto.ts';
 import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
@@ -983,25 +973,37 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   if (typeof window === 'undefined') return null;
 
   try {
-    // 1. Check IndexedDB across primary and legacy keys
+    // 1. Check IndexedDB across primary and legacy keys with explicit status distinction
     let idbProfile: UserProfile | null = null;
     const idbProfileRaw =
       (await idbGet<unknown>(STORAGE_KEYS.PROFILE)) ||
       (await idbGet<unknown>('profile')) ||
       (await idbGet<unknown>('puffinless_profile')) ||
       (await idbGet<unknown>('puffinless_user_profile'));
+
     if (idbProfileRaw) {
-      idbProfile = await decryptData<UserProfile>(idbProfileRaw, null as any);
+      const statusRes = await decryptWithStatus<UserProfile>(idbProfileRaw);
+      if (statusRes.status === 'success' && statusRes.data) {
+        idbProfile = statusRes.data;
+      } else if (statusRes.status === 'error') {
+        console.warn('[Storage] Decryption failure detected for IndexedDB profile record - engaging deep recovery');
+      }
     }
 
-    // 2. Check localStorage across primary, legacy and rescue backup keys
+    // 2. Check localStorage across primary, legacy and rescue backup keys with explicit status distinction
     let localProfile: UserProfile | null = null;
     const localRaw =
       localStorage.getItem(STORAGE_KEYS.PROFILE) ||
       localStorage.getItem('puffinless_profile') ||
       localStorage.getItem('puffinless_user_profile');
+
     if (localRaw) {
-      localProfile = await decryptData<UserProfile>(localRaw, null as any);
+      const localStatus = await decryptWithStatus<UserProfile>(localRaw);
+      if (localStatus.status === 'success' && localStatus.data) {
+        localProfile = localStatus.data;
+      } else if (localStatus.status === 'error') {
+        console.warn('[Storage] Decryption failure detected for localStorage profile record - engaging deep recovery');
+      }
     }
     if (!localProfile) {
       const snap = getDeviceRescueSnapshot();
@@ -1198,227 +1200,41 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
 }
 
 /**
- * Safely migrates all user data to Passphrase Vault without data loss.
- * Loads current records with active key, derives 600k PBKDF2 passphrase key,
- * encrypts canary and records, stores to IndexedDB and localStorage, and sets active.
+ * Reads stored data with explicit status distinction:
+ * - 'absent': No record exists in storage (brand new install or empty record)
+ * - 'success': Record found and successfully decrypted
+ * - 'decryption_error': Ciphertext exists but decryption failed (tampered data or missing key)
+ * Strictly prevents masking decryption errors as missing data to protect against silent data wiping.
  */
-export async function migrateToPassphraseVault(passphrase: string): Promise<CryptoKey> {
-  const cleanPass = passphrase.trim();
-  if (!cleanPass || cleanPass.length < 6) {
-    throw new Error('Passphrase must be at least 6 characters');
+export async function readWithStatus<T>(
+  key: string
+): Promise<{ status: 'absent' | 'success' | 'decryption_error'; data: T | null; error?: Error }> {
+  try {
+    let raw: unknown = null;
+    if (typeof window !== 'undefined' && window.indexedDB) {
+      raw = await idbGet<unknown>(key);
+    }
+    if (raw === null || raw === undefined) {
+      if (typeof localStorage !== 'undefined') {
+        raw = localStorage.getItem(key);
+      }
+    }
+
+    if (raw === null || raw === undefined || raw === '') {
+      return { status: 'absent', data: null };
+    }
+
+    const res = await decryptWithStatus<T>(raw);
+    if (res.status === 'success') {
+      return { status: 'success', data: res.data };
+    }
+    if (res.status === 'error') {
+      return { status: 'decryption_error', data: null, error: res.error };
+    }
+    return { status: 'absent', data: null };
+  } catch (err) {
+    return { status: 'decryption_error', data: null, error: err instanceof Error ? err : new Error(String(err)) };
   }
-
-  // 1. Load all current user data using current active key
-  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
-    loadProfileAsync(),
-    loadStreaksAsync(),
-    loadCravingsAsync(),
-    loadExpensesAsync(),
-    loadSubstanceLogsAsync(),
-    loadSleepEnergyAsync(),
-    loadSavingsGoalsAsync(),
-    loadSmokeLogAsync(),
-  ]);
-
-  // 2. Derive new non-extractable AES-GCM key from passphrase via PBKDF2 (600,000 iterations)
-  const cryptoInstance = getCrypto();
-  const salt = new Uint8Array(16);
-  cryptoInstance.getRandomValues(salt);
-  const passphraseKey = await deriveKeyFromPassphrase(cleanPass, salt, 600000);
-
-  // 3. Encrypt canary verification with new passphrase key
-  const canaryCipher = await encryptWithKey('PUFFINLESS_CANARY_VAULT_OK', passphraseKey);
-
-  // 4. Re-encrypt all user data with new passphrase key
-  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
-    await Promise.all([
-      encryptWithKey(profile, passphraseKey),
-      encryptWithKey(streaks, passphraseKey),
-      encryptWithKey(cravings, passphraseKey),
-      encryptWithKey(expenses, passphraseKey),
-      encryptWithKey(subLogs, passphraseKey),
-      encryptWithKey(sleepLogs, passphraseKey),
-      encryptWithKey(goals, passphraseKey),
-      encryptWithKey(smokeLogs, passphraseKey),
-    ]);
-
-  // 5. Write re-encrypted data to both IndexedDB and localStorage
-  await Promise.all([
-    idbSet(STORAGE_KEYS.PROFILE, profCipher),
-    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
-    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
-    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
-    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
-    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
-    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
-    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
-  ]);
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
-    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
-
-    const config: VaultConfig = {
-      mode: 'passphrase',
-      saltHex: toHex(salt),
-      iterations: 600000,
-      canaryCipher,
-    };
-    localStorage.setItem(VAULT_CONFIG_KEY, JSON.stringify(config));
-  }
-
-  // 6. Update rescue snapshot
-  createDeviceRescueSnapshot({
-    profile,
-    streaks,
-    cravings,
-    expenses,
-    substanceLogs: subLogs,
-    sleepLogs,
-    goals,
-    smokeLogs,
-  });
-
-  // 7. Set passphrase key active in memory and purge device key from IndexedDB
-  setActiveVaultKey(passphraseKey);
-  await removeKeyFromVault(MASTER_KEY_ID);
-
-  return passphraseKey;
-}
-
-/**
- * Reverts from Passphrase Vault mode to Device Key mode without data loss.
- */
-export async function migrateToDeviceVault(): Promise<CryptoKey> {
-  // 1. Load all current user data with active passphrase key
-  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
-    loadProfileAsync(),
-    loadStreaksAsync(),
-    loadCravingsAsync(),
-    loadExpensesAsync(),
-    loadSubstanceLogsAsync(),
-    loadSleepEnergyAsync(),
-    loadSavingsGoalsAsync(),
-    loadSmokeLogAsync(),
-  ]);
-
-  // 2. Generate new non-extractable device key
-  const cryptoInstance = getCrypto();
-  const freshSeed = new Uint8Array(32);
-  cryptoInstance.getRandomValues(freshSeed);
-  const deviceKey = await createKeyFromSeed(freshSeed);
-  await saveKeyToVault(MASTER_KEY_ID, deviceKey);
-
-  // 3. Re-encrypt all data with device key
-  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
-    await Promise.all([
-      encryptWithKey(profile, deviceKey),
-      encryptWithKey(streaks, deviceKey),
-      encryptWithKey(cravings, deviceKey),
-      encryptWithKey(expenses, deviceKey),
-      encryptWithKey(subLogs, deviceKey),
-      encryptWithKey(sleepLogs, deviceKey),
-      encryptWithKey(goals, deviceKey),
-      encryptWithKey(smokeLogs, deviceKey),
-    ]);
-
-  await Promise.all([
-    idbSet(STORAGE_KEYS.PROFILE, profCipher),
-    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
-    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
-    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
-    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
-    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
-    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
-    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
-  ]);
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
-    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
-    localStorage.removeItem(VAULT_CONFIG_KEY);
-  }
-
-  // 4. Update rescue snapshot
-  createDeviceRescueSnapshot({
-    profile,
-    streaks,
-    cravings,
-    expenses,
-    substanceLogs: subLogs,
-    sleepLogs,
-    goals,
-    smokeLogs,
-  });
-
-  // 5. Set active key
-  setActiveVaultKey(deviceKey);
-
-  return deviceKey;
-}
-
-/**
- * Re-encrypts all user entities with a newly selected active CryptoKey (e.g. Passphrase Vault transition).
- */
-export async function reencryptAllUserDataWithKey(newKey: CryptoKey): Promise<void> {
-  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals, smokeLogs] = await Promise.all([
-    loadProfileAsync(),
-    loadStreaksAsync(),
-    loadCravingsAsync(),
-    loadExpensesAsync(),
-    loadSubstanceLogsAsync(),
-    loadSleepEnergyAsync(),
-    loadSavingsGoalsAsync(),
-    loadSmokeLogAsync(),
-  ]);
-
-  const [profCipher, strkCipher, cravCipher, expCipher, subCipher, slpCipher, golCipher, smkCipher] =
-    await Promise.all([
-      encryptWithKey(profile, newKey),
-      encryptWithKey(streaks, newKey),
-      encryptWithKey(cravings, newKey),
-      encryptWithKey(expenses, newKey),
-      encryptWithKey(subLogs, newKey),
-      encryptWithKey(sleepLogs, newKey),
-      encryptWithKey(goals, newKey),
-      encryptWithKey(smokeLogs, newKey),
-    ]);
-
-  await Promise.all([
-    idbSet(STORAGE_KEYS.PROFILE, profCipher),
-    idbSet(STORAGE_KEYS.STREAKS, strkCipher),
-    idbSet(STORAGE_KEYS.CRAVINGS, cravCipher),
-    idbSet(STORAGE_KEYS.EXPENSES, expCipher),
-    idbSet(STORAGE_KEYS.SUBSTANCE_LOG, subCipher),
-    idbSet(STORAGE_KEYS.SLEEP_ENERGY, slpCipher),
-    idbSet(STORAGE_KEYS.SAVINGS_GOALS, golCipher),
-    idbSet(STORAGE_KEYS.SMOKE_LOG, smkCipher),
-  ]);
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, profCipher);
-    localStorage.setItem(STORAGE_KEYS.STREAKS, strkCipher);
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cravCipher);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, expCipher);
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, subCipher);
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, slpCipher);
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, golCipher);
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, smkCipher);
-  }
-
-  setActiveVaultKey(newKey);
 }
 
 /**
