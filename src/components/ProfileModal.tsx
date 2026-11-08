@@ -6,7 +6,13 @@ import {
 } from 'lucide-react';
 import type { UserProfile, QuitMode, AppTheme, Language, SubstanceType, QuitGoal } from '../types';
 import { sound } from '../utils/audio';
-import { downloadUserDataJSON } from '../utils/storage';
+import { downloadUserDataJSON, reencryptAllUserDataWithKey } from '../utils/storage';
+import {
+  isPassphraseVaultEnabled,
+  enablePassphraseVault,
+  disablePassphraseVault,
+  lockCryptographicVault,
+} from '../utils/crypto';
 import {
   getSecurityConfig,
   saveSecurityConfig,
@@ -138,7 +144,76 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [securityEnabled, setSecurityEnabled] = useState(() => getSecurityConfig().enabled);
   const [securityPin, setSecurityPin] = useState(() => (getSecurityConfig().pinHash ? '••••' : ''));
 
+  // Cryptographic Passphrase Vault state
+  const [isPassphraseMode, setIsPassphraseMode] = useState(() => isPassphraseVaultEnabled());
+  const [showPassphraseInput, setShowPassphraseInput] = useState(false);
+  const [vaultPassphrase, setVaultPassphrase] = useState('');
+  const [vaultPassphraseConfirm, setVaultPassphraseConfirm] = useState('');
+  const [vaultError, setVaultError] = useState<string | null>(null);
+  const [vaultSuccess, setVaultSuccess] = useState<string | null>(null);
+  const [isVaultProcessing, setIsVaultProcessing] = useState(false);
+
   const isFr = lang === 'fr';
+
+  const handleEnablePassphraseVault = async () => {
+    setVaultError(null);
+    if (!vaultPassphrase || vaultPassphrase.length < 6) {
+      setVaultError(
+        isFr
+          ? 'La phrase secrète doit comporter au moins 6 caractères.'
+          : 'Passphrase must be at least 6 characters.'
+      );
+      return;
+    }
+    if (vaultPassphrase !== vaultPassphraseConfirm) {
+      setVaultError(
+        isFr ? 'Les phrases secrètes ne correspondent pas.' : 'Passphrases do not match.'
+      );
+      return;
+    }
+
+    setIsVaultProcessing(true);
+    sound.playClick();
+    try {
+      const derivedKey = await enablePassphraseVault(vaultPassphrase);
+      await reencryptAllUserDataWithKey(derivedKey);
+      setIsPassphraseMode(true);
+      setShowPassphraseInput(false);
+      setVaultPassphrase('');
+      setVaultPassphraseConfirm('');
+      setVaultSuccess(
+        isFr
+          ? 'Coffre-fort avec phrase secrète activé avec succès !'
+          : 'Passphrase Vault successfully enabled!'
+      );
+      setTimeout(() => setVaultSuccess(null), 3000);
+    } catch (err) {
+      console.error('[ProfileModal] Error enabling passphrase vault:', err);
+      setVaultError(isFr ? "Échec de l'activation du coffre-fort." : 'Failed to enable vault.');
+    } finally {
+      setIsVaultProcessing(false);
+    }
+  };
+
+  const handleDisablePassphraseVault = async () => {
+    setIsVaultProcessing(true);
+    sound.playClick();
+    try {
+      const deviceKey = await disablePassphraseVault();
+      await reencryptAllUserDataWithKey(deviceKey);
+      setIsPassphraseMode(false);
+      setVaultSuccess(
+        isFr
+          ? 'Retour au mode de protection appareil effectué.'
+          : 'Reverted to device protection mode.'
+      );
+      setTimeout(() => setVaultSuccess(null), 3000);
+    } catch (err) {
+      console.error('[ProfileModal] Error disabling passphrase vault:', err);
+    } finally {
+      setIsVaultProcessing(false);
+    }
+  };
 
   const handleExportData = async () => {
     sound.playClick();
@@ -1245,7 +1320,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
 
               {/* 2. Cryptographic Vault at Rest (Distinct from UI Lock) */}
-              <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-3">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
                     <Shield className="w-4 h-4" />
@@ -1264,12 +1339,122 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                 <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">
-                    {isFr ? 'Niveau de Protection' : 'Protection Level'}
+                    {isFr ? 'Mode de Chiffrement' : 'Encryption Mode'}
                   </span>
                   <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 font-semibold text-[10px]">
-                    {isFr ? 'Protection Militaire Active' : 'Active Military-Grade Protection'}
+                    {isPassphraseMode
+                      ? isFr ? 'Phrase Secrète (PBKDF2 600k)' : 'Secret Passphrase (PBKDF2 600k)'
+                      : isFr ? 'Clé Matérielle Appareil' : 'Device Hardware Key'}
                   </span>
                 </div>
+
+                {vaultError && (
+                  <div className="p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-300">
+                    {vaultError}
+                  </div>
+                )}
+                {vaultSuccess && (
+                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-[11px] text-emerald-300">
+                    {vaultSuccess}
+                  </div>
+                )}
+
+                {/* Passphrase Mode Controls */}
+                {isPassphraseMode ? (
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[10px] text-emerald-400 font-semibold">
+                      ✓ {isFr ? 'Coffre-fort ultra-verrouillé actif' : 'Ultra-locked vault active'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          lockCryptographicVault();
+                          onClose();
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-[10px] text-slate-300 hover:text-white transition-all cursor-pointer"
+                      >
+                        {isFr ? 'Verrouiller maintenant' : 'Lock Vault Now'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isVaultProcessing}
+                        onClick={handleDisablePassphraseVault}
+                        className="px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-[10px] text-rose-300 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isFr ? 'Mode Appareil' : 'Revert to Device'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    {!showPassphraseInput ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          setShowPassphraseInput(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-[11px] text-cyan-300 font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>{isFr ? 'Définir une Phrase Secrète Personnalisée (Mode Coffre)' : 'Set Secret Passphrase (Vault Mode)'}</span>
+                      </button>
+                    ) : (
+                      <div className="space-y-2 p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 animate-fade-in">
+                        <span className="text-[10px] text-slate-400 block">
+                          {isFr
+                            ? 'Votre phrase secrète personnalisée servira à dériver la clé militaire de votre coffre (600 000 itérations). Aucune donnée ne pourra être lue sans elle.'
+                            : 'Your custom passphrase derives the military-grade vault key (600,000 iterations). No data can be read without it.'}
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="password"
+                            placeholder={isFr ? 'Phrase secrète (min 6 car.)' : 'Secret passphrase (min 6)'}
+                            value={vaultPassphrase}
+                            onChange={(e) => setVaultPassphrase(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
+                          />
+                          <input
+                            type="password"
+                            placeholder={isFr ? 'Confirmer la phrase' : 'Confirm passphrase'}
+                            value={vaultPassphraseConfirm}
+                            onChange={(e) => setVaultPassphraseConfirm(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPassphraseInput(false);
+                              setVaultError(null);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[10px] text-slate-400 hover:text-white cursor-pointer"
+                          >
+                            {isFr ? 'Annuler' : 'Cancel'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isVaultProcessing}
+                            onClick={handleEnablePassphraseVault}
+                            className="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {isVaultProcessing ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>{isFr ? 'Dérivation (600k)...' : 'Deriving (600k)...'}</span>
+                              </>
+                            ) : (
+                              <span>{isFr ? 'Activer le Coffre Fort' : 'Activate Vault'}</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
           </div>
 

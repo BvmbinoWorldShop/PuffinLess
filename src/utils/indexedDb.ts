@@ -96,9 +96,15 @@ export async function idbGet<T>(key: string): Promise<T | null> {
  * Fails explicitly on error instead of masking write failures.
  */
 export async function idbSet<T>(key: string, value: T): Promise<void> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return;
+  }
   const db = await openPuffinLessDB();
   // Enforce AES-GCM encryption with fresh unique IV before writing to disk
-  const encryptedPayload = await encryptData(value);
+  const encryptedPayload =
+    typeof value === 'string' && value.startsWith('aes-gcm:')
+      ? value
+      : await encryptData(value);
 
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -116,6 +122,7 @@ export async function idbSet<T>(key: string, value: T): Promise<void> {
  * Fails explicitly on error instead of masking deletion failures.
  */
 export async function idbRemove(key: string): Promise<void> {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -133,6 +140,7 @@ export async function idbRemove(key: string): Promise<void> {
  * Fails explicitly on error instead of masking clear failures.
  */
 export async function idbClear(): Promise<void> {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -150,6 +158,11 @@ export async function idbClear(): Promise<void> {
  * Strictly awaits real confirmation from the database engine before resolving.
  */
 export async function deletePuffinLessDB(): Promise<void> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    dbInstance = null;
+    dbPromise = null;
+    return;
+  }
   if (dbInstance) {
     try {
       dbInstance.close();

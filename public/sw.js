@@ -1,4 +1,4 @@
-const CACHE_NAME = 'puffinless-v2';
+const CACHE_NAME = 'puffinless-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,8 +7,31 @@ const STATIC_ASSETS = [
   '/pwa-icon.svg',
   '/pwa-192.png',
   '/pwa-512.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/fonts/plus-jakarta-sans-latin.woff2',
+  '/fonts/space-grotesk-latin.woff2'
 ];
+
+/** Strictly limits caching to known immutable static asset types */
+function isStaticAsset(request, url) {
+  if (url.origin !== self.location.origin) return false;
+
+  // Explicit static pre-cache list
+  if (STATIC_ASSETS.includes(url.pathname)) return true;
+
+  // Bundled assets and fonts directories
+  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/')) {
+    return true;
+  }
+
+  // Request destinations for static resources
+  if (['script', 'style', 'font', 'image'].includes(request.destination)) {
+    return true;
+  }
+
+  // Explicit static file extensions (never cache dynamic endpoints, APIs, or query payloads)
+  return /\.(?:js|css|woff2?|ttf|otf|png|jpe?g|svg|ico|webp|webmanifest)$/i.test(url.pathname);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -66,13 +89,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Only cache same-origin static assets (scripts, styles, icons)
+  // Strictly filter: only cache confirmed static assets; ignore all dynamic or API requests
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) {
+  if (!isStaticAsset(event.request, url)) {
     return;
   }
 
-  // For static assets, stale-while-revalidate
+  // Stale-while-revalidate strictly for immutable static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)

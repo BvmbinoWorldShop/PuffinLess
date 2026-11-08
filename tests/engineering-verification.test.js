@@ -29,6 +29,10 @@ class MockStorage {
 
 globalThis.localStorage = new MockStorage();
 globalThis.sessionStorage = new MockStorage();
+globalThis.window = {
+  localStorage: globalThis.localStorage,
+  sessionStorage: globalThis.sessionStorage,
+};
 
 // DIRECT IMPORTS FROM REAL APPLICATION CODE
 import {
@@ -39,10 +43,26 @@ import {
   purgeVaultKeys,
   getLegacyVaultKey,
   deriveKeyFromPassphrase,
+  enablePassphraseVault,
+  unlockPassphraseVault,
+  disablePassphraseVault,
+  lockCryptographicVault,
+  isPassphraseVaultEnabled,
   DecryptionError,
 } from '../src/utils/crypto.ts';
-import { resetAllUserData } from '../src/utils/storage.ts';
-import { purgeSecurityState, getSecurityConfig, saveSecurityConfig, verifyPin } from '../src/utils/security.ts';
+import {
+  resetAllUserData,
+  saveProfile,
+  initIndexedDBStorage,
+} from '../src/utils/storage.ts';
+import {
+  purgeSecurityState,
+  getSecurityConfig,
+  saveSecurityConfig,
+  verifyPin,
+  calculateLockoutDurationMs,
+  isAppSessionUnlocked,
+} from '../src/utils/security.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 
 describe('PuffinLess Production Code Verification', () => {
@@ -283,6 +303,92 @@ describe('PuffinLess Production Code Verification', () => {
       });
       assert.equal(isNaN(metricsInvalid.periodCleanDays), false, 'periodCleanDays must not be NaN for invalid dates');
       assert.equal(isNaN(metricsInvalid.periodCleanHours), false, 'periodCleanHours must not be NaN for invalid dates');
+    });
+  });
+
+  describe('Pillar 4: Session Security, PBKDF2 Vault Integration & Restart Recovery', () => {
+    test('enforces exponential anti-brute-force lockout progression', () => {
+      assert.equal(calculateLockoutDurationMs(1), 0);
+      assert.equal(calculateLockoutDurationMs(4), 0);
+      assert.equal(calculateLockoutDurationMs(5), 30000);   // 30s
+      assert.equal(calculateLockoutDurationMs(6), 60000);   // 1m
+      assert.equal(calculateLockoutDurationMs(7), 120000);  // 2m
+      assert.equal(calculateLockoutDurationMs(8), 300000);  // 5m
+      assert.equal(calculateLockoutDurationMs(9), 600000);  // 10m
+      assert.equal(calculateLockoutDurationMs(10), 900000); // 15m maximum backoff cap
+      assert.equal(calculateLockoutDurationMs(15), 900000); // capped at 15m
+    });
+
+    test('distinguishes between app complete closure vs standby (demands PIN only on cold restart)', () => {
+      saveSecurityConfig(true, '8888');
+
+      // 1. Cold start / Complete closure (sessionStorage wiped): PIN is required
+      globalThis.sessionStorage.clear();
+      assert.equal(isAppSessionUnlocked(), false, 'App MUST require PIN upon cold start or after browser restart');
+
+      // 2. Successful PIN entry unlocks the session
+      const unlockRes = verifyPin('8888');
+      assert.equal(unlockRes.success, true);
+      assert.equal(isAppSessionUnlocked(), true, 'Session must be unlocked after valid PIN');
+
+      // 3. Standby / Sleep mode (sessionStorage preserved): no redundant lock prompt
+      assert.equal(isAppSessionUnlocked(), true, 'Standby mode must keep session unlocked');
+
+      // 4. Complete app termination (browser quit / process killed): sessionStorage wiped
+      globalThis.sessionStorage.clear();
+      assert.equal(isAppSessionUnlocked(), false, 'Reopening after complete closure must demand PIN again');
+    });
+
+    test('recovers user data seamlessly from encrypted localStorage when IndexedDB fails', async () => {
+      const sampleProfile = {
+        name: 'SobrietyHero',
+        isOnboarded: true,
+        cigarettesPerDay: 15,
+        quitDate: '2026-02-01T08:00:00.000Z',
+      };
+
+      // Save to encrypted storage
+      await saveProfile(sampleProfile);
+
+      // Verify that initIndexedDBStorage recovers data from localStorage fallback
+      const hydrated = await initIndexedDBStorage();
+      assert.ok(hydrated, 'Storage must hydrate data successfully');
+      assert.equal(hydrated.profile.name, 'SobrietyHero');
+      assert.equal(hydrated.profile.cigarettesPerDay, 15);
+    });
+
+    test('full lifecycle of Passphrase Vault (PBKDF2 600,000 iterations): enable, lock, unlock & restore', async () => {
+      const passphrase = 'UltraSecurePersonalVault2026!';
+
+      // 1. Enable Passphrase Vault mode
+      const vaultKey = await enablePassphraseVault(passphrase);
+      assert.ok(vaultKey);
+      assert.ok(isPassphraseVaultEnabled(), 'Passphrase vault must be active');
+
+      // 2. Encrypt sensitive data using the passphrase-derived key
+      const secretRecord = { diary: '30 days clean, breathing easy', balance: 1200 };
+      const cipher = await encryptData(secretRecord);
+      assert.ok(cipher.startsWith('aes-gcm:'));
+
+      // 3. Simulate cold restart / locked vault session
+      lockCryptographicVault();
+
+      // 4. Attempt to unlock with invalid passphrase
+      const failedUnlock = await unlockPassphraseVault('WrongSecret!');
+      assert.equal(failedUnlock, false, 'Invalid passphrase must fail to unlock vault');
+
+      // 5. Unlock with legitimate passphrase (derives key via PBKDF2 with 600k iterations)
+      const validUnlock = await unlockPassphraseVault(passphrase);
+      assert.equal(validUnlock, true, 'Valid passphrase must unlock vault');
+
+      // 6. Decrypt payload with unlocked vault
+      const decrypted = await decryptData(cipher, null);
+      assert.deepEqual(decrypted, secretRecord, 'Decrypted record must match original plaintext perfectly');
+
+      // 7. Disable vault mode and return to device key
+      const restoredDeviceKey = await disablePassphraseVault();
+      assert.ok(restoredDeviceKey);
+      assert.equal(isPassphraseVaultEnabled(), false, 'Vault mode must be cleanly deactivated');
     });
   });
 });

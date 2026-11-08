@@ -11,7 +11,9 @@ import { SosModal } from './components/SosModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProfileModal } from './components/ProfileModal';
 import { AppLockScreen } from './components/AppLockScreen';
-import { isSecurityEnabled } from './utils/security';
+import { VaultUnlockScreen } from './components/VaultUnlockScreen';
+import { isAppSessionUnlocked } from './utils/security';
+import { isPassphraseVaultEnabled, isVaultUnlocked } from './utils/crypto';
 import { formatDuration } from './utils/dates';
 import { t } from './utils/i18n';
 
@@ -21,7 +23,8 @@ export function App() {
   const lang = profile.language || 'en';
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
-  const [isUnlocked, setIsUnlocked] = useState(() => !isSecurityEnabled());
+  const [isUnlocked, setIsUnlocked] = useState(() => isAppSessionUnlocked());
+  const [isVaultActive, setIsVaultActive] = useState(() => !isPassphraseVaultEnabled() || isVaultUnlocked());
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isManualOnboardingOpen, setIsManualOnboardingOpen] = useState(false);
   const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
@@ -60,6 +63,18 @@ export function App() {
 
   if (!isUnlocked) {
     return <AppLockScreen onUnlock={() => setIsUnlocked(true)} language={lang} />;
+  }
+
+  if (isPassphraseVaultEnabled() && !isVaultActive) {
+    return (
+      <VaultUnlockScreen
+        onUnlock={async () => {
+          setIsVaultActive(true);
+          await actions.rehydrate();
+        }}
+        language={lang}
+      />
+    );
   }
 
   if (!isHydrated) {

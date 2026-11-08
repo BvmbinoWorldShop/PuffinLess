@@ -32,6 +32,9 @@ jobs:
       - name: Run code linter
         run: npm run lint
 
+      - name: Verify dependencies for vulnerabilities
+        run: npm run audit
+
       - name: Run automated test suite
         run: npm test
 

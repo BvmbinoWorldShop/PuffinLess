@@ -291,13 +291,31 @@ export function useAppStore() {
     setStreaks([]);
   };
 
+  const rehydrate = async (): Promise<void> => {
+    setIsHydrated(false);
+    try {
+      const data = await initIndexedDBStorage();
+      if (data) {
+        if (data.profile) setProfile(data.profile);
+        if (data.goals) setGoals(data.goals);
+        if (data.cravings) setCravings(data.cravings);
+        if (data.expenses) setExpenses(data.expenses);
+        if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
+        if (data.sleepLogs) setSleepLogs(data.sleepLogs);
+        if (data.streaks) setStreaks(data.streaks);
+      }
+    } finally {
+      setIsHydrated(true);
+    }
+  };
+
   return {
     isHydrated,
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate,
     },
   };
 }

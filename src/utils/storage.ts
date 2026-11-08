@@ -11,7 +11,7 @@ import type {
   StreakRecord,
   Language,
 } from '../types';
-import { encryptData, decryptData, purgeVaultKeys } from './crypto.ts';
+import { encryptData, decryptData, purgeVaultKeys, setActiveVaultKey } from './crypto.ts';
 import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
 
@@ -944,9 +944,60 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       streaks: localStreaks,
     };
   } catch (err) {
-    console.warn('[Storage] IndexedDB initialization error, operating with local fallback:', err);
-    return null;
+    console.warn('[Storage] IndexedDB initialization error, recovering from encrypted localStorage:', err);
+    try {
+      const [localProfile, localStreaks, localCravings, localSubstances, localExpenses, localSleep, localGoals] =
+        await Promise.all([
+          loadProfileAsync(),
+          loadStreaksAsync(),
+          loadCravingsAsync(),
+          loadSubstanceLogsAsync(),
+          loadExpensesAsync(),
+          loadSleepEnergyAsync(),
+          loadSavingsGoalsAsync(),
+        ]);
+
+      return {
+        profile: localProfile,
+        goals: localGoals,
+        cravings: localCravings,
+        expenses: localExpenses,
+        substanceLogs: localSubstances,
+        sleepLogs: localSleep,
+        streaks: localStreaks,
+      };
+    } catch (fallbackErr) {
+      console.error('[Storage] Emergency fallback from localStorage failed:', fallbackErr);
+      return null;
+    }
   }
+}
+
+/**
+ * Re-encrypts all user entities with a newly selected active CryptoKey (e.g. Passphrase Vault transition).
+ */
+export async function reencryptAllUserDataWithKey(newKey: CryptoKey): Promise<void> {
+  const [profile, streaks, cravings, expenses, subLogs, sleepLogs, goals] = await Promise.all([
+    loadProfileAsync(),
+    loadStreaksAsync(),
+    loadCravingsAsync(),
+    loadExpensesAsync(),
+    loadSubstanceLogsAsync(),
+    loadSleepEnergyAsync(),
+    loadSavingsGoalsAsync(),
+  ]);
+
+  setActiveVaultKey(newKey);
+
+  await Promise.all([
+    saveProfile(profile),
+    saveStreaks(streaks),
+    saveCravings(cravings),
+    saveExpenses(expenses),
+    saveSubstanceLogs(subLogs),
+    saveSleepEnergy(sleepLogs),
+    saveSavingsGoals(goals),
+  ]);
 }
 
 /**

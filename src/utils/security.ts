@@ -15,8 +15,69 @@ interface LockoutState {
 
 const STORAGE_KEY = 'puffinless_security_config';
 const LOCKOUT_KEY = 'puffinless_lockout_state';
+const SESSION_UNLOCKED_KEY = 'puffinless_session_unlocked';
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 30000; // 30 seconds lockout
+
+/**
+ * Calculates exponential anti-brute-force lockout duration:
+ * - Attempts 1-4: 0s (warning countdown)
+ * - Attempt 5: 30s
+ * - Attempt 6: 60s (1 min)
+ * - Attempt 7: 120s (2 min)
+ * - Attempt 8: 300s (5 min)
+ * - Attempt 9: 600s (10 min)
+ * - Attempt 10+: 900s (15 min maximum backoff cap)
+ */
+export function calculateLockoutDurationMs(failedAttempts: number): number {
+  if (failedAttempts < MAX_FAILED_ATTEMPTS) return 0;
+  const exponent = failedAttempts - MAX_FAILED_ATTEMPTS;
+  switch (exponent) {
+    case 0:
+      return 30000;
+    case 1:
+      return 60000;
+    case 2:
+      return 120000;
+    case 3:
+      return 300000;
+    case 4:
+      return 600000;
+    default:
+      return 900000;
+  }
+}
+
+/**
+ * Tracks session unlock state.
+ * Stored strictly in sessionStorage:
+ * - Survives standby / phone screen lock / sleep mode without harassing the user.
+ * - Is wiped immediately when the application or browser is completely closed, demanding the PIN upon cold start.
+ */
+export function isAppSessionUnlocked(): boolean {
+  if (!isSecurityEnabled()) return true;
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem(SESSION_UNLOCKED_KEY) === 'true';
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+export function setAppSessionUnlocked(unlocked: boolean): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (unlocked) {
+        sessionStorage.setItem(SESSION_UNLOCKED_KEY, 'true');
+      } else {
+        sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
 
 function generateSalt(): string {
   try {
@@ -183,22 +244,21 @@ export function verifyPin(enteredPin: string): VerifyPinResult {
     }
     // Reset lockout counters on success
     saveLockoutState({ failedAttempts: 0, lockoutUntil: 0 });
+    setAppSessionUnlocked(true);
     return { success: true, isLockedOut: false, remainingSeconds: 0, remainingAttempts: MAX_FAILED_ATTEMPTS };
   }
 
-  // Increment failed attempts
+  // Increment failed attempts with exponential backoff
   const state = getLockoutState();
   const nextFailed = state.failedAttempts + 1;
-  let lockoutUntil = 0;
-  if (nextFailed >= MAX_FAILED_ATTEMPTS) {
-    lockoutUntil = Date.now() + LOCKOUT_DURATION_MS;
-  }
+  const lockoutDurationMs = calculateLockoutDurationMs(nextFailed);
+  const lockoutUntil = lockoutDurationMs > 0 ? Date.now() + lockoutDurationMs : 0;
   saveLockoutState({ failedAttempts: nextFailed, lockoutUntil });
 
   return {
     success: false,
     isLockedOut: lockoutUntil > Date.now(),
-    remainingSeconds: lockoutUntil > Date.now() ? Math.ceil(LOCKOUT_DURATION_MS / 1000) : 0,
+    remainingSeconds: lockoutUntil > Date.now() ? Math.ceil((lockoutUntil - Date.now()) / 1000) : 0,
     remainingAttempts: Math.max(0, MAX_FAILED_ATTEMPTS - nextFailed),
   };
 }
@@ -215,6 +275,7 @@ export function purgeSecurityState(): void {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(LOCKOUT_KEY);
+      sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
     }
   } catch (err) {
     console.error('[Security] Failed to purge security state:', err);
