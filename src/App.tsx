@@ -172,8 +172,8 @@ export function App() {
             setOnboardingStep(step);
             setIsOnboardingOpen(true);
           }}
-          onResetData={() => {
-            actions.resetAll();
+          onResetData={async () => {
+            await actions.resetAll();
             setOnboardingStep(1);
             setIsOnboardingOpen(true);
           }}

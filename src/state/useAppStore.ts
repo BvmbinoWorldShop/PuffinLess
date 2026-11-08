@@ -92,9 +92,9 @@ export function useAppStore() {
   );
 
   // ---------- Actions ----------
-  const updateProfile = (p: UserProfile) => {
+  const updateProfile = async (p: UserProfile): Promise<void> => {
     setProfile(p);
-    saveProfile(p);
+    await saveProfile(p);
   };
 
   const toggleTheme = () => updateProfile({ ...profile, theme: profile.theme === 'light' ? 'dark' : 'light' });

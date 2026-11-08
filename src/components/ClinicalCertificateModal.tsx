@@ -21,6 +21,7 @@ import type { CoreReport } from '../core/obsidianCore';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
 import { loadExpenses } from '../utils/storage';
+import { calculateClinicalPeriodMetrics } from '../utils/clinicalMetrics';
 
 export type ExportTimeRange = 'day' | 'week' | 'month';
 
@@ -105,30 +106,46 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
   const [timeRange, setTimeRange] = useState<ExportTimeRange>('week');
   const isFr = language === 'fr';
 
-  // Calculate cutoff timestamp for selected time range
-  const cutoffMs = useMemo(() => {
-    const t = now.getTime();
-    if (timeRange === 'day') return t - 24 * 60 * 60 * 1000;
-    if (timeRange === 'week') return t - 7 * 24 * 60 * 60 * 1000;
-    return t - 30 * 24 * 60 * 60 * 1000; // 'month'
-  }, [timeRange, now]);
-
   // Filter purchases/expenses
   const actualExpenses = useMemo(() => {
     if (expenses && expenses.length > 0) return expenses;
     return loadExpenses();
   }, [expenses]);
 
-  const filteredExpenses = useMemo(() => {
-    return actualExpenses.filter((e) => {
-      const t = new Date(e.timestamp).getTime();
-      return !isNaN(t) && t >= cutoffMs;
+  const metrics = useMemo(() => {
+    return calculateClinicalPeriodMetrics({
+      timeRange,
+      now,
+      profile,
+      substanceLogs,
+      cravings,
+      sleepLogs,
+      expenses: actualExpenses,
     });
-  }, [actualExpenses, cutoffMs]);
+  }, [timeRange, now, profile, substanceLogs, cravings, sleepLogs, actualExpenses]);
 
-  const totalExpensesAmount = useMemo(() => {
-    return filteredExpenses.reduce((sum, e) => sum + ((e.price || 0) * (e.quantity || 1)), 0);
-  }, [filteredExpenses]);
+  const {
+    windowDays,
+    periodCleanDays,
+    periodCleanHours,
+    filteredSubstanceLogs,
+    filteredCravings,
+    filteredSleepLogs,
+    totalExpensesAmount,
+    totalCigarettesTaken,
+    totalPuffsTaken,
+    totalCannabisTaken,
+    totalSubstancesTakenDoses,
+    periodDosesAvoided,
+    periodMoneySaved,
+    totalCravingsCount,
+    resistedCravingsCount,
+    cravingMasteryPct,
+    avgSleep,
+    avgEnergy,
+  } = metrics;
+
+  const totalIntakeEventsCount = filteredSubstanceLogs.length;
 
   const timeRangeLabel = useMemo(() => {
     if (isFr) {
@@ -162,61 +179,6 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
     rawName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 1337)
   ).toString(16).toUpperCase()}-${now.getFullYear()}`;
 
-  // Time Window in Days strictly matching selected timeRange
-  const windowDays = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : 30;
-
-  // Compute period sobriety duration (strictly capped by window duration)
-  const cleanDurationMs = Math.max(0, now.getTime() - new Date(profile?.quitDate || now).getTime());
-  const periodMaxMs = windowDays * 24 * 60 * 60 * 1000;
-  const periodCleanMs = Math.min(cleanDurationMs, periodMaxMs);
-  const periodCleanDays = Math.floor(periodCleanMs / (24 * 60 * 60 * 1000));
-  const periodCleanHours = Math.floor((periodCleanMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-
-  // Filter Data strictly by chosen Time Range
-  const filteredSubstanceLogs = substanceLogs.filter(
-    (log) => new Date(log.timestamp).getTime() >= cutoffMs
-  );
-  const filteredCravings = cravings.filter(
-    (c) => new Date(c.timestamp).getTime() >= cutoffMs
-  );
-
-  const cutoffDate = new Date(cutoffMs);
-  const cutoffDateStr = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-${String(cutoffDate.getDate()).padStart(2, '0')}`;
-  const filteredSleepLogs = sleepLogs.filter((s) => s.date >= cutoffDateStr);
-
-  // Compute number of substances consumed strictly in the selected time range
-  let totalCigarettesTaken = 0;
-  let totalPuffsTaken = 0;
-  let totalCannabisTaken = 0;
-
-  filteredSubstanceLogs.forEach((l) => {
-    if (l.substance === 'cigarette') totalCigarettesTaken += l.count;
-    else if (l.substance === 'puff_vape') totalPuffsTaken += l.count;
-    else if (l.substance === 'cannabis') totalCannabisTaken += l.count;
-  });
-
-  const totalSubstancesTakenDoses = totalCigarettesTaken + totalPuffsTaken + totalCannabisTaken;
-  const totalIntakeEventsCount = filteredSubstanceLogs.length;
-
-  // Compute period-scoped avoided doses and money saved (no lifetime leakage)
-  const dailyExpectedCigs = profile?.cigarettesPerDay || 0;
-  const dailyExpectedPuffs = profile?.puffsPerDay || 0;
-  const dailyExpectedCannabis = (profile?.cannabisGramsPerWeek || 0) / 7;
-  const dailyExpectedDoses = dailyExpectedCigs + dailyExpectedPuffs + dailyExpectedCannabis;
-  const periodExpectedDoses = Math.round(dailyExpectedDoses * windowDays);
-  const periodDosesAvoided = Math.max(0, periodExpectedDoses - totalSubstancesTakenDoses);
-
-  const cigCostPerDay = dailyExpectedCigs > 0
-    ? (dailyExpectedCigs / (profile?.cigarettesInPack || 20)) * (profile?.pricePerPack || 12)
-    : 0;
-  const vapeCostPerDay = dailyExpectedPuffs > 0
-    ? (dailyExpectedPuffs / 600) * (profile?.podPrice || 18)
-    : 0;
-  const cannabisCostPerDay = dailyExpectedCannabis * (profile?.pricePerGram || 10);
-  const dailyExpectedSpending = cigCostPerDay + vapeCostPerDay + cannabisCostPerDay;
-  const periodExpectedSpending = dailyExpectedSpending * windowDays;
-  const periodMoneySaved = Math.max(0, Math.round(periodExpectedSpending - totalExpensesAmount));
-
   const substancesTakenSummaryStr = totalSubstancesTakenDoses > 0
     ? (isFr
         ? `${totalSubstancesTakenDoses} prises (${[
@@ -239,21 +201,8 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         .slice(-7)
     : [];
 
-  const avgSleep = hasSufficientSleepData
-    ? (filteredSleepLogs.reduce((acc, l) => acc + l.sleepRating, 0) / filteredSleepLogs.length).toFixed(1)
-    : '--';
-
-  const avgEnergy = hasSufficientSleepData
-    ? (filteredSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / filteredSleepLogs.length).toFixed(1)
-    : '--';
-
   // 100% Real User-Logged Behavioral Indicators (Strictly within selected period)
-  // 1. Craving Mastery Rate (% resisted out of cravings logged in this period)
-  const totalCravingsCount = filteredCravings.length;
-  const resistedCravingsCount = filteredCravings.filter((c) => c.resisted).length;
-  const cravingMasteryPct = totalCravingsCount > 0
-    ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
-    : totalSubstancesTakenDoses === 0 ? 100 : 0;
+  // 1. Craving Mastery Rate (% resisted out of cravings logged in this period): derived from metrics (cravingMasteryPct)
 
   // 2. Logging Consistency Rate (% of days in active window with at least 1 declared log)
   const activeLoggingDaysSet = new Set<string>();

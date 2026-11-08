@@ -39,6 +39,7 @@ import {
 } from '../src/utils/crypto.ts';
 import { resetAllUserData } from '../src/utils/storage.ts';
 import { purgeSecurityState, getSecurityConfig, saveSecurityConfig } from '../src/utils/security.ts';
+import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 
 describe('PuffinLess Production Code Verification', () => {
 
@@ -136,10 +137,9 @@ describe('PuffinLess Production Code Verification', () => {
     });
   });
 
-  describe('Pillar 3: Period-Scoped Statistics (Zero Out-of-Period Leaks)', () => {
-    test('calculates period-scoped cravings strictly within time cutoff', () => {
+  describe('Pillar 3: Period-Scoped Statistics (Direct Production Component Execution)', () => {
+    test('calculates period-scoped cravings strictly within time cutoff via production function', () => {
       const nowMs = 1794110000000;
-      const cutoff24h = nowMs - 24 * 60 * 60 * 1000;
 
       const allCravings = [
         { id: 'c1', timestamp: new Date(nowMs - 3600000).toISOString(), resisted: true }, // 1h ago (inside period)
@@ -148,55 +148,59 @@ describe('PuffinLess Production Code Verification', () => {
         { id: 'c4', timestamp: new Date(nowMs - 86400000 * 10).toISOString(), resisted: false }, // 10 days ago (OUTSIDE period)
       ];
 
-      // Strict period filtering without lifetime fallback
-      const filteredCravings = allCravings.filter((c) => new Date(c.timestamp).getTime() >= cutoff24h);
-      assert.equal(filteredCravings.length, 2, 'Only 2 cravings occurred in the last 24h');
+      const metrics = calculateClinicalPeriodMetrics({
+        timeRange: 'day',
+        now: nowMs,
+        cravings: allCravings,
+        substanceLogs: [],
+      });
 
-      const totalPeriodCravings = filteredCravings.length;
-      const resistedPeriodCravings = filteredCravings.filter((c) => c.resisted).length;
-      const cravingMasteryPct = Math.round((resistedPeriodCravings / totalPeriodCravings) * 100);
-
-      // Mastery in 24h period is 100% (2 resisted out of 2) instead of lifetime 50%
-      assert.equal(cravingMasteryPct, 100, 'Period mastery must be strictly 100% without lifetime contamination');
+      assert.equal(metrics.filteredCravings.length, 2, 'Only 2 cravings occurred in the last 24h');
+      assert.equal(metrics.totalCravingsCount, 2);
+      assert.equal(metrics.resistedCravingsCount, 2);
+      assert.equal(metrics.cravingMasteryPct, 100, 'Period mastery must be strictly 100% without lifetime contamination');
     });
 
     test('when period has 0 cravings, reports 0 cravings without falling back to lifetime entries', () => {
       const nowMs = 1794110000000;
-      const cutoff24h = nowMs - 24 * 60 * 60 * 1000;
 
       const allCravings = [
         { id: 'cOld', timestamp: new Date(nowMs - 86400000 * 8).toISOString(), resisted: false },
       ];
 
-      const filteredCravings = allCravings.filter((c) => new Date(c.timestamp).getTime() >= cutoff24h);
-      assert.equal(filteredCravings.length, 0);
+      const metrics = calculateClinicalPeriodMetrics({
+        timeRange: 'day',
+        now: nowMs,
+        cravings: allCravings,
+        substanceLogs: [],
+      });
 
-      const totalCravingsCount = filteredCravings.length;
-      const resistedCravingsCount = filteredCravings.filter((c) => c.resisted).length;
-      const totalSlipsInPeriod = 0;
-      const mastery = totalCravingsCount > 0
-        ? Math.round((resistedCravingsCount / totalCravingsCount) * 100)
-        : totalSlipsInPeriod === 0 ? 100 : 0;
-
-      assert.equal(totalCravingsCount, 0, 'Must report 0 cravings logged in this period');
-      assert.equal(resistedCravingsCount, 0);
-      assert.equal(mastery, 100, 'Clean period without cravings must show 100% mastery');
+      assert.equal(metrics.filteredCravings.length, 0);
+      assert.equal(metrics.totalCravingsCount, 0, 'Must report 0 cravings logged in this period');
+      assert.equal(metrics.resistedCravingsCount, 0);
+      assert.equal(metrics.cravingMasteryPct, 100, 'Clean period without cravings must show 100% mastery');
     });
 
     test('computes period-scoped avoided doses and money saved strictly for window days', () => {
-      const windowDays = 7; // 1 week
-      const dailyExpectedDoses = 20; // 20 cigs per day
-      const dailyExpectedCost = 12.0; // $12 per day
-      const totalSlipsTakenInPeriod = 5; // 5 cigs consumed
-      const totalExpensesLogged = 10.0; // $10 spent on gum/accessories
+      const nowMs = 1794110000000;
+      const metrics = calculateClinicalPeriodMetrics({
+        timeRange: 'week',
+        now: nowMs,
+        profile: {
+          cigarettesPerDay: 20,
+          cigarettesInPack: 20,
+          pricePerPack: 12,
+        },
+        substanceLogs: [
+          { id: 's1', substance: 'cigarette', count: 5, timestamp: new Date(nowMs - 3600000).toISOString() },
+        ],
+        expenses: [
+          { id: 'e1', itemType: 'accessories', title: 'Gum', price: 10, quantity: 1, timestamp: new Date(nowMs - 3600000).toISOString() },
+        ],
+      });
 
-      const expectedDoses = dailyExpectedDoses * windowDays; // 140
-      const periodDosesAvoided = Math.max(0, expectedDoses - totalSlipsTakenInPeriod);
-      assert.equal(periodDosesAvoided, 135, 'Period doses avoided must be 140 - 5 = 135');
-
-      const expectedSpending = dailyExpectedCost * windowDays; // $84
-      const periodMoneySaved = Math.max(0, Math.round(expectedSpending - totalExpensesLogged));
-      assert.equal(periodMoneySaved, 74, 'Period money saved must be 84 - 10 = $74 (not lifetime thousands)');
+      assert.equal(metrics.periodDosesAvoided, 135, 'Period doses avoided must be 140 - 5 = 135');
+      assert.equal(metrics.periodMoneySaved, 74, 'Period money saved must be 84 - 10 = $74 (not lifetime thousands)');
     });
   });
 });

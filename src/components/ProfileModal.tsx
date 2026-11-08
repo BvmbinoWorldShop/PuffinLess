@@ -16,9 +16,9 @@ interface ProfileModalProps {
   isOpen: boolean;
   profile: UserProfile;
   onClose: () => void;
-  onSaveProfile: (profile: UserProfile) => void;
+  onSaveProfile: (profile: UserProfile) => Promise<void> | void;
   onRerunOnboarding: (step?: number) => void;
-  onResetData: () => void;
+  onResetData: () => Promise<void> | void;
 }
 
 const PRESET_AVATARS = [
@@ -128,6 +128,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const [confirmReset, setConfirmReset] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   // App Lock PIN security state
   const [securityEnabled, setSecurityEnabled] = useState(() => getSecurityConfig().enabled);
@@ -258,78 +262,109 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError(null);
+    setIsSaving(true);
 
-    // Fundamental Rule: Every save DOES NOT change the started timer.
-    // As default the app starts the count from the day it is used unless a specific date is entered by the user.
-    let finalQuitDate = profile.quitDate || profile.createdAt || new Date().toISOString();
-    let finalCustomQuitDate = Boolean(profile.customQuitDate);
+    try {
+      // Fundamental Rule: Every save DOES NOT change the started timer.
+      // As default the app starts the count from the day it is used unless a specific date is entered by the user.
+      let finalQuitDate = profile.quitDate || profile.createdAt || new Date().toISOString();
+      let finalCustomQuitDate = Boolean(profile.customQuitDate);
 
-    if (quitDate.trim() === '') {
-      // User left date blank or clicked "✕ Vierge"
-      // Keep existing started timer untouched; do not reset progress!
-      finalCustomQuitDate = false;
-    } else {
-      // User entered an explicit specific date
-      if (profile.quitDate && profile.quitDate.startsWith(quitDate)) {
-        finalQuitDate = profile.quitDate; // Keep exact time of day if date was unchanged
+      if (quitDate.trim() === '') {
+        // User left date blank or clicked "✕ Vierge"
+        // Keep existing started timer untouched; do not reset progress!
+        finalCustomQuitDate = false;
       } else {
-        finalQuitDate = new Date(quitDate + 'T00:00:00').toISOString();
+        // User entered an explicit specific date
+        if (profile.quitDate && profile.quitDate.startsWith(quitDate)) {
+          finalQuitDate = profile.quitDate; // Keep exact time of day if date was unchanged
+        } else {
+          finalQuitDate = new Date(quitDate + 'T00:00:00').toISOString();
+        }
+        finalCustomQuitDate = true;
       }
-      finalCustomQuitDate = true;
+
+      const updated: UserProfile = {
+        ...profile,
+        name: name.trim() || 'Champion',
+        avatar,
+        language: lang,
+        theme,
+        soundEnabled,
+        currency,
+        quitGoal,
+        age: Number(age) || 0,
+        gender,
+        ethnicity: '',
+        religion: '',
+        customCoachGoal: coreValue.trim(),
+        job: job.trim(),
+        monthlyIncome: Number(monthlyIncome) || 0,
+        habits,
+        primarySubstance,
+        cigarettesPerDay: Number(cigsPerDay) || 0,
+        pricePerPack: Number(pricePerPack) || 12,
+        puffsPerDay: Number(puffsPerDay) || 0,
+        podPrice: Number(podPrice) || 18,
+        cannabisGramsPerWeek: Number(cannabisGrams) || 0,
+        pricePerGram: Number(pricePerGram) || 10,
+        smokingHabitByDay: {
+          cigarettes: Number(cigsPerDay) || 0,
+          puffs: Number(puffsPerDay) || 0,
+          cannabis: Number(cannabisGrams) || 0,
+          yearsSmoking: Number(yearsSmoking) || 0,
+          peakTriggers: selectedTriggers,
+        },
+        quitMode,
+        quitDate: finalQuitDate,
+        customQuitDate: finalCustomQuitDate,
+        createdAt: profile.createdAt || finalQuitDate,
+        updatedAt: new Date().toISOString(),
+      };
+
+      sound.setEnabled(soundEnabled);
+      sound.playClick();
+      saveSecurityConfig(
+        securityEnabled,
+        securityPin === '••••' ? undefined : securityPin.trim()
+      );
+      await onSaveProfile(updated);
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        onClose();
+      }, 600);
+    } catch (err) {
+      console.error('[ProfileModal] Error saving profile:', err);
+      setSaveError(
+        isFr
+          ? "Erreur lors de l'enregistrement. Veuillez vérifier l'espace disponible."
+          : "Error saving profile. Please check device storage."
+      );
+    } finally {
+      setIsSaving(false);
     }
+  };
 
-    const updated: UserProfile = {
-      ...profile,
-      name: name.trim() || 'Champion',
-      avatar,
-      language: lang,
-      theme,
-      soundEnabled,
-      currency,
-      quitGoal,
-      age: Number(age) || 0,
-      gender,
-      ethnicity: '',
-      religion: '',
-      customCoachGoal: coreValue.trim(),
-      job: job.trim(),
-      monthlyIncome: Number(monthlyIncome) || 0,
-      habits,
-      primarySubstance,
-      cigarettesPerDay: Number(cigsPerDay) || 0,
-      pricePerPack: Number(pricePerPack) || 12,
-      puffsPerDay: Number(puffsPerDay) || 0,
-      podPrice: Number(podPrice) || 18,
-      cannabisGramsPerWeek: Number(cannabisGrams) || 0,
-      pricePerGram: Number(pricePerGram) || 10,
-      smokingHabitByDay: {
-        cigarettes: Number(cigsPerDay) || 0,
-        puffs: Number(puffsPerDay) || 0,
-        cannabis: Number(cannabisGrams) || 0,
-        yearsSmoking: Number(yearsSmoking) || 0,
-        peakTriggers: selectedTriggers,
-      },
-      quitMode,
-      quitDate: finalQuitDate,
-      customQuitDate: finalCustomQuitDate,
-      createdAt: profile.createdAt || finalQuitDate,
-      updatedAt: new Date().toISOString(),
-    };
-
-    sound.setEnabled(soundEnabled);
-    sound.playClick();
-    saveSecurityConfig(
-      securityEnabled,
-      securityPin === '••••' ? undefined : securityPin.trim()
-    );
-    onSaveProfile(updated);
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
+  const handleConfirmReset = async () => {
+    setResetError(null);
+    setIsResetting(true);
+    try {
+      await onResetData();
       onClose();
-    }, 600);
+    } catch (err) {
+      console.error('[ProfileModal] Data erasure error:', err);
+      setResetError(
+        isFr
+          ? 'Échec de la suppression définitive. Veuillez fermer les autres onglets et réessayer.'
+          : 'Failed to confirm data deletion. Please close other tabs and try again.'
+      );
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const triggerOptions = [
@@ -911,10 +946,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
 
               {/* QUIT DATE & MODE */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
-                    <label className="block text-[11px] font-semibold text-slate-300 truncate">
+              <div className="grid grid-cols-2 gap-2 pt-1 items-start">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1 min-w-0 h-4">
+                    <label className="block text-xs font-semibold text-slate-300 truncate">
                       {isFr ? 'Date d\'Arrêt Spécifique' : 'Custom Clean Date'}
                     </label>
                     {quitDate && (
@@ -925,7 +960,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           setQuitDate('');
                         }}
                         className="px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
-                        title={isFr ? 'Laisser vierge pour compter depuis le 1er jour' : 'Leave blank to count from 1st day'}
+                        title={isFr ? 'Laisser vierge' : 'Leave blank'}
                       >
                         ✕ {isFr ? 'Vierge' : 'Clear'}
                       </button>
@@ -936,25 +971,30 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     value={quitDate}
                     onChange={(e) => setQuitDate(e.target.value)}
                     placeholder="YYYY-MM-DD"
-                    className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs h-[38px]"
                   />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate" title={isFr ? 'Vierge par défaut : compte depuis le 1er jour d\'utilisation' : 'Blank by default: counts from first day of use'}>
-                    {isFr ? 'Vierge par défaut (compte dès le 1er jour)' : 'Blank by default (counts from 1st day)'}
+                  <span className="text-[10px] text-slate-400 mt-1 block truncate">
+                    {isFr ? 'Vierge par défaut' : 'Blank by default'}
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    {isFr ? 'Années de Pratique' : 'Years Consuming'}
-                  </label>
+                  <div className="flex items-center justify-between gap-1 mb-1 min-w-0 h-4">
+                    <label className="block text-xs font-semibold text-slate-300 truncate">
+                      {isFr ? 'Années de Pratique' : 'Years Consuming'}
+                    </label>
+                  </div>
                   <input
                     type="number"
                     min="0"
                     value={yearsSmoking}
                     onChange={(e) => setYearsSmoking(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="6"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
+                    placeholder="0"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs h-[38px]"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block truncate opacity-0 pointer-events-none select-none">
+                    {isFr ? 'Vierge par défaut' : 'Blank by default'}
+                  </span>
                 </div>
               </div>
           </div>
@@ -1202,7 +1242,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   {isFr ? '5. Sauvegarde & Gestion des Données' : '5. Data Backup & Storage Management'}
                 </h4>
                 <p className="text-[10px] text-slate-400">
-                  {isFr ? 'Stockage IndexedDB local, export JSON complet et droit à l\'effacement' : 'Local IndexedDB storage, JSON export, and permanent erasure'}
+                  {isFr ? 'Coffre-fort local avec sécurité de niveau militaire, export de sauvegarde et droit à l\'effacement' : 'Military-grade secured local vault, full backup export, and right to be forgotten'}
                 </p>
               </div>
             </div>
@@ -1216,8 +1256,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                   <span className="text-[11px] text-slate-400 block">
                     {isFr
-                      ? '100% de vos données sont stockées sur cet appareil (IndexedDB). Téléchargez une sauvegarde intégrale non chiffrée (RGPD Art. 20).'
-                      : '100% of your data remains on this device (IndexedDB). Download an unencrypted full backup (GDPR Art. 20).'}
+                      ? 'Vos données sont 100% privées et protégées par une sécurité de niveau militaire sur cet appareil. Téléchargez une sauvegarde intégrale (RGPD Art. 20).'
+                      : 'Your data is 100% private and protected with military-grade security on this device. Download a complete backup (GDPR Art. 20).'}
                   </span>
                 </div>
                 <button
@@ -1242,10 +1282,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </span>
                 <span className="text-[11px] text-slate-400 block">
                   {isFr
-                    ? 'Efface définitivement toutes vos données PuffinLess stockées sur cet appareil (IndexedDB & stockage local).'
-                    : 'Permanently deletes all PuffinLess data stored on this device (IndexedDB & local cache).'}
+                    ? 'Efface définitivement et détruit toutes vos données PuffinLess de cet appareil.'
+                    : 'Permanently and irreversibly erases all your PuffinLess data from this device.'}
                 </span>
               </div>
+
+              {resetError && (
+                <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 font-medium">
+                  {resetError}
+                </div>
+              )}
 
               {!confirmReset ? (
                 <button
@@ -1260,18 +1306,27 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => {
-                      onResetData();
-                      onClose();
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs cursor-pointer hover:bg-rose-500 transition-all"
+                    disabled={isResetting}
+                    onClick={handleConfirmReset}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs cursor-pointer hover:bg-rose-500 transition-all disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}
+                    {isResetting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>{isFr ? 'Suppression en cours...' : 'Erasing data...'}</span>
+                      </>
+                    ) : (
+                      <span>{isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}</span>
+                    )}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmReset(false)}
-                    className="px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white cursor-pointer"
+                    disabled={isResetting}
+                    onClick={() => {
+                      setConfirmReset(false);
+                      setResetError(null);
+                    }}
+                    className="px-3 py-2 rounded-xl glass-button text-xs text-slate-300 hover:text-white cursor-pointer disabled:opacity-50"
                   >
                     {isFr ? 'Annuler' : 'Cancel'}
                   </button>
@@ -1350,14 +1405,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           {/* Primary Action Button (Always visible at bottom) */}
-          <div className="pt-3 border-t border-white/10 shrink-0">
+          <div className="pt-3 border-t border-white/10 shrink-0 space-y-2">
+            {saveError && (
+              <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 text-center font-medium">
+                {saveError}
+              </div>
+            )}
             <button
               id="settings-save-button"
               type="submit"
+              disabled={isSaving}
               style={{ backgroundColor: '#059669', color: '#ffffff' }}
-              className="btn-settings-save w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 !bg-emerald-600 !text-white font-bold text-sm shadow-xl shadow-emerald-500/25 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="btn-settings-save w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 !bg-emerald-600 !text-white font-bold text-sm shadow-xl shadow-emerald-500/25 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
-              {savedSuccess ? (
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="!text-white font-bold">{isFr ? 'Enregistrement sécurisé...' : 'Saving safely...'}</span>
+                </>
+              ) : savedSuccess ? (
                 <>
                   <Check className="w-4 h-4 !text-white" />
                   <span className="!text-white font-bold">{isFr ? 'Profil et Coach Enregistrés !' : 'Profile & Coach Updated!'}</span>

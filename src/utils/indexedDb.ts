@@ -93,66 +93,61 @@ export async function idbGet<T>(key: string): Promise<T | null> {
 
 /**
  * Encrypt arbitrary value with AES-GCM and store by key in IndexedDB.
+ * Fails explicitly on error instead of masking write failures.
  */
 export async function idbSet<T>(key: string, value: T): Promise<void> {
-  try {
-    const db = await openPuffinLessDB();
-    // Enforce AES-GCM encryption with fresh unique IV before writing to disk
-    const encryptedPayload = await encryptData(value);
+  const db = await openPuffinLessDB();
+  // Enforce AES-GCM encryption with fresh unique IV before writing to disk
+  const encryptedPayload = await encryptData(value);
 
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.put(encryptedPayload, key);
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(encryptedPayload, key);
 
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch (err) {
-    console.warn(`[IndexedDB] Error saving key "${key}":`, err);
-  }
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Error saving key "${key}"`));
+    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error saving key "${key}"`));
+  });
 }
 
 /**
  * Remove a key from IndexedDB.
+ * Fails explicitly on error instead of masking deletion failures.
  */
 export async function idbRemove(key: string): Promise<void> {
-  try {
-    const db = await openPuffinLessDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(key);
+  const db = await openPuffinLessDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(key);
 
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch (err) {
-    console.warn(`[IndexedDB] Error deleting key "${key}":`, err);
-  }
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Error deleting key "${key}"`));
+    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error deleting key "${key}"`));
+  });
 }
 
 /**
  * Clear all records in the PuffinLess IndexedDB store.
+ * Fails explicitly on error instead of masking clear failures.
  */
 export async function idbClear(): Promise<void> {
-  try {
-    const db = await openPuffinLessDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.clear();
+  const db = await openPuffinLessDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.clear();
 
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch (err) {
-    console.warn('[IndexedDB] Error clearing store:', err);
-  }
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error || new Error('[IndexedDB] Error clearing store'));
+    tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing store'));
+  });
 }
 
 /**
  * Irrevocably close and delete the IndexedDB database from the browser disk.
+ * Strictly awaits real confirmation from the database engine before resolving.
  */
 export async function deletePuffinLessDB(): Promise<void> {
   if (dbInstance) {
@@ -168,11 +163,37 @@ export async function deletePuffinLessDB(): Promise<void> {
   if (typeof window !== 'undefined' && window.indexedDB) {
     await new Promise<void>((resolve, reject) => {
       const req = window.indexedDB.deleteDatabase(DB_NAME);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+
+      let timedOut = false;
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+        reject(new Error('[IndexedDB] Database deletion timed out while waiting for confirmation.'));
+      }, 8000);
+
+      req.onsuccess = () => {
+        if (!timedOut) {
+          clearTimeout(timeoutId);
+          resolve();
+        }
+      };
+
+      req.onerror = () => {
+        if (!timedOut) {
+          clearTimeout(timeoutId);
+          reject(req.error || new Error('[IndexedDB] Failed to delete database'));
+        }
+      };
+
       req.onblocked = () => {
-        console.warn('[IndexedDB] Database delete blocked by open tab; proceeding.');
-        resolve();
+        console.warn('[IndexedDB] Database delete blocked by open connections. Attempting to force close...');
+        if (dbInstance) {
+          try {
+            dbInstance.close();
+          } catch {
+            // ignore
+          }
+          dbInstance = null;
+        }
       };
     });
   }

@@ -23,18 +23,19 @@ PuffinLess utilise l'API native standard **Web Crypto API** (`crypto.subtle`) po
 
 Pour respecter le droit à l'effacement définitif (RGPD Art. 17) :
 
-1. **Destruction Physique de la Base IndexedDB** :
+1. **Suppression Confirmée de la Base IndexedDB** :
    - Fermeture immédiate de toutes les connexions actives (`dbInstance.close()`).
-   - Appel à `window.indexedDB.deleteDatabase('puffinless_indexeddb')`.
+   - Appel à `window.indexedDB.deleteDatabase('puffinless_indexeddb')` avec attente stricte de l'événement `onsuccess`.
+   - Si la suppression est bloquée par un autre onglet ouvert, l'opération n'émet pas une fausse confirmation : elle tente de libérer les handles et échoue après un délai de garde (fail-fast).
 2. **Cryptoshredding (Destruction des Clés)** :
    - Suppression irrévocable de `puffinless_vault_key_v2` et `puffinless_vault_key_v1` via `purgeVaultKeys()`.
    - Réinitialisation du cache en mémoire `cachedCryptoKey = null`.
-   - Même si un secteur de disque rémanent persistait, les données sont mathématiquement indéchiffrables.
+   - Les données au repos résiduelles sur les blocs disques deviennent mathématiquement indéchiffrables.
 3. **Purge Intégrale du Stockage Navigateur** :
    - Purge complète `localStorage.clear()` et `sessionStorage.clear()`.
    - Suppression du hash salé du code PIN et des historiques de lockout (`purgeSecurityState()`).
-4. **Réinitialisation de l'État Mémoire** :
-   - Remise à zéro du store vers l'état non-embarqué (`isOnboarded: false`), renvoyant immédiatement vers l'onboarding.
+4. **Politique Fail-Fast (Non-Masquage des Erreurs)** :
+   - Toute défaillance de sauvegarde (dépassement de quota, indisponibilité IndexedDB) ou d'effacement propage explicitement une erreur afin que l'interface utilisateur informe fidèlement l'utilisateur au lieu de prétendre silencieusement au succès.
 
 ---
 
@@ -90,9 +91,17 @@ npm test
 3. **Cryptoshredding & Purge Totale** :
    - Vérification du vidage intégral de `localStorage` et `sessionStorage` (0 clé restante).
    - Impossibilité mathématique de déchiffrer les anciens payloads avec une nouvelle clé.
-4. **Calculs Périodiques Étanches** :
-   - Validation du filtrage strict des pulsions sur 24h sans contamination de l'historique global.
+4. **Calculs Périodiques Directement Exécutés en Production (`src/utils/clinicalMetrics.ts`)** :
+   - Validation du filtrage strict des pulsions sur 24h sans contamination de l'historique global via l'utilitaire de calcul de production réel.
    - Validation du calcul des économies et doses évitées calibrées à la fenêtre temporelle.
+
+---
+
+## 7. Modèle de Menace & Périmètre de Sécurité
+
+- **Ce qui est protégé** : Les données utilisateur au repos sont protégées contre les extractions directes et inspections non autorisées dans le stockage du navigateur (`localStorage` et `IndexedDB`).
+- **Architecture 100% Locale** : Zéro serveur distant, zéro analyse télémétrique, zéro tiers.
+- **Limites du périmètre** : Dans un modèle client pur hors cloud, la sécurité est bornée par le système d'exploitation hôte. Une compromission complète de l'appareil (accès root/administrateur physique) ou l'inspection de la mémoire vive par un débogueur de processus lorsque le coffre est déverrouillé relève des protections de sécurité de l'OS.
 
 ---
 *PuffinLess — Privacy-First Offline Architecture — 100% On-Device.*

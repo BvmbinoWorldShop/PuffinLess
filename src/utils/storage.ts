@@ -49,13 +49,9 @@ export async function loadStreaksAsync(): Promise<StreakRecord[]> {
 }
 
 export async function saveStreaks(streaks: StreakRecord[]): Promise<void> {
-  try {
-    const cipher = await encryptData(streaks);
-    localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
-    await idbSet(STORAGE_KEYS.STREAKS, streaks);
-  } catch (e) {
-    console.error('Error saving streaks', e);
-  }
+  const cipher = await encryptData(streaks);
+  localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
+  await idbSet(STORAGE_KEYS.STREAKS, streaks);
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -94,7 +90,7 @@ export const DEFAULT_PROFILE: UserProfile = {
     yearsSmoking: 0,
     peakTriggers: ['Stress', 'After meal'],
   },
-  customCoachGoal: 'Reclaim my lung capacity, save my money to invest, and achieve peak cognitive performance.',
+  customCoachGoal: '',
 };
 
 export const DEFAULT_PURCHASES: PurchaseExpense[] = [
@@ -676,13 +672,9 @@ export async function loadProfileAsync(): Promise<UserProfile> {
 }
 
 export async function saveProfile(profile: UserProfile): Promise<void> {
-  try {
-    const cipher = await encryptData(profile);
-    localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
-    await idbSet(STORAGE_KEYS.PROFILE, profile);
-  } catch (e) {
-    console.error('Error saving profile', e);
-  }
+  const cipher = await encryptData(profile);
+  localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
+  await idbSet(STORAGE_KEYS.PROFILE, profile);
 }
 
 export function loadExpenses(): PurchaseExpense[] {
@@ -708,13 +700,9 @@ export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
 }
 
 export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
-  try {
-    const cipher = await encryptData(expenses);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
-    await idbSet(STORAGE_KEYS.EXPENSES, expenses);
-  } catch (e) {
-    console.error('Error saving expenses', e);
-  }
+  const cipher = await encryptData(expenses);
+  localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
+  await idbSet(STORAGE_KEYS.EXPENSES, expenses);
 }
 
 export function loadSubstanceLogs(): SubstanceLog[] {
@@ -740,13 +728,9 @@ export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
 }
 
 export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
-  try {
-    const cipher = await encryptData(logs);
-    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
-    await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
-  } catch (e) {
-    console.error('Error saving substance logs', e);
-  }
+  const cipher = await encryptData(logs);
+  localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
+  await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, logs);
 }
 
 export function loadSleepEnergy(): SleepEnergyEntry[] {
@@ -772,13 +756,9 @@ export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
 }
 
 export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void> {
-  try {
-    const cipher = await encryptData(entries);
-    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
-    await idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
-  } catch (e) {
-    console.error('Error saving sleep energy', e);
-  }
+  const cipher = await encryptData(entries);
+  localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
+  await idbSet(STORAGE_KEYS.SLEEP_ENERGY, entries);
 }
 
 export function loadSavingsGoals(): SavingsGoal[] {
@@ -804,13 +784,9 @@ export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
 }
 
 export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
-  try {
-    const cipher = await encryptData(goals);
-    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
-    await idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
-  } catch (e) {
-    console.error('Error saving goals', e);
-  }
+  const cipher = await encryptData(goals);
+  localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
+  await idbSet(STORAGE_KEYS.SAVINGS_GOALS, goals);
 }
 
 export function loadCravings(): CravingEntry[] {
@@ -836,13 +812,9 @@ export async function loadCravingsAsync(): Promise<CravingEntry[]> {
 }
 
 export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
-  try {
-    const cipher = await encryptData(cravings);
-    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
-    await idbSet(STORAGE_KEYS.CRAVINGS, cravings);
-  } catch (e) {
-    console.error('Error saving cravings', e);
-  }
+  const cipher = await encryptData(cravings);
+  localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
+  await idbSet(STORAGE_KEYS.CRAVINGS, cravings);
 }
 
 export function loadSmokeLog(): SmokeLogEntry[] {
@@ -868,13 +840,9 @@ export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
 }
 
 export async function saveSmokeLog(logs: SmokeLogEntry[]): Promise<void> {
-  try {
-    const cipher = await encryptData(logs);
-    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
-    await idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
-  } catch (e) {
-    console.error('Error saving smoke log', e);
-  }
+  const cipher = await encryptData(logs);
+  localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
+  await idbSet(STORAGE_KEYS.SMOKE_LOG, logs);
 }
 
 export interface HydratedStorageData {
@@ -964,12 +932,8 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
  * - Purges all keys from localStorage and sessionStorage.
  */
 export async function resetAllUserData(): Promise<void> {
-  // 1. Delete IndexedDB physical database
-  try {
-    await deletePuffinLessDB();
-  } catch (err) {
-    console.warn('[Storage] Error deleting IndexedDB physical database:', err);
-  }
+  // 1. Delete IndexedDB physical database and await real confirmation
+  await deletePuffinLessDB();
 
   // 2. Cryptoshredding: purge device AES encryption keys
   purgeVaultKeys();
