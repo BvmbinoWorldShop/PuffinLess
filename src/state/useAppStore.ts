@@ -298,51 +298,6 @@ export function useAppStore() {
     createDeviceRescueSnapshot({ profile: finalized });
   };
 
-  const restoreCleanDays = async (days: number = 7): Promise<UserProfile> => {
-    const quitTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const nextProfile: UserProfile = {
-      ...profile,
-      name: profile.name || (typeof localStorage !== 'undefined' ? localStorage.getItem('puffinless_user_name') || 'Champion' : 'Champion'),
-      isOnboarded: true,
-      quitDate: quitTime,
-      createdAt: quitTime,
-      customQuitDate: true,
-      quitGoal: 'already_quit',
-    };
-
-    const initialStreak: StreakRecord = {
-      id: generateSecureId('st'),
-      start: quitTime,
-    };
-
-    const nextStreaks = streaks.length > 0 ? streaks : [initialStreak];
-
-    setProfile(nextProfile);
-    setStreaks(nextStreaks);
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('puffinless_is_onboarded', 'true');
-      localStorage.setItem('puffinless_quit_date', quitTime);
-      localStorage.setItem('puffinless_user_name', nextProfile.name);
-      localStorage.setItem('puffinless_app_lang', nextProfile.language || 'fr');
-      localStorage.setItem('puffinless_lang', nextProfile.language || 'fr');
-      localStorage.setItem('puffinless_app_theme', nextProfile.theme || 'dark');
-      localStorage.setItem('puffinless_theme', nextProfile.theme || 'dark');
-    }
-
-    createDeviceRescueSnapshot({
-      profile: nextProfile,
-      streaks: nextStreaks,
-    });
-
-    await Promise.all([
-      saveProfile(nextProfile),
-      saveStreaks(nextStreaks),
-    ]);
-
-    return nextProfile;
-  };
-
   const resetAll = async () => {
     await resetAllUserData();
     setProfile({ ...DEFAULT_PROFILE, isOnboarded: false, quitDate: '', createdAt: '' });
@@ -392,7 +347,7 @@ export function useAppStore() {
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData, restoreCleanDays,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData,
     },
   };
 }

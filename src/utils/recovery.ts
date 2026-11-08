@@ -304,7 +304,6 @@ async function dumpIndexedDBRecords(): Promise<Map<string, unknown>> {
 export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   const sources: string[] = [];
   const candidateProfiles: UserProfile[] = [];
-  const candidateQuitDates: string[] = [];
   let candidateStreaks: StreakRecord[] = [];
   let candidateCravings: CravingEntry[] = [];
   let candidateSubstances: SubstanceLog[] = [];
@@ -313,11 +312,11 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   let candidateGoals: SavingsGoal[] = [];
   let candidateSmokeLogs: SmokeLogEntry[] = [];
 
-  // Helper to extract known entities regardless of key names
+  // Helper to extract known entities strictly from verified PuffinLess structures
   const classifyAndExtract = (val: unknown) => {
     if (!val) return;
 
-    // If string, try to parse JSON or detect ISO date
+    // If string is serialized JSON, parse and classify the resulting object
     if (typeof val === 'string') {
       if (val.startsWith('{') || val.startsWith('[')) {
         try {
@@ -328,12 +327,7 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           // ignore
         }
       }
-      if (val.length >= 10 && !isNaN(Date.parse(val))) {
-        const time = Date.parse(val);
-        if (time > 946684800000 && time <= Date.now() + 86400000) {
-          candidateQuitDates.push(val);
-        }
-      }
+      // Never treat arbitrary string dates as quit dates - strictly restricted to verified PuffinLess data structures
       return;
     }
 
@@ -501,17 +495,9 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     });
   }
 
-  // If profile was lost but streaks, cravings or date markers exist, reconstruct active profile anchored to earliest timestamp
-  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || candidateQuitDates.length > 0 || (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_quit_date') || localStorage.getItem('puffinless_is_onboarded') === 'true')))) {
+  // If profile was lost but verified streaks, cravings or explicit PuffinLess markers exist, reconstruct active profile anchored to earliest timestamp
+  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_quit_date') || localStorage.getItem('puffinless_is_onboarded') === 'true')))) {
     let earliestDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
-    if (!earliestDate && candidateQuitDates.length > 0) {
-      const validTimes = candidateQuitDates
-        .map((d) => new Date(d).getTime())
-        .filter((t) => !isNaN(t) && t <= Date.now());
-      if (validTimes.length > 0) {
-        earliestDate = new Date(Math.min(...validTimes)).toISOString();
-      }
-    }
     if (!earliestDate) {
       if (candidateStreaks.length > 0) {
         const dates = candidateStreaks.map((s) => new Date(s.start).getTime()).filter((t) => !isNaN(t));

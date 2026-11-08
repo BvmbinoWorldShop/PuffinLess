@@ -41,16 +41,15 @@ export function App() {
 
   // Synchronize onboarding state with profile to permanently prevent presentation guide loop
   useEffect(() => {
-    if (profile.isOnboarded || (profile.quitDate && profile.quitDate !== '')) {
+    if (profile.isOnboarded) {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('puffinless_is_onboarded', 'true');
       }
     }
-  }, [profile.isOnboarded, profile.quitDate]);
+  }, [profile.isOnboarded]);
 
   const hasOnboardedEvidence =
     profile.isOnboarded ||
-    Boolean(profile.quitDate && profile.quitDate !== '') ||
     isOnboardingDismissed;
 
   const isOnboardingOpen = isManualOnboardingOpen || (isHydrated && !hasOnboardedEvidence);
@@ -196,7 +195,6 @@ export function App() {
         initialProfile={profile}
         initialStep={onboardingStep}
         onRecover={actions.recoverLocalData}
-        onRestoreCleanDays={actions.restoreCleanDays}
         onClose={() => {
           setIsManualOnboardingOpen(false);
           setIsOnboardingDismissed(true);
@@ -222,7 +220,6 @@ export function App() {
           onClose={() => setIsProfileOpen(false)}
           onSaveProfile={actions.updateProfile}
           onRecoverData={actions.recoverLocalData}
-          onRestoreCleanDays={actions.restoreCleanDays}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
             setIsOnboardingDismissed(false);

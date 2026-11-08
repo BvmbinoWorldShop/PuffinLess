@@ -39,9 +39,9 @@
 ### 6. 🔐 Local-First Privacy, Cryptographic Vault & AES-GCM Web Crypto Architecture
 - **Non-Extractable CryptoKey Stored in IndexedDB KeyVault**: Encryption keys use native `CryptoKey` with `extractable: false`, stored in a dedicated IndexedDB vault (`puffinless_key_vault`). No raw key bytes are ever stored in `localStorage`.
 - **AES-GCM 256-bit Authenticated Encryption**: Powered by the native browser Web Crypto API (`crypto.subtle`) with dynamic 96-bit (12-byte) IV per write (`crypto.getRandomValues(new Uint8Array(12))`).
-- **Cryptographic Key Derivation (PBKDF2 600,000 Iterations)**: Supports custom passphrase vault protection deriving non-extractable AES-GCM keys via PBKDF2-HMAC-SHA256 with random salt.
-- **PIN Screen Lock Hashing (PBKDF2 100,000 Iterations)**: Replaced basic SHA-256 with salted PBKDF2 hashing for UI screen lock with anti-brute-force exponential lockout.
-- **Separation of Concerns**: Strict architectural separation between UI Screen Lock (presentation access) and Cryptographic Vault Unlock (data decryption).
+- **Persistent Device Key Vault & Fail-Safe Verification**: Stores non-extractable AES-GCM keys with transaction and read-back verification directly in IndexedDB. Never purges legacy recovery material without confirmed replacement persistence.
+- **PIN Screen Lock Hashing (PBKDF2 100,000 Iterations)**: Salted PBKDF2 hashing for UI screen lock with anti-brute-force exponential lockout.
+- **Separation of Concerns**: Strict architectural separation between UI Screen Lock (presentation access) and the transparent Cryptographic Storage Engine (data at rest).
 - **Explicit Error Separation**: Strict distinction between data absence (`status: 'absent'`) and cryptographic decryption failures (`DecryptionError`), preventing silent data overwrites.
 - **100% Self-Hosted Local Fonts**: Bundled local WOFF2 fonts (`Plus Jakarta Sans` & `Space Grotesk`) with zero external network requests to third-party CDNs.
 - **Cryptoshredding & Confirmed Storage Erasure (GDPR Art. 17)**: One-click erase awaits confirmed physical deletion of IndexedDB databases, deletes non-extractable keys, purges PIN credentials, and wipes browser storage.

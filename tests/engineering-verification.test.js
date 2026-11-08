@@ -45,6 +45,9 @@ import {
   purgeVaultKeys,
   getLegacyVaultKey,
   loadKeyFromVault,
+  saveKeyToVault,
+  createKeyFromSeed,
+  lockCryptographicVault,
   getCryptoLifecycleState,
   MASTER_KEY_ID,
   DecryptionError,
@@ -53,8 +56,11 @@ import {
   resetAllUserData,
   saveProfile,
   loadProfile,
+  loadProfileAsync,
   saveStreaks,
+  loadStreaksAsync,
   saveCravings,
+  loadCravingsAsync,
   initIndexedDBStorage,
   readWithStatus,
 } from '../src/utils/storage.ts';
@@ -516,6 +522,100 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(res.profile.isOnboarded, true);
       assert.equal(res.cravings.length, 1);
       assert.equal(res.cravings[0].id, 'c-legacy-1');
+    });
+
+    test('fresh install onboarding initializes profile with isOnboarded: false and empty quitDate', async () => {
+      // On brand new installation with empty storage:
+      globalThis.localStorage.clear();
+      const freshSyncProfile = loadProfile();
+      assert.equal(freshSyncProfile.isOnboarded, false, 'Fresh install profile must have isOnboarded: false');
+      assert.equal(freshSyncProfile.quitDate, '', 'Fresh install profile must have empty quitDate');
+      assert.equal(freshSyncProfile.createdAt, '', 'Fresh install profile must have empty createdAt');
+
+      const freshAsyncProfile = await loadProfileAsync();
+      assert.equal(freshAsyncProfile.isOnboarded, false, 'Async loadProfile must report isOnboarded: false on fresh install');
+      assert.equal(freshAsyncProfile.quitDate, '', 'Async loadProfile must report empty quitDate on fresh install');
+    });
+
+    test('arbitrary ISO date strings in storage are strictly ignored by recovery and never treated as quit dates', async () => {
+      // Place an arbitrary ISO date string in storage (e.g. from an analytics key or unrelated cookie)
+      globalThis.localStorage.clear();
+      globalThis.localStorage.setItem('unrelated_random_date_marker', '2026-02-15T12:00:00.000Z');
+      globalThis.localStorage.setItem('some_analytics_timestamp', new Date().toISOString());
+
+      const res = await recoverAllDeviceData();
+      assert.equal(res.recovered, false, 'Recovery must not manufacture recovery data from arbitrary date strings');
+      assert.equal(res.profile, null, 'Must not manufacture a UserProfile from arbitrary date strings');
+    });
+
+    test('lockCryptographicVault clears both cachedCryptoKey and inMemoryKeyStore', async () => {
+      // 1. Ensure key is loaded and cached
+      const key = await getSubtleCryptoKey();
+      assert.ok(key);
+      assert.equal(getCryptoLifecycleState(), 'READY');
+
+      // 2. Lock vault: must purge volatile memory completely
+      lockCryptographicVault();
+      assert.equal(getCryptoLifecycleState(), 'BOOTING');
+    });
+
+    test('saveKeyToVault throws on store failure and never silently swallows errors', async () => {
+      await purgeVaultKeys();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated IndexedDB failure') };
+          setTimeout(() => {
+            if (req.onerror) req.onerror({ target: req });
+          }, 0);
+          return req;
+        }
+      };
+
+      try {
+        await assert.rejects(
+          async () => {
+            const key = await createKeyFromSeed(new Uint8Array(32));
+            await saveKeyToVault('test_key', key);
+          },
+          /IndexedDB failure/,
+          'saveKeyToVault must throw error if persisting key fails'
+        );
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+      }
+    });
+
+    test('loadStreaksAsync, loadProfileAsync, and loadCravingsAsync throw DecryptionError on corrupted ciphertext', async () => {
+      // Write corrupted ciphertext to primary storage key
+      globalThis.localStorage.setItem('puffinless_streaks_v2', 'aes-gcm:deadbeef1234:corruptedstreakpayload');
+      globalThis.localStorage.setItem('puffinless_cravings_v2', 'aes-gcm:deadbeef1234:corruptedcravingpayload');
+      globalThis.localStorage.setItem('puffinless_profile_v2', 'aes-gcm:deadbeef1234:corruptedprofilepayload');
+
+      // Assert each async loader explicitly throws DecryptionError instead of returning empty arrays or defaults
+      await assert.rejects(
+        async () => {
+          await loadStreaksAsync();
+        },
+        DecryptionError,
+        'loadStreaksAsync must throw DecryptionError when corrupted ciphertext is present'
+      );
+
+      await assert.rejects(
+        async () => {
+          await loadCravingsAsync();
+        },
+        DecryptionError,
+        'loadCravingsAsync must throw DecryptionError when corrupted ciphertext is present'
+      );
+
+      await assert.rejects(
+        async () => {
+          await loadProfileAsync();
+        },
+        DecryptionError,
+        'loadProfileAsync must throw DecryptionError when corrupted ciphertext is present'
+      );
     });
   });
 });

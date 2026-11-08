@@ -12,7 +12,6 @@ interface OnboardingModalProps {
   onComplete: (profile: UserProfile) => void;
   onClose?: () => void;
   onRecover?: () => Promise<any>;
-  onRestoreCleanDays?: (days?: number) => Promise<UserProfile>;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
@@ -22,7 +21,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onComplete,
   onClose,
   onRecover,
-  onRestoreCleanDays,
 }) => {
   const [lang, setLang] = useState<Language>(initialProfile.language || 'en');
   const isFr = lang === 'fr';
@@ -110,67 +108,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       } else {
         setRecoveryFeedback(
           isFr
-            ? 'Aucune donnée antérieure détectée automatiquement. Cliquez sur "⚡ Rétablir mes 7 jours" ci-dessous pour restaurer votre semaine en 1 clic.'
-            : 'No prior data automatically detected. Click "⚡ Restore my 7 days" below to recover your week in 1 click.'
+            ? 'Aucune donnée antérieure détectée sur cet appareil.'
+            : 'No prior data detected on this device.'
         );
       }
     } catch (err) {
       console.error('[Onboarding] Recovery error:', err);
       setRecoveryFeedback(
         isFr ? 'Erreur lors de la récupération.' : 'Recovery attempt failed.'
-      );
-    } finally {
-      setIsRecovering(false);
-    }
-  };
-
-  const handleRestoreWeek = async (days = 7) => {
-    sound.playCelebration();
-    try {
-      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-    } catch {
-      // ignore
-    }
-
-    setIsRecovering(true);
-    setRecoveryFeedback(null);
-
-    try {
-      let restored: UserProfile;
-      if (onRestoreCleanDays) {
-        restored = await onRestoreCleanDays(days);
-      } else {
-        const quitTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-        restored = {
-          ...initialProfile,
-          name: initialProfile.name || (typeof localStorage !== 'undefined' ? localStorage.getItem('puffinless_user_name') || 'Champion' : 'Champion'),
-          isOnboarded: true,
-          quitDate: quitTime,
-          createdAt: quitTime,
-          customQuitDate: true,
-          quitGoal: 'already_quit',
-          language: lang,
-        };
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('puffinless_is_onboarded', 'true');
-          localStorage.setItem('puffinless_quit_date', quitTime);
-        }
-      }
-
-      setRecoveryFeedback(
-        isFr
-          ? `✓ Vos ${days} jours d'abstinence ont été rétablis avec succès !`
-          : `✓ Your ${days} days of clean time have been restored!`
-      );
-
-      setTimeout(() => {
-        onComplete(restored);
-        if (onClose) onClose();
-      }, 700);
-    } catch (err) {
-      console.error('[Onboarding] Error restoring clean days:', err);
-      setRecoveryFeedback(
-        isFr ? 'Erreur lors du rétablissement des données.' : 'Error restoring data.'
       );
     } finally {
       setIsRecovering(false);
@@ -373,17 +318,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isRecovering ? 'animate-spin' : ''}`} />
                         <span>{isRecovering ? (isFr ? 'Scan...' : 'Scanning...') : (isFr ? 'Restaurer mes données' : 'Restore Data')}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isRecovering}
-                        onClick={() => handleRestoreWeek(7)}
-                        className="px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                        title={isFr ? "Rétablir immédiatement 7 jours d'abstinence sans perte" : "Immediately restore 7 days clean time"}
-                      >
-                        <span>⚡</span>
-                        <span>{isFr ? 'Rétablir mes 7 jours (1 clic)' : 'Restore my 7 days (1 click)'}</span>
                       </button>
                     </div>
                   </div>

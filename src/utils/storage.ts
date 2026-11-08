@@ -17,6 +17,7 @@ import {
   decryptData,
   decryptWithStatus,
   purgeVaultKeys,
+  DecryptionError,
 } from './crypto.ts';
 import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
@@ -55,12 +56,22 @@ export function loadStreaks(): StreakRecord[] {
 }
 
 export async function loadStreaksAsync(): Promise<StreakRecord[]> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STREAKS) || localStorage.getItem('puffinless_streaks');
-    return await decryptData<StreakRecord[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading streaks', e);
+  const primaryRes = await readWithStatus<StreakRecord[]>(STORAGE_KEYS.STREAKS);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt streaks');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<StreakRecord[]>('puffinless_streaks');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy streaks');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -696,8 +707,8 @@ export function loadProfile(): UserProfile {
     ...DEFAULT_PROFILE,
     name: savedName,
     isOnboarded: isUserOnboarded,
-    quitDate: savedQuitDate || nowIso,
-    createdAt: savedQuitDate || nowIso,
+    quitDate: savedQuitDate || (isUserOnboarded ? nowIso : ''),
+    createdAt: savedQuitDate || (isUserOnboarded ? nowIso : ''),
     language: savedLang,
     theme: savedTheme,
   };
@@ -705,30 +716,44 @@ export function loadProfile(): UserProfile {
 
 export async function loadProfileAsync(): Promise<UserProfile> {
   const nowIso = new Date().toISOString();
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.PROFILE) ||
-      localStorage.getItem('puffinless_profile') ||
-      localStorage.getItem('puffinless_user_profile');
-    if (raw) {
-      const parsed = await decryptData<Partial<UserProfile>>(raw, {});
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-        const merged: UserProfile = { ...DEFAULT_PROFILE, ...parsed };
-        if (merged.isOnboarded && typeof localStorage !== 'undefined') {
-          localStorage.setItem('puffinless_is_onboarded', 'true');
-        }
-        if (!merged.createdAt) {
-          merged.createdAt = merged.quitDate || nowIso;
-        }
-        if (!merged.quitDate) {
-          merged.quitDate = merged.createdAt;
-        }
-        return merged;
-      }
-    }
-  } catch (e) {
-    console.error('Error loading profile async', e);
+
+  const readRes = await readWithStatus<Partial<UserProfile>>(STORAGE_KEYS.PROFILE);
+  if (readRes.status === 'decryption_error') {
+    throw readRes.error || new DecryptionError('Failed to decrypt user profile');
   }
+  if (readRes.status === 'success' && readRes.data && typeof readRes.data === 'object' && Object.keys(readRes.data).length > 0) {
+    const merged: UserProfile = { ...DEFAULT_PROFILE, ...readRes.data };
+    if (merged.isOnboarded && typeof localStorage !== 'undefined') {
+      localStorage.setItem('puffinless_is_onboarded', 'true');
+    }
+    if (!merged.createdAt) {
+      merged.createdAt = merged.quitDate || (merged.isOnboarded ? nowIso : '');
+    }
+    if (!merged.quitDate) {
+      merged.quitDate = merged.createdAt;
+    }
+    return merged;
+  }
+
+  // Check legacy key
+  const legacyRes = await readWithStatus<Partial<UserProfile>>('puffinless_profile');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy user profile');
+  }
+  if (legacyRes.status === 'success' && legacyRes.data && typeof legacyRes.data === 'object' && Object.keys(legacyRes.data).length > 0) {
+    const merged: UserProfile = { ...DEFAULT_PROFILE, ...legacyRes.data };
+    if (merged.isOnboarded && typeof localStorage !== 'undefined') {
+      localStorage.setItem('puffinless_is_onboarded', 'true');
+    }
+    if (!merged.createdAt) {
+      merged.createdAt = merged.quitDate || (merged.isOnboarded ? nowIso : '');
+    }
+    if (!merged.quitDate) {
+      merged.quitDate = merged.createdAt;
+    }
+    return merged;
+  }
+
   return loadProfile();
 }
 
@@ -765,12 +790,22 @@ export function loadExpenses(): PurchaseExpense[] {
 }
 
 export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES) || localStorage.getItem('puffinless_expenses');
-    return await decryptData<PurchaseExpense[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading expenses', e);
+  const primaryRes = await readWithStatus<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt expenses');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<PurchaseExpense[]>('puffinless_expenses');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy expenses');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -797,15 +832,22 @@ export function loadSubstanceLogs(): SubstanceLog[] {
 }
 
 export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.SUBSTANCE_LOG) ||
-      localStorage.getItem('puffinless_substance_log') ||
-      localStorage.getItem('puffinless_substances');
-    return await decryptData<SubstanceLog[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading substance logs', e);
+  const primaryRes = await readWithStatus<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt substance logs');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<SubstanceLog[]>('puffinless_substance_log');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy substance logs');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -832,15 +874,22 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
 }
 
 export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.SLEEP_ENERGY) ||
-      localStorage.getItem('puffinless_sleep') ||
-      localStorage.getItem('puffinless_sleep_energy');
-    return await decryptData<SleepEnergyEntry[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading sleep energy', e);
+  const primaryRes = await readWithStatus<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt sleep energy');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<SleepEnergyEntry[]>('puffinless_sleep_energy');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy sleep energy');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -866,14 +915,22 @@ export function loadSavingsGoals(): SavingsGoal[] {
 }
 
 export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.SAVINGS_GOALS) ||
-      localStorage.getItem('puffinless_savings_goals');
-    return await decryptData<SavingsGoal[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading goals', e);
+  const primaryRes = await readWithStatus<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt savings goals');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<SavingsGoal[]>('puffinless_savings_goals');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy savings goals');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -900,15 +957,22 @@ export function loadCravings(): CravingEntry[] {
 }
 
 export async function loadCravingsAsync(): Promise<CravingEntry[]> {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.CRAVINGS) ||
-      localStorage.getItem('puffinless_cravings') ||
-      localStorage.getItem('puffinless_craving_logs');
-    return await decryptData<CravingEntry[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading cravings', e);
+  const primaryRes = await readWithStatus<CravingEntry[]>(STORAGE_KEYS.CRAVINGS);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt cravings');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<CravingEntry[]>('puffinless_cravings');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy cravings');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -934,14 +998,22 @@ export function loadSmokeLog(): SmokeLogEntry[] {
 }
 
 export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.SMOKE_LOG) ||
-      localStorage.getItem('puffinless_smoke_log');
-    return await decryptData<SmokeLogEntry[]>(raw, []);
-  } catch (e) {
-    console.error('Error loading smoke log', e);
+  const primaryRes = await readWithStatus<SmokeLogEntry[]>(STORAGE_KEYS.SMOKE_LOG);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError('Failed to decrypt smoke log');
   }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data)) {
+    return primaryRes.data;
+  }
+
+  const legacyRes = await readWithStatus<SmokeLogEntry[]>('puffinless_smoke_log');
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError('Failed to decrypt legacy smoke log');
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data)) {
+    return legacyRes.data;
+  }
+
   return [];
 }
 
@@ -1058,9 +1130,9 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
 
       // Consolidate with any items in localStorage
       const [localCravings, localStreaks, localSubstances] = await Promise.all([
-        loadCravingsAsync(),
-        loadStreaksAsync(),
-        loadSubstanceLogsAsync(),
+        loadCravingsAsync().catch(() => []),
+        loadStreaksAsync().catch(() => []),
+        loadSubstanceLogsAsync().catch(() => []),
       ]);
 
       const consolidatedCravings = mergeCravings(cravings || [], localCravings || []);
@@ -1106,16 +1178,15 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
 
     // If localProfile is active:
     if (hasActiveLocal && localProfile) {
-      const [streaks, cravings, substances, expenses, sleep, goals] = await Promise.all([
-        loadStreaksAsync(),
-        loadCravingsAsync(),
-        loadSubstanceLogsAsync(),
-        loadExpensesAsync(),
-        loadSleepEnergyAsync(),
-        loadSavingsGoalsAsync(),
-      ]);
+      let loadHasDecryptionError = false;
+      const streaks = await loadStreaksAsync().catch(() => { loadHasDecryptionError = true; return []; });
+      const cravings = await loadCravingsAsync().catch(() => { loadHasDecryptionError = true; return []; });
+      const substances = await loadSubstanceLogsAsync().catch(() => { loadHasDecryptionError = true; return []; });
+      const expenses = await loadExpensesAsync().catch(() => { loadHasDecryptionError = true; return []; });
+      const sleep = await loadSleepEnergyAsync().catch(() => { loadHasDecryptionError = true; return []; });
+      const goals = await loadSavingsGoalsAsync().catch(() => { loadHasDecryptionError = true; return []; });
 
-      if (cravings.length === 0 && streaks.length === 0) {
+      if (loadHasDecryptionError || (cravings.length === 0 && streaks.length === 0)) {
         const deepScan = await recoverAllDeviceData();
         if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
           return {
@@ -1130,16 +1201,19 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
         }
       }
 
-      // Sync active localProfile into IndexedDB safely
-      await Promise.all([
-        saveProfile(localProfile),
-        saveStreaks(streaks),
-        saveCravings(cravings),
-        saveSubstanceLogs(substances),
-        saveExpenses(expenses),
-        saveSleepEnergy(sleep),
-        saveSavingsGoals(goals),
-      ]);
+      // Sync active localProfile into IndexedDB safely ONLY if no decryption error occurred
+      // (Never overwrite potentially recoverable corrupted data with blank arrays)
+      if (!loadHasDecryptionError) {
+        await Promise.all([
+          saveProfile(localProfile),
+          saveStreaks(streaks),
+          saveCravings(cravings),
+          saveSubstanceLogs(substances),
+          saveExpenses(expenses),
+          saveSleepEnergy(sleep),
+          saveSavingsGoals(goals),
+        ]);
+      }
 
       createDeviceRescueSnapshot({
         profile: localProfile,

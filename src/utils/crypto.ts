@@ -136,6 +136,7 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
 /**
  * Store a non-extractable CryptoKey in IndexedDB with failure-safe verification.
  * Automatically retains key in memory and archives historical copies so recoverable keys are never lost.
+ * Throws an explicit error if IndexedDB write or read-back verification fails.
  */
 export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
   inMemoryKeyStore.set(id, key);
@@ -146,19 +147,31 @@ export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> 
   if (typeof window === 'undefined' || !window.indexedDB) {
     return;
   }
-  try {
-    const db = await openKeyVaultDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
-      const store = tx.objectStore(KEY_STORE_NAME);
-      store.put(key, id);
-      // Archive copy to guarantee non-destructive key retention
-      store.put(key, `${id}_backup`);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (err) {
-    console.warn('[Crypto] Could not persist key to IndexedDB, keeping in-memory:', err);
+
+  const db = await openKeyVaultDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(KEY_STORE_NAME);
+    store.put(key, id);
+    // Archive copy to guarantee non-destructive key retention
+    store.put(key, `${id}_backup`);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
+    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+  });
+
+  // Failure-safe read-back verification: verify key was physically persisted
+  const verifyTx = db.transaction(KEY_STORE_NAME, 'readonly');
+  const verifyStore = verifyTx.objectStore(KEY_STORE_NAME);
+  const verifyReq = verifyStore.get(id);
+  const readBack = await new Promise<CryptoKey | null>((resolve, reject) => {
+    verifyReq.onsuccess = () => resolve((verifyReq.result as CryptoKey) || null);
+    verifyReq.onerror = () => reject(verifyReq.error || new Error('Key readback verification query failed'));
+    verifyTx.onerror = () => reject(verifyTx.error || new Error('Key readback verification transaction failed'));
+  });
+
+  if (!readBack) {
+    throw new Error(`[Crypto] Read-back verification failed for key id "${id}" in key vault`);
   }
 }
 
@@ -422,10 +435,12 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
       localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
 
     if (legacyRaw) {
+      let importedKey: CryptoKey | null = null;
       try {
-        const importedKey = await importOrDeriveKeyFromString(legacyRaw);
+        importedKey = await importOrDeriveKeyFromString(legacyRaw);
+        // saveKeyToVault performs write and read-back verification, throwing on failure
         await saveKeyToVault(MASTER_KEY_ID, importedKey);
-        // CRITICAL: Purge raw key material from localStorage ONLY after successful vault write
+        // CRITICAL: Purge raw key material from localStorage ONLY after confirmed vault persistence
         localStorage.removeItem(STORAGE_DEVICE_KEY);
         localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
         localStorage.removeItem(DEVICE_RECOVERY_KEY);
@@ -433,7 +448,12 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
         cryptoLifecycleState = 'READY';
         return importedKey;
       } catch (err) {
-        console.warn('[Crypto] Legacy raw key migration error:', err);
+        console.warn('[Crypto] Key persistence failed during legacy raw key migration, preserving legacy key material:', err);
+        if (importedKey) {
+          // Keep usable in memory for the current session without deleting the recoverable legacy key
+          cachedCryptoKey = importedKey;
+          return importedKey;
+        }
       }
     }
   }
@@ -443,16 +463,31 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
   cryptoInstance.getRandomValues(freshSeed);
   const freshKey = await createKeyFromSeed(freshSeed);
 
-  await saveKeyToVault(MASTER_KEY_ID, freshKey);
-  // Guarantee zero raw key material in localStorage
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(STORAGE_DEVICE_KEY);
-    localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
-    localStorage.removeItem(DEVICE_RECOVERY_KEY);
+  try {
+    await saveKeyToVault(MASTER_KEY_ID, freshKey);
+    // Guarantee zero raw key material in localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_DEVICE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+      localStorage.removeItem(DEVICE_RECOVERY_KEY);
+    }
+  } catch (err) {
+    console.warn('[Crypto] Could not persist fresh key to IndexedDB key vault, holding in memory:', err);
   }
   cachedCryptoKey = freshKey;
   cryptoLifecycleState = 'READY';
   return freshKey;
+}
+
+/**
+ * Locks the cryptographic vault by wiping volatile memory.
+ * Genuinely removes access to the key in memory:
+ * clears BOTH cachedCryptoKey AND inMemoryKeyStore.
+ */
+export function lockCryptographicVault(): void {
+  cachedCryptoKey = null;
+  inMemoryKeyStore.clear();
+  cryptoLifecycleState = 'BOOTING';
 }
 
 /**
