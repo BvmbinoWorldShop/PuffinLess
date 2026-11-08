@@ -31,8 +31,30 @@ function generateSalt(): string {
   return CryptoJS.lib.WordArray.random(16).toString();
 }
 
+/**
+ * Hashes a user PIN using PBKDF2 (100,000 iterations) with a cryptographic salt.
+ * Replaces simple SHA-256 to provide strong resistance against offline brute-force and dictionary attacks.
+ */
 export function hashPin(pin: string, salt: string): string {
-  return CryptoJS.SHA256(pin + salt).toString(CryptoJS.enc.Hex);
+  const derived = CryptoJS.PBKDF2(pin.trim(), salt, {
+    keySize: 256 / 32,
+    iterations: 100000,
+    hasher: CryptoJS.algo.SHA256,
+  });
+  return `pbkdf2:${derived.toString(CryptoJS.enc.Hex)}`;
+}
+
+/**
+ * Verifies a PIN against stored hash, supporting both PBKDF2 and legacy SHA-256 hashes.
+ */
+export function verifyPinHash(enteredPin: string, storedHash: string, salt: string): boolean {
+  if (storedHash.startsWith('pbkdf2:')) {
+    const computed = hashPin(enteredPin, salt);
+    return computed === storedHash;
+  }
+  // Backward compatibility: verify older SHA-256 hash
+  const legacyHash = CryptoJS.SHA256(enteredPin.trim() + salt).toString(CryptoJS.enc.Hex);
+  return legacyHash === storedHash;
 }
 
 function getLockoutState(): LockoutState {
@@ -153,8 +175,12 @@ export function verifyPin(enteredPin: string): VerifyPinResult {
     return { success: false, isLockedOut: true, remainingSeconds: remainingLockout, remainingAttempts: 0 };
   }
 
-  const computedHash = hashPin(enteredPin.trim(), cfg.pinSalt);
-  if (computedHash === cfg.pinHash) {
+  const isMatch = verifyPinHash(enteredPin.trim(), cfg.pinHash, cfg.pinSalt);
+  if (isMatch) {
+    // If user was using legacy SHA-256 hash, automatically upgrade to PBKDF2
+    if (!cfg.pinHash.startsWith('pbkdf2:')) {
+      saveSecurityConfig(true, enteredPin.trim());
+    }
     // Reset lockout counters on success
     saveLockoutState({ failedAttempts: 0, lockoutUntil: 0 });
     return { success: true, isLockedOut: false, remainingSeconds: 0, remainingAttempts: MAX_FAILED_ATTEMPTS };

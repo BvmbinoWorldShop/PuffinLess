@@ -17,7 +17,20 @@ const cssMatch = html.match(/<link rel="stylesheet"[^>]*href="(?:\.\/|\/)?assets
 if (cssMatch && cssMatch[1]) {
   const cssPath = path.join(distDir, 'assets', cssMatch[1]);
   if (fs.existsSync(cssPath)) {
-    const cssContent = fs.readFileSync(cssPath, 'utf8');
+    let cssContent = fs.readFileSync(cssPath, 'utf8');
+
+    // Inline local font files into base64 data URIs for 100% offline standalone portability
+    const fontFiles = [
+      { name: '/fonts/plus-jakarta-sans-latin.woff2', file: path.resolve('public/fonts/plus-jakarta-sans-latin.woff2') },
+      { name: '/fonts/space-grotesk-latin.woff2', file: path.resolve('public/fonts/space-grotesk-latin.woff2') }
+    ];
+    for (const font of fontFiles) {
+      if (fs.existsSync(font.file)) {
+        const fontB64 = fs.readFileSync(font.file).toString('base64');
+        cssContent = cssContent.split(font.name).join(`data:font/woff2;base64,${fontB64}`);
+      }
+    }
+
     html = html.replace(cssMatch[0], `<style>\n${cssContent}\n</style>`);
   }
 }

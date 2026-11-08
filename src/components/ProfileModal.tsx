@@ -950,7 +950,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between gap-1 mb-1 min-w-0 h-4">
                     <label className="block text-xs font-semibold text-slate-300 truncate">
-                      {isFr ? 'Date d\'Arrêt Spécifique' : 'Custom Clean Date'}
+                      {isFr ? 'Date d\'Arrêt' : 'Clean Date'}
                     </label>
                     {quitDate && (
                       <button
@@ -959,7 +959,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           sound.playClick();
                           setQuitDate('');
                         }}
-                        className="px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
+                        className="px-1.5 py-0.2 rounded bg-rose-500/20 text-[9px] text-rose-300 hover:bg-rose-500/30 transition-all font-bold shrink-0 leading-tight"
                         title={isFr ? 'Laisser vierge' : 'Leave blank'}
                       >
                         ✕ {isFr ? 'Vierge' : 'Clear'}
@@ -971,9 +971,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     value={quitDate}
                     onChange={(e) => setQuitDate(e.target.value)}
                     placeholder="YYYY-MM-DD"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs h-[38px]"
+                    style={{ minHeight: '34px', maxHeight: '36px' }}
+                    className="w-full h-9 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block truncate">
+                  <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
                     {isFr ? 'Vierge par défaut' : 'Blank by default'}
                   </span>
                 </div>
@@ -981,7 +982,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between gap-1 mb-1 min-w-0 h-4">
                     <label className="block text-xs font-semibold text-slate-300 truncate">
-                      {isFr ? 'Années de Pratique' : 'Years Consuming'}
+                      {isFr ? 'Années de Pratique' : 'Years Consumed'}
                     </label>
                   </div>
                   <input
@@ -990,9 +991,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     value={yearsSmoking}
                     onChange={(e) => setYearsSmoking(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="0"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs h-[38px]"
+                    style={{ minHeight: '34px', maxHeight: '36px' }}
+                    className="w-full h-9 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block truncate opacity-0 pointer-events-none select-none">
+                  <span className="text-[10px] text-slate-400 mt-0.5 block truncate opacity-0 pointer-events-none select-none">
                     {isFr ? 'Vierge par défaut' : 'Blank by default'}
                   </span>
                 </div>
@@ -1165,7 +1167,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </button>
               </div>
 
-              {/* App Lock & Password Protection */}
+              {/* 1. Interface Screen Lock (PIN) */}
               <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -1174,12 +1176,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white block">
-                        {isFr ? 'Verrouillage de l\'Application (Mot de passe)' : 'App Lock (Password / PIN)'}
+                        {isFr ? 'Verrouillage de l\'Interface (Code PIN)' : 'Interface Screen Lock (PIN)'}
                       </span>
                       <span className="text-[11px] text-slate-400 block">
                         {isFr
-                          ? 'Exige un mot de passe secret avant d\'accéder à l\'application'
-                          : 'Require password before opening the application'}
+                          ? 'Verrouille l\'affichage contre les regards indiscrets (PBKDF2 100 000 itérations)'
+                          : 'Locks screen display against snooping (PBKDF2 100,000 iterations)'}
                       </span>
                     </div>
                   </div>
@@ -1205,7 +1207,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <div className="pt-2 border-t border-white/10 space-y-2 animate-fade-in">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                        {isFr ? 'Mot de passe d\'accès (PIN)' : 'Access Password / PIN'}
+                        {isFr ? 'Code PIN d\'accès' : 'Access PIN'}
                       </label>
                       <input
                         type="password"
@@ -1220,12 +1222,40 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       />
                       <span className="text-[9px] text-slate-400 mt-1 block">
                         {isFr
-                          ? 'Ce mot de passe sera demandé à chaque ouverture de PuffinLess.'
-                          : 'This password will be required whenever you open PuffinLess.'}
+                          ? 'Ce code PIN sera demandé à chaque réouverture de l\'écran.'
+                          : 'This PIN will be requested when unlocking the screen.'}
                       </span>
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 2. Cryptographic Vault at Rest (Distinct from UI Lock) */}
+              <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      {isFr ? 'Coffre-fort Cryptographique (AES-GCM 256 bits)' : 'Cryptographic Data Vault (AES-GCM 256-bit)'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {isFr
+                        ? 'Chiffrement matériel au repos avec CryptoKey non extractible stockée dans le coffre local. Zéro clé brute dans le stockage.'
+                        : 'Hardware-backed at-rest encryption via non-extractable CryptoKey stored in isolated vault. Zero raw keys in storage.'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">
+                    {isFr ? 'Dérivation & Protection' : 'Key Derivation'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 font-semibold text-[10px]">
+                    PBKDF2 SHA-256 (600k iter) / AES-GCM
+                  </span>
+                </div>
               </div>
           </div>
 

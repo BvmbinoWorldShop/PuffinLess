@@ -34,22 +34,39 @@ globalThis.sessionStorage = new MockStorage();
 import {
   encryptData,
   decryptData,
-  getVaultKeyHex,
+  decryptWithStatus,
+  getSubtleCryptoKey,
   purgeVaultKeys,
+  getLegacyVaultKey,
+  deriveKeyFromPassphrase,
+  DecryptionError,
 } from '../src/utils/crypto.ts';
 import { resetAllUserData } from '../src/utils/storage.ts';
-import { purgeSecurityState, getSecurityConfig, saveSecurityConfig } from '../src/utils/security.ts';
+import { purgeSecurityState, getSecurityConfig, saveSecurityConfig, verifyPin } from '../src/utils/security.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 
 describe('PuffinLess Production Code Verification', () => {
 
-  beforeEach(() => {
+  beforeEach(async () => {
     globalThis.localStorage.clear();
     globalThis.sessionStorage.clear();
-    purgeVaultKeys();
+    await purgeVaultKeys();
   });
 
-  describe('Pillar 1: AES-GCM via Web Crypto API with Unique IVs & Explicit Keys', () => {
+  describe('Pillar 1: AES-GCM via Non-Extractable CryptoKey & IndexedDB Vault', () => {
+    test('uses non-extractable CryptoKey (extractable: false) and never stores raw key in localStorage', async () => {
+      const key = await getSubtleCryptoKey();
+      assert.equal(key.extractable, false, 'CryptoKey MUST be strictly non-extractable');
+      assert.equal(key.algorithm.name, 'AES-GCM', 'Algorithm must be AES-GCM');
+
+      // Verify no raw key is leaked to localStorage
+      assert.equal(
+        globalThis.localStorage.getItem('puffinless_vault_key_v2'),
+        null,
+        'Raw key MUST NOT be stored in localStorage'
+      );
+    });
+
     test('encryptData uses Web Crypto AES-GCM with aes-gcm: prefix and unique 96-bit IV per call', async () => {
       const sensitiveData = {
         name: 'Marie Curie',
@@ -64,7 +81,7 @@ describe('PuffinLess Production Code Verification', () => {
       assert.ok(cipher1.startsWith('aes-gcm:'), 'Ciphertext must start with aes-gcm: identifier');
       assert.ok(cipher2.startsWith('aes-gcm:'), 'Second ciphertext must also start with aes-gcm:');
 
-      // Verify unique IV per encryption: same data encrypted twice MUST yield different ciphertexts and different IVs
+      // Verify unique IV per encryption
       assert.notEqual(cipher1, cipher2, 'Each encryption MUST produce a distinct ciphertext due to unique IV');
 
       const parts1 = cipher1.split(':');
@@ -82,6 +99,34 @@ describe('PuffinLess Production Code Verification', () => {
       assert.deepEqual(decrypted, sensitiveData, 'Decrypted object must match original payload exactly');
     });
 
+    test('distinguishes cleanly between absent data and decryption failure (decryptWithStatus)', async () => {
+      // 1. Data absent (null or empty string)
+      const absentResult = await decryptWithStatus(null);
+      assert.equal(absentResult.status, 'absent', 'Must return absent status when data is null');
+      assert.equal(absentResult.data, null);
+
+      // 2. Legitimate data
+      const cipher = await encryptData({ notes: 'Secret log' });
+      const validResult = await decryptWithStatus(cipher);
+      assert.equal(validResult.status, 'success');
+      assert.deepEqual(validResult.data, { notes: 'Secret log' });
+
+      // 3. Corrupted or tampered ciphertext (must report error, not absent!)
+      const corruptedCipher = cipher.slice(0, -6) + 'AAAAAA';
+      const corruptResult = await decryptWithStatus(corruptedCipher);
+      assert.equal(corruptResult.status, 'error', 'Must report error status for tampered data');
+      assert.ok(corruptResult.error instanceof DecryptionError, 'Error must be an instance of DecryptionError');
+    });
+
+    test('derives non-extractable AES-GCM key from user passphrase using PBKDF2 (600,000 iterations)', async () => {
+      const salt = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt);
+
+      const derivedKey = await deriveKeyFromPassphrase('MySecretPassphrase2026!', salt, 600000);
+      assert.equal(derivedKey.extractable, false, 'PBKDF2 derived key must be non-extractable');
+      assert.equal(derivedKey.algorithm.name, 'AES-GCM');
+    });
+
     test('seamlessly migrates legacy AES-CBC (CryptoJS aes256:) payloads without data loss', async () => {
       const legacyPayload = {
         legacyId: 42,
@@ -89,13 +134,11 @@ describe('PuffinLess Production Code Verification', () => {
         quitDate: '2026-01-01T00:00:00.000Z',
       };
 
-      // Create a legacy AES-CBC payload encrypted with the device vault key
-      const keyHex = getVaultKeyHex();
+      const legacyKey = getLegacyVaultKey();
       const rawString = JSON.stringify(legacyPayload);
-      const legacyEncrypted = CryptoJS.AES.encrypt(rawString, keyHex).toString();
+      const legacyEncrypted = CryptoJS.AES.encrypt(rawString, legacyKey).toString();
       const legacyCiphertext = `aes256:${legacyEncrypted}`;
 
-      // Decrypt using the real production decryptData function
       const migratedData = await decryptData(legacyCiphertext, null);
       assert.deepEqual(migratedData, legacyPayload, 'Legacy AES-CBC ciphertext must be decrypted seamlessly');
     });
@@ -110,7 +153,20 @@ describe('PuffinLess Production Code Verification', () => {
     });
   });
 
-  describe('Pillar 2: Complete Data Erasure & Cryptoshredding (resetAllUserData)', () => {
+  describe('Pillar 2: PIN Hashing with PBKDF2 (100k iter) & Complete Data Erasure', () => {
+    test('hashes PIN using PBKDF2 with 100,000 iterations and random salt', () => {
+      saveSecurityConfig(true, '4321');
+      const cfg = getSecurityConfig();
+      assert.ok(cfg.pinHash.startsWith('pbkdf2:'), 'PIN hash must use PBKDF2 with pbkdf2: prefix');
+      assert.ok(cfg.pinSalt.length >= 32, 'PIN salt must be random 16 bytes = 32 hex chars');
+
+      const verifyRes = verifyPin('4321');
+      assert.equal(verifyRes.success, true, 'Valid PIN must unlock successfully');
+
+      const wrongRes = verifyPin('0000');
+      assert.equal(wrongRes.success, false, 'Invalid PIN must fail');
+    });
+
     test('resetAllUserData clears storage, purges vault key, and renders past ciphertexts unrecoverable', async () => {
       // 1. Populate data and encrypt payload
       const sensitive = { bankBalance: 5400, secretCravings: ['cannabis'] };
@@ -128,9 +184,14 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(globalThis.localStorage.length, 0, 'localStorage must be completely wiped (0 keys)');
       assert.equal(globalThis.sessionStorage.length, 0, 'sessionStorage must be completely wiped (0 keys)');
 
-      // 4. Verify cryptoshredding: attempt decryption with a freshly generated key (simulating future user)
-      const freshKey = CryptoJS.lib.WordArray.random(32).toString();
-      globalThis.localStorage.setItem('puffinless_vault_key_v2', freshKey);
+      // 4. Verify cryptoshredding: attempt decryption with a fresh key (simulating future user)
+      const freshKey = await globalThis.crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+      const { setActiveVaultKey } = await import('../src/utils/crypto.ts');
+      setActiveVaultKey(freshKey);
 
       const recoveryAttempt = await decryptData(ciphertext, null);
       assert.equal(recoveryAttempt, null, 'Old ciphertext must be cryptographically unrecoverable after purge');

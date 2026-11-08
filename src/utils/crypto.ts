@@ -1,20 +1,39 @@
 /**
- * LOCAL AES-GCM ENCRYPTION AT REST VIA WEB CRYPTO API
- * ----------------------------------------------------
- * High-security authenticated encryption (AES-GCM 256-bit) using the native Web Crypto API.
- * - Generates a cryptographically random, unique 96-bit (12-byte) IV for every encryption operation.
- * - Uses explicit local key management with a 256-bit random device vault key.
- * - Eliminates deterministic fallbacks for new encryptions (fail-closed security).
- * - Provides seamless, zero-data-loss migration for legacy AES-CBC (CryptoJS) payloads.
+ * LOCAL AES-GCM ENCRYPTION AT REST VIA WEB CRYPTO API & INDEXEDDB KEY VAULT
+ * --------------------------------------------------------------------------
+ * High-security authenticated encryption (AES-GCM 256-bit) using native Web Crypto API.
+ * - Non-extractable CryptoKey (extractable: false) stored securely in IndexedDB key vault.
+ * - Zero raw key storage in localStorage.
+ * - Unique cryptographically random 96-bit (12-byte) IV for every encryption operation.
+ * - Optional passphrase-derived vault mode using PBKDF2 with 600,000 iterations.
+ * - Explicit distinction between data absence and decryption integrity errors.
+ * - Seamless zero-data-loss migration for legacy AES-CBC (CryptoJS) payloads.
  */
 import CryptoJS from 'crypto-js';
 
+const KEY_DB_NAME = 'puffinless_key_vault';
+const KEY_STORE_NAME = 'keys';
+const MASTER_KEY_ID = 'device_master_key';
 const STORAGE_DEVICE_KEY = 'puffinless_vault_key_v2';
 const LEGACY_STORAGE_DEVICE_KEY = 'puffinless_vault_key_v1';
 const LEGACY_VAULT_SALT = 'puffinless_aes256_client_vault_stable_key_v2_offline';
 
+/** In-memory fallback and test store */
+const inMemoryKeyStore = new Map<string, CryptoKey>();
 let cachedCryptoKey: CryptoKey | null = null;
-let cachedKeyHex: string | null = null;
+
+/** Custom error for cryptographic decryption integrity or key mismatch */
+export class DecryptionError extends Error {
+  constructor(message = 'Déchiffrement impossible : clé invalide, coffre verrouillé ou données altérées.') {
+    super(message);
+    this.name = 'DecryptionError';
+  }
+}
+
+export type DecryptResult<T> =
+  | { status: 'absent'; data: null }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: DecryptionError };
 
 function getCrypto(): Crypto {
   if (typeof globalThis !== 'undefined' && globalThis.crypto) {
@@ -26,17 +45,11 @@ function getCrypto(): Crypto {
   throw new Error('[Crypto] Web Crypto API is not supported in this runtime environment.');
 }
 
-/**
- * Convert Uint8Array or ArrayBuffer to Hex string
- */
 function toHex(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Convert Hex string to Uint8Array
- */
 function fromHex(hex: string): Uint8Array {
   const cleanHex = hex.trim();
   const bytes = new Uint8Array(cleanHex.length / 2);
@@ -46,9 +59,6 @@ function fromHex(hex: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Convert ArrayBuffer to Base64
- */
 function toBase64(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let binary = '';
@@ -58,9 +68,6 @@ function toBase64(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(binary);
 }
 
-/**
- * Convert Base64 string to Uint8Array
- */
 function fromBase64(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -71,58 +78,178 @@ function fromBase64(base64: string): Uint8Array {
 }
 
 /**
- * Retrieves or initializes the explicit local 256-bit vault key on device.
- * Enforces true random key generation; deterministic fallback is strictly rejected.
+ * Open (or create) the dedicated IndexedDB Key Vault database for non-extractable CryptoKeys
  */
-export function getVaultKeyHex(): string {
-  try {
-    if (typeof localStorage === 'undefined') {
-      throw new Error('localStorage is unavailable');
+function openKeyVaultDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return reject(new Error('IndexedDB is not available in this environment'));
     }
-    let keyHex = localStorage.getItem(STORAGE_DEVICE_KEY);
-    if (!keyHex) {
-      const cryptoInstance = getCrypto();
-      if (!cryptoInstance.getRandomValues) {
-        throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
+    const req = window.indexedDB.open(KEY_DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
+        db.createObjectStore(KEY_STORE_NAME);
       }
-      const randBytes = new Uint8Array(32);
-      cryptoInstance.getRandomValues(randBytes);
-      keyHex = toHex(randBytes);
-      localStorage.setItem(STORAGE_DEVICE_KEY, keyHex);
-    }
-    return keyHex;
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Failed to open key vault database'));
+  });
+}
+
+/**
+ * Store a non-extractable CryptoKey in IndexedDB
+ */
+async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
+  inMemoryKeyStore.set(id, key);
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return;
+  }
+  try {
+    const db = await openKeyVaultDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(KEY_STORE_NAME);
+      const req = store.put(key, id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => { db.close(); };
+      tx.onerror = () => reject(tx.error);
+    });
   } catch (err) {
-    console.error('[Crypto] Explicit key management failure:', err);
-    throw new Error('Key generation failed - deterministic fallback is prohibited for new encryptions');
+    console.warn('[Crypto] Could not persist key to IndexedDB, keeping in-memory:', err);
   }
 }
 
 /**
- * Imports the device vault key into a Web Crypto CryptoKey for AES-GCM.
+ * Retrieve a non-extractable CryptoKey from IndexedDB
  */
-async function getSubtleCryptoKey(): Promise<CryptoKey> {
-  const keyHex = getVaultKeyHex();
-  if (cachedCryptoKey && cachedKeyHex === keyHex) {
+async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
+  if (inMemoryKeyStore.has(id)) {
+    return inMemoryKeyStore.get(id) || null;
+  }
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return null;
+  }
+  try {
+    const db = await openKeyVaultDB();
+    return await new Promise<CryptoKey | null>((resolve, reject) => {
+      const tx = db.transaction(KEY_STORE_NAME, 'readonly');
+      const store = tx.objectStore(KEY_STORE_NAME);
+      const req = store.get(id);
+      req.onsuccess = () => resolve((req.result as CryptoKey) || null);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => { db.close(); };
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Derives a non-extractable AES-GCM 256-bit CryptoKey from a user passphrase using PBKDF2 (600,000 iterations)
+ */
+export async function deriveKeyFromPassphrase(
+  passphrase: string,
+  salt: Uint8Array,
+  iterations = 600000
+): Promise<CryptoKey> {
+  const cryptoInstance = getCrypto();
+  const enc = new TextEncoder();
+  const baseKey = await cryptoInstance.subtle.importKey(
+    'raw',
+    enc.encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  return await cryptoInstance.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt as unknown as BufferSource,
+      iterations,
+      hash: 'SHA-256',
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false, // strictly non-extractable
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Retrieves or initializes the non-extractable AES-GCM 256-bit CryptoKey.
+ * - Stores the key in IndexedDB (never raw in localStorage).
+ * - Migrates existing raw localStorage keys seamlessly, then removes them from localStorage.
+ */
+export async function getSubtleCryptoKey(): Promise<CryptoKey> {
+  if (cachedCryptoKey) {
     return cachedCryptoKey;
   }
 
   const cryptoInstance = getCrypto();
-  const rawKeyBytes = fromHex(keyHex);
 
-  cachedCryptoKey = await cryptoInstance.subtle.importKey(
-    'raw',
-    rawKeyBytes as unknown as BufferSource,
+  // 1. Check for legacy raw key in localStorage and perform zero-loss migration
+  if (typeof localStorage !== 'undefined') {
+    const legacyRawHex = localStorage.getItem(STORAGE_DEVICE_KEY);
+    if (legacyRawHex && legacyRawHex.length === 64) {
+      try {
+        const rawBytes = fromHex(legacyRawHex);
+        const importedKey = await cryptoInstance.subtle.importKey(
+          'raw',
+          rawBytes as unknown as BufferSource,
+          { name: 'AES-GCM', length: 256 },
+          false, // NON-EXTRACTABLE
+          ['encrypt', 'decrypt']
+        );
+        await saveKeyToVault(MASTER_KEY_ID, importedKey);
+        // Cleanse raw key from localStorage permanently
+        localStorage.removeItem(STORAGE_DEVICE_KEY);
+        cachedCryptoKey = importedKey;
+        return importedKey;
+      } catch (err) {
+        console.warn('[Crypto] Legacy raw key migration error:', err);
+      }
+    }
+  }
+
+  // 2. Load non-extractable key from IndexedDB vault
+  const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
+  if (storedKey) {
+    cachedCryptoKey = storedKey;
+    return storedKey;
+  }
+
+  // 3. Generate a fresh non-extractable 256-bit AES-GCM key
+  const freshKey = await cryptoInstance.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
-    false,
+    false, // NON-EXTRACTABLE
     ['encrypt', 'decrypt']
   );
-  cachedKeyHex = keyHex;
 
-  return cachedCryptoKey;
+  await saveKeyToVault(MASTER_KEY_ID, freshKey);
+  cachedCryptoKey = freshKey;
+  return freshKey;
 }
 
 /**
- * Legacy key retriever for backward compatibility migration from AES-CBC
+ * Sets an active custom CryptoKey (e.g. unlocked via user passphrase) in memory
+ */
+export function setActiveVaultKey(key: CryptoKey): void {
+  cachedCryptoKey = key;
+}
+
+/**
+ * Clears the in-memory cached CryptoKey (locks the active cryptographic session)
+ */
+export function lockCryptographicVault(): void {
+  cachedCryptoKey = null;
+}
+
+/**
+ * Legacy key retriever for backward compatibility migration from AES-CBC payloads
  */
 export function getLegacyVaultKey(): string {
   try {
@@ -137,12 +264,12 @@ export function getLegacyVaultKey(): string {
 }
 
 /**
- * Irrevocably destroys encryption keys from local storage (Cryptoshredding).
- * Without these keys, any remaining stored ciphertext is mathematically unrecoverable.
+ * Irrevocably destroys encryption keys from IndexedDB and local storage (Cryptoshredding).
  */
-export function purgeVaultKeys(): void {
+export async function purgeVaultKeys(): Promise<void> {
   cachedCryptoKey = null;
-  cachedKeyHex = null;
+  inMemoryKeyStore.clear();
+
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_DEVICE_KEY);
@@ -152,13 +279,26 @@ export function purgeVaultKeys(): void {
       sessionStorage.removeItem(STORAGE_DEVICE_KEY);
       sessionStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
     }
-  } catch (err) {
-    console.error('[Crypto] Failed to purge vault keys:', err);
+  } catch {
+    // ignore
+  }
+
+  if (typeof window !== 'undefined' && window.indexedDB) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const req = window.indexedDB.deleteDatabase(KEY_DB_NAME);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => resolve();
+      });
+    } catch (err) {
+      console.warn('[Crypto] Error deleting key vault DB:', err);
+    }
   }
 }
 
 /**
- * Encrypts arbitrary serializable data with AES-GCM (256-bit) via Web Crypto API.
+ * Encrypts arbitrary serializable data with AES-GCM (256-bit) via non-extractable CryptoKey.
  * Generates a fresh, unique 96-bit (12-byte) IV for every single encryption.
  * Output format: `aes-gcm:<ivHex>:<ciphertextBase64>`
  */
@@ -175,7 +315,7 @@ export async function encryptData<T>(data: T): Promise<string> {
     const rawString = JSON.stringify(data);
     const encoded = new TextEncoder().encode(rawString);
 
-    // 3. Authenticated AES-GCM encryption (includes integrity tag in buffer)
+    // 3. Authenticated AES-GCM encryption
     const cipherBuffer = await cryptoInstance.subtle.encrypt(
       { name: 'AES-GCM', iv: iv as unknown as BufferSource },
       cryptoKey,
@@ -194,16 +334,18 @@ export async function encryptData<T>(data: T): Promise<string> {
 
 /**
  * Decrypts ciphertext payloads with automatic migration support.
- * - Handles new AES-GCM payloads (`aes-gcm:<ivHex>:<cipherBase64>`) via Web Crypto API.
- * - Seamlessly migrates legacy AES-CBC payloads (`aes256:<ciphertext>`) without data loss.
- * - Handles raw JSON objects for backward compatibility.
+ * Distinguishes cleanly between data absence and decryption failure.
  */
-export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise<T> {
-  if (cipherOrRaw === null || cipherOrRaw === undefined) {
+export async function decryptData<T>(
+  cipherOrRaw: unknown,
+  fallback: T,
+  options?: { throwOnError?: boolean }
+): Promise<T> {
+  if (cipherOrRaw === null || cipherOrRaw === undefined || cipherOrRaw === '') {
     return fallback;
   }
 
-  // If already a parsed JS object (e.g. from IndexedDB pre-encryption era), return directly
+  // If already a parsed JS object, return directly
   if (typeof cipherOrRaw !== 'string') {
     return cipherOrRaw as T;
   }
@@ -213,7 +355,7 @@ export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise
     try {
       const parts = cipherOrRaw.split(':');
       if (parts.length !== 3) {
-        throw new Error('Invalid aes-gcm payload structure');
+        throw new DecryptionError('Structure de payload AES-GCM invalide');
       }
       const ivHex = parts[1];
       const cipherBase64 = parts[2];
@@ -232,7 +374,10 @@ export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise
       const decryptedStr = new TextDecoder().decode(decryptedBuffer);
       return JSON.parse(decryptedStr) as T;
     } catch (err) {
-      console.warn('[Crypto] AES-GCM decryption failed, falling back:', err);
+      if (options?.throwOnError) {
+        throw new DecryptionError(err instanceof Error ? err.message : 'Échec d\'authentification AES-GCM');
+      }
+      console.warn('[Crypto] AES-GCM decryption failed:', err);
       return fallback;
     }
   }
@@ -240,18 +385,6 @@ export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise
   // 2. Legacy AES-CBC Payload Migration (CryptoJS aes256: format)
   if (cipherOrRaw.startsWith('aes256:')) {
     const ciphertext = cipherOrRaw.substring(7);
-
-    // Try current vault key first
-    try {
-      const keyHex = getVaultKeyHex();
-      const bytes = CryptoJS.AES.decrypt(ciphertext, keyHex);
-      const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-      if (decryptedString) {
-        return JSON.parse(decryptedString) as T;
-      }
-    } catch {
-      // Continue to try legacy key migration
-    }
 
     // Try legacy salt-derived key for older data
     try {
@@ -261,10 +394,13 @@ export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise
       if (decryptedString) {
         return JSON.parse(decryptedString) as T;
       }
-    } catch (err) {
-      console.error('[Crypto] AES-CBC legacy decryption failed:', err);
+    } catch {
+      // Continue to error/fallback
     }
 
+    if (options?.throwOnError) {
+      throw new DecryptionError('Échec de déchiffrement legacy AES-CBC');
+    }
     return fallback;
   }
 
@@ -272,6 +408,27 @@ export async function decryptData<T>(cipherOrRaw: unknown, fallback: T): Promise
   try {
     return JSON.parse(cipherOrRaw) as T;
   } catch {
+    if (options?.throwOnError) {
+      throw new DecryptionError('JSON parse failed for unencrypted string');
+    }
     return fallback;
+  }
+}
+
+/**
+ * Explicitly inspects whether data is absent, successfully decrypted, or failed due to decryption error.
+ */
+export async function decryptWithStatus<T>(cipherOrRaw: unknown): Promise<DecryptResult<T>> {
+  if (cipherOrRaw === null || cipherOrRaw === undefined || cipherOrRaw === '') {
+    return { status: 'absent', data: null };
+  }
+  try {
+    const data = await decryptData<T>(cipherOrRaw, null as any, { throwOnError: true });
+    return { status: 'success', data };
+  } catch (err) {
+    if (err instanceof DecryptionError) {
+      return { status: 'error', error: err };
+    }
+    return { status: 'error', error: new DecryptionError(String(err)) };
   }
 }

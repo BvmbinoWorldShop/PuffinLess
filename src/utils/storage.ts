@@ -935,8 +935,8 @@ export async function resetAllUserData(): Promise<void> {
   // 1. Delete IndexedDB physical database and await real confirmation
   await deletePuffinLessDB();
 
-  // 2. Cryptoshredding: purge device AES encryption keys
-  purgeVaultKeys();
+  // 2. Cryptoshredding: purge device AES encryption keys from IndexedDB KeyVault
+  await purgeVaultKeys();
 
   // 3. Purge PIN credentials and lockout logs
   purgeSecurityState();

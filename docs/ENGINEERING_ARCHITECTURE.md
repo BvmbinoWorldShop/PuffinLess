@@ -4,18 +4,25 @@ Ce document décrit l'implémentation technique des normes de sécurité, de con
 
 ---
 
-## 1. Chiffrement Authentifié AES-GCM (Web Crypto API)
+## 1. Chiffrement Authentifié AES-GCM (Web Crypto API) & Coffre IndexedDB
 
 ### Contexte & Haute Sécurité
 PuffinLess utilise l'API native standard **Web Crypto API** (`crypto.subtle`) pour chiffrer l'ensemble des données sensibles au repos dans **IndexedDB** (`puffinless_indexeddb`) et en stockage local (`localStorage`).
 
 ### Spécifications Cryptographiques
 - **Algorithme** : AES-GCM (Galois/Counter Mode) avec clé de 256 bits et tag d'authentification de 128 bits.
+- **CryptoKey Non Extractible** : La clé cryptographique est générée ou importée avec `extractable: false` et conservée dans une base IndexedDB dédiée (`puffinless_key_vault`). **Aucune clé brute n'est stockée dans `localStorage`**.
 - **Vecteur d'Initialisation (IV) Unique** : Chaque opération de chiffrement génère dynamiquement un IV aléatoire de 96 bits (12 octets) via `crypto.getRandomValues(new Uint8Array(12))`. Deux sauvegardes d'un même état produisent toujours des ciphertexts complètement distincts.
-- **Gestion Explicite des Clés** : Une clé de coffre de 256 bits (`puffinless_vault_key_v2`) est générée via un PRNG cryptographique certifié et importée via `crypto.subtle.importKey`.
-- **Suppression du Fallback Déterministe** : Aucun sel codé en dur ni clé dérivée de secours n'est utilisé pour les nouveaux chiffrements. En cas d'indisponibilité du PRNG, l'opération est bloquée (fail-closed) pour empêcher toute fuite en clair ou chiffrement prévisible.
+- **Dérivation de Clé de Coffre par Phrase Secrète (PBKDF2)** : Prise en charge optionnelle d'un coffre protégé par une phrase secrète dérivée via PBKDF2-HMAC-SHA256 avec **600 000 itérations** et sel cryptographique aléatoire de 16 octets.
+- **Verrouillage d'Interface vs Déverrouillage Cryptographique** :
+  - *Verrouillage d'interface (PIN)* : Protection contre les regards indiscrets avec hachage PBKDF2 (100 000 itérations).
+  - *Déverrouillage cryptographique* : Gestion en mémoire vive de la clé de déchiffrement sans persistance en clair.
+- **Distinction Étanche entre Donnée Absente et Erreur de Déchiffrement** :
+  - `status: 'absent'` : Clé ou payload absent/vide (état vierge à l'installation).
+  - `DecryptionError` : Échec d'intégrité, altération du payload ou mauvaise clé. Empêche l'écrasement silencieux des données utilisateur par des structures vides.
 - **Format du Payload** : `aes-gcm:<ivHex>:<ciphertextBase64>`.
 - **Migration sans perte des anciennes données (AES-CBC)** : Le moteur de déchiffrement inspecte le préfixe. Tout enregistrement historique au format `aes256:<ciphertext>` (CryptoJS AES-CBC) est automatiquement déchiffré sans perte, puis ré-enregistré en AES-GCM lors de la prochaine écriture.
+- **Polices 100% Locales Hébergées** : Remplacement des requêtes vers Google Fonts par des polices WOFF2 embarquées localement (`/fonts/plus-jakarta-sans-latin.woff2` et `/fonts/space-grotesk-latin.woff2`) pour garantir l'anonymat réseau complet.
 
 ---
 
