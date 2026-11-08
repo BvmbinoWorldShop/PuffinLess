@@ -96,6 +96,21 @@ let keyDbInstance: IDBDatabase | null = null;
 let keyDbPromise: Promise<IDBDatabase> | null = null;
 
 /**
+ * Closes the active Key Vault IndexedDB connection and resets cached instances.
+ */
+export function closeKeyVaultDB(): void {
+  if (keyDbInstance) {
+    try {
+      keyDbInstance.close();
+    } catch {
+      // ignore
+    }
+    keyDbInstance = null;
+  }
+  keyDbPromise = null;
+}
+
+/**
  * Open (or reuse) the dedicated IndexedDB Key Vault database for non-extractable CryptoKeys
  */
 function openKeyVaultDB(): Promise<IDBDatabase> {
@@ -162,34 +177,49 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
   return keyDbPromise;
 }
 
+export type KeyVaultReadResult =
+  | { status: 'absent'; key: null }
+  | { status: 'success'; key: CryptoKey }
+  | { status: 'error'; key: null; error: Error };
+
 /**
  * Store a non-extractable CryptoKey in IndexedDB with failure-safe verification.
- * Automatically retains key in memory and archives historical copies so recoverable keys are never lost.
- * Throws an explicit error if IndexedDB write or read-back verification fails.
+ * - If IndexedDB is unavailable, throws an explicit error rather than reporting successful persistence.
+ * - The old key remains completely untouched if persistence or verification fails.
+ * - Performs physical read-back verification AND cryptographic usability verification (round-trip encrypt/decrypt).
  */
 export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> {
-  inMemoryKeyStore.set(id, key);
-  if (id === MASTER_KEY_ID) {
-    cachedCryptoKey = key;
-    cryptoLifecycleState = 'READY';
-  }
+  // 1. If IndexedDB is unavailable, must throw an error rather than report successful persistence.
+  // The old key must remain untouched (do not mutate inMemoryKeyStore or cachedCryptoKey).
   if (typeof window === 'undefined' || !window.indexedDB) {
-    return;
+    throw new Error(`[Crypto] IndexedDB is unavailable in this environment. Cannot persist key "${id}". The existing key remains untouched.`);
   }
 
-  const db = await openKeyVaultDB();
+  // 2. Open key vault database with failure-safe handling
+  let db: IDBDatabase;
+  try {
+    db = await openKeyVaultDB();
+  } catch (openErr) {
+    throw new Error(`[Crypto] Failed to open key vault database for key "${id}": ${openErr instanceof Error ? openErr.message : String(openErr)}`);
+  }
+
+  // 3. Write key and backup archive inside transaction
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
-    const store = tx.objectStore(KEY_STORE_NAME);
-    store.put(key, id);
-    // Archive copy to guarantee non-destructive key retention
-    store.put(key, `${id}_backup`);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
-    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+    try {
+      const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(KEY_STORE_NAME);
+      store.put(key, id);
+      // Archive copy to guarantee non-destructive key retention
+      store.put(key, `${id}_backup`);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error(`IndexedDB transaction error saving key "${id}"`));
+      tx.onabort = () => reject(tx.error || new Error(`IndexedDB transaction aborted saving key "${id}"`));
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
   });
 
-  // Failure-safe read-back verification: verify key was physically persisted
+  // 4. Physical read-back verification: verify key was physically persisted in IndexedDB
   const verifyTx = db.transaction(KEY_STORE_NAME, 'readonly');
   const verifyStore = verifyTx.objectStore(KEY_STORE_NAME);
   const verifyReq = verifyStore.get(id);
@@ -202,37 +232,126 @@ export async function saveKeyToVault(id: string, key: CryptoKey): Promise<void> 
   if (!readBack) {
     throw new Error(`[Crypto] Read-back verification failed for key id "${id}" in key vault`);
   }
+
+  // 5. Usability verification: verify the retrieved key is genuinely usable for the intended encryption/decryption operation
+  try {
+    const cryptoInstance = getCrypto();
+    const testIV = new Uint8Array(12);
+    cryptoInstance.getRandomValues(testIV);
+    const verificationPayload = new TextEncoder().encode('puffinless_key_usability_verification_token');
+    const encryptedToken = await cryptoInstance.subtle.encrypt(
+      { name: 'AES-GCM', iv: testIV },
+      readBack,
+      verificationPayload
+    );
+    const decryptedToken = await cryptoInstance.subtle.decrypt(
+      { name: 'AES-GCM', iv: testIV },
+      readBack,
+      encryptedToken
+    );
+    const decryptedString = new TextDecoder().decode(decryptedToken);
+    if (decryptedString !== 'puffinless_key_usability_verification_token') {
+      throw new Error('Round-trip encryption/decryption verification produced mismatched payload');
+    }
+  } catch (cryptoErr) {
+    throw new Error(`[Crypto] Read-back verification failed: retrieved key id "${id}" is not usable for cryptographic operations: ${cryptoErr instanceof Error ? cryptoErr.message : String(cryptoErr)}`);
+  }
+
+  // 6. ONLY AFTER confirmed persistence, physical read-back AND cryptographic usability verification:
+  // Update in-memory stores with the confirmed, usable key
+  inMemoryKeyStore.set(id, key);
+  if (id === MASTER_KEY_ID) {
+    cachedCryptoKey = key;
+    cryptoLifecycleState = 'READY';
+  }
 }
 
 /**
- * Retrieve a non-extractable CryptoKey from IndexedDB with failure-safe fallbacks.
- * If the exact id is not present, inspects backup records so the only recoverable key is never discarded.
+ * Retrieve a non-extractable CryptoKey from IndexedDB with explicit status:
+ * - 'absent': Key does not exist in key vault
+ * - 'success': Key retrieved and verified usable
+ * - 'error': Database connection, query, or usability verification failure
+ * Strictly prevents collapsing database errors into null or mistaken for missing keys.
  */
-export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
+export async function loadKeyFromVaultWithStatus(id: string): Promise<KeyVaultReadResult> {
   if (inMemoryKeyStore.has(id)) {
-    return inMemoryKeyStore.get(id) || null;
+    const memKey = inMemoryKeyStore.get(id);
+    if (memKey) return { status: 'success', key: memKey };
   }
   if (typeof window === 'undefined' || !window.indexedDB) {
-    return null;
+    return { status: 'error', key: null, error: new Error('[KeyVault] IndexedDB is not available in this environment') };
   }
+
+  let db: IDBDatabase;
   try {
-    const db = await openKeyVaultDB();
+    db = await openKeyVaultDB();
+  } catch (err) {
+    return { status: 'error', key: null, error: err instanceof Error ? err : new Error(String(err)) };
+  }
+
+  try {
     const primaryKey = await new Promise<CryptoKey | null>((resolve, reject) => {
-      const tx = db.transaction(KEY_STORE_NAME, 'readonly');
-      const store = tx.objectStore(KEY_STORE_NAME);
-      const req = store.get(id);
-      req.onsuccess = () => resolve((req.result as CryptoKey) || null);
-      req.onerror = () => reject(req.error);
-      tx.onerror = () => reject(tx.error);
+      try {
+        const tx = db.transaction(KEY_STORE_NAME, 'readonly');
+        const store = tx.objectStore(KEY_STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => resolve((req.result as CryptoKey) || null);
+        req.onerror = () => reject(req.error || new Error(`Key query error for "${id}"`));
+        tx.onerror = () => reject(tx.error || new Error(`Key transaction error for "${id}"`));
+      } catch (txErr) {
+        reject(txErr);
+      }
     });
 
     if (primaryKey) {
+      // Usability verification on retrieved key
+      try {
+        const cryptoInstance = getCrypto();
+        const testIV = new Uint8Array(12);
+        cryptoInstance.getRandomValues(testIV);
+        const testPlaintext = new TextEncoder().encode('puffinless_key_usability_check');
+        const testCipher = await cryptoInstance.subtle.encrypt(
+          { name: 'AES-GCM', iv: testIV },
+          primaryKey,
+          testPlaintext
+        );
+        const testDecrypted = await cryptoInstance.subtle.decrypt(
+          { name: 'AES-GCM', iv: testIV },
+          primaryKey,
+          testCipher
+        );
+        if (new TextDecoder().decode(testDecrypted) !== 'puffinless_key_usability_check') {
+          return { status: 'error', key: null, error: new Error(`Key "${id}" failed usability round-trip verification`) };
+        }
+      } catch (usableErr) {
+        return { status: 'error', key: null, error: usableErr instanceof Error ? usableErr : new Error(String(usableErr)) };
+      }
+
       inMemoryKeyStore.set(id, primaryKey);
-      return primaryKey;
+      return { status: 'success', key: primaryKey };
     }
 
-    // Failure-safe fallback: inspect backup archive in vault
-    return await new Promise<CryptoKey | null>((resolve) => {
+    // Inspect backup archive in vault
+    const backupKey = await new Promise<CryptoKey | null>((resolve, reject) => {
+      try {
+        const tx = db.transaction(KEY_STORE_NAME, 'readonly');
+        const store = tx.objectStore(KEY_STORE_NAME);
+        const req = store.get(`${id}_backup`);
+        req.onsuccess = () => resolve((req.result as CryptoKey) || null);
+        req.onerror = () => reject(req.error || new Error(`Backup query error for "${id}"`));
+        tx.onerror = () => reject(tx.error || new Error(`Backup transaction error for "${id}"`));
+      } catch (bErr) {
+        reject(bErr);
+      }
+    });
+
+    if (backupKey) {
+      inMemoryKeyStore.set(id, backupKey);
+      return { status: 'success', key: backupKey };
+    }
+
+    // Cursor inspection for any valid CryptoKey before concluding absent
+    const anyKey = await new Promise<CryptoKey | null>((resolve) => {
       try {
         const tx = db.transaction(KEY_STORE_NAME, 'readonly');
         const store = tx.objectStore(KEY_STORE_NAME);
@@ -242,9 +361,7 @@ export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
           if (cursor) {
             const val = cursor.value;
             if (val && typeof val === 'object' && 'algorithm' in (val as any)) {
-              const k = val as CryptoKey;
-              inMemoryKeyStore.set(id, k);
-              resolve(k);
+              resolve(val as CryptoKey);
               return;
             }
             cursor.continue();
@@ -257,9 +374,35 @@ export async function loadKeyFromVault(id: string): Promise<CryptoKey | null> {
         resolve(null);
       }
     });
-  } catch {
+
+    if (anyKey) {
+      inMemoryKeyStore.set(id, anyKey);
+      return { status: 'success', key: anyKey };
+    }
+
+    return { status: 'absent', key: null };
+  } catch (err) {
+    return { status: 'error', key: null, error: err instanceof Error ? err : new Error(String(err)) };
+  }
+}
+
+/**
+ * Retrieve a non-extractable CryptoKey from IndexedDB with failure-safe fallbacks.
+ * If the exact id is not present, inspects backup records so the only recoverable key is never discarded.
+ */
+export async function loadKeyFromVault(id: string, options?: { throwOnError?: boolean }): Promise<CryptoKey | null> {
+  const res = await loadKeyFromVaultWithStatus(id);
+  if (res.status === 'success') {
+    return res.key;
+  }
+  if (res.status === 'error') {
+    if (options?.throwOnError) {
+      throw res.error;
+    }
+    console.warn(`[Crypto] Database error loading key "${id}" from vault:`, res.error);
     return null;
   }
+  return null;
 }
 
 /**
@@ -442,10 +585,10 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
 
   const cryptoInstance = getCrypto();
 
-  // 1. Retrieve non-extractable key from IndexedDB key vault
-  const storedKey = await loadKeyFromVault(MASTER_KEY_ID);
-  if (storedKey) {
-    cachedCryptoKey = storedKey;
+  // 1. Retrieve non-extractable key from IndexedDB key vault with explicit status
+  const keyRes = await loadKeyFromVaultWithStatus(MASTER_KEY_ID);
+  if (keyRes.status === 'success' && keyRes.key) {
+    cachedCryptoKey = keyRes.key;
     cryptoLifecycleState = 'READY';
     // Genuinely purge raw key material from localStorage
     if (typeof localStorage !== 'undefined') {
@@ -453,7 +596,17 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
       localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
       localStorage.removeItem(DEVICE_RECOVERY_KEY);
     }
-    return storedKey;
+    return keyRes.key;
+  }
+  if (keyRes.status === 'error') {
+    // Database query error: do NOT collapse into missing key or generate a fresh key!
+    if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
+      const memKey = inMemoryKeyStore.get(MASTER_KEY_ID)!;
+      cachedCryptoKey = memKey;
+      cryptoLifecycleState = 'READY';
+      return memKey;
+    }
+    throw new Error(`[Crypto] Database error reading master key from vault: ${keyRes.error.message}`);
   }
 
   // 2. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
@@ -517,6 +670,7 @@ export function lockCryptographicVault(): void {
   cachedCryptoKey = null;
   inMemoryKeyStore.clear();
   cryptoLifecycleState = 'BOOTING';
+  closeKeyVaultDB();
 }
 
 /**
@@ -569,13 +723,7 @@ export async function purgeVaultKeys(): Promise<void> {
   await removeKeyFromVault(MASTER_KEY_ID);
   await removeKeyFromVault(`${MASTER_KEY_ID}_backup`);
 
-  if (keyDbInstance) {
-    try {
-      keyDbInstance.close();
-    } catch {}
-    keyDbInstance = null;
-    keyDbPromise = null;
-  }
+  closeKeyVaultDB();
 
   if (typeof window !== 'undefined' && window.indexedDB) {
     try {

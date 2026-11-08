@@ -45,9 +45,11 @@ import {
   purgeVaultKeys,
   getLegacyVaultKey,
   loadKeyFromVault,
+  loadKeyFromVaultWithStatus,
   saveKeyToVault,
   createKeyFromSeed,
   lockCryptographicVault,
+  closeKeyVaultDB,
   getCryptoLifecycleState,
   MASTER_KEY_ID,
   DecryptionError,
@@ -84,7 +86,7 @@ import {
   isAppSessionUnlocked,
   setAppSessionUnlocked,
 } from '../src/utils/security.ts';
-import { idbSet, deletePuffinLessDB } from '../src/utils/indexedDb.ts';
+import { idbSet, deletePuffinLessDB, idbGetWithStatus, idbGetRawWithStatus, closePuffinLessDB } from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 
 describe('PuffinLess Production Code Verification', () => {
@@ -869,6 +871,132 @@ describe('PuffinLess Production Code Verification', () => {
           streaks: [null],
         });
       });
+    });
+
+    test('if IndexedDB is unavailable, saveKeyToVault throws error and leaves old key untouched', async () => {
+      // 1. Establish an initial valid key in memory and vault
+      const initialKey = await createKeyFromSeed(new Uint8Array(32).fill(1));
+      await saveKeyToVault('test_master_id', initialKey);
+      assert.equal(await loadKeyFromVault('test_master_id'), initialKey);
+
+      // 2. Simulate IndexedDB completely unavailable
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = undefined;
+
+      try {
+        const candidateKey = await createKeyFromSeed(new Uint8Array(32).fill(9));
+        await assert.rejects(
+          async () => {
+            await saveKeyToVault('test_master_id', candidateKey);
+          },
+          /IndexedDB is unavailable/,
+          'saveKeyToVault must throw explicit error when IndexedDB is unavailable'
+        );
+
+        // 3. The old key must remain untouched in inMemoryKeyStore
+        const currentKey = await loadKeyFromVault('test_master_id');
+        assert.equal(currentKey, initialKey, 'Old key must remain completely untouched on persistence failure');
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+      }
+    });
+
+    test('read-back verification verifies retrieved key is usable for encryption/decryption operations', async () => {
+      // A valid key must pass read-back usability verification seamlessly
+      const validKey = await createKeyFromSeed(new Uint8Array(32).fill(2));
+      await assert.doesNotReject(async () => {
+        await saveKeyToVault('test_usable_key', validKey);
+      });
+
+      // Verify round-trip encryption/decryption with retrieved key
+      const retrieved = await loadKeyFromVault('test_usable_key');
+      assert.ok(retrieved);
+      const iv = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv);
+      const plaintext = new TextEncoder().encode('verification_test_data');
+      const ciphertext = await globalThis.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, retrieved, plaintext);
+      const decrypted = await globalThis.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, retrieved, ciphertext);
+      assert.equal(new TextDecoder().decode(decrypted), 'verification_test_data');
+    });
+
+    test('idbGetWithStatus and idbGetRawWithStatus explicitly distinguish absent, success, and error', async () => {
+      // 1. Absent: querying non-existent key returns status 'absent'
+      const absentRes = await idbGetWithStatus('non_existent_key_xyz');
+      assert.equal(absentRes.status, 'absent');
+      assert.equal(absentRes.data, null);
+
+      // 2. Success: saving and retrieving returns status 'success'
+      await idbSet('test_status_key', { count: 42, label: 'saved' });
+      const successRes = await idbGetWithStatus('test_status_key');
+      assert.equal(successRes.status, 'success');
+      assert.deepEqual(successRes.data, { count: 42, label: 'saved' });
+
+      // 3. Error: database error must return status 'error' and NOT collapse into null or absent
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated disk error') };
+          setTimeout(() => {
+            if (req.onerror) req.onerror({ target: req });
+          }, 0);
+          return req;
+        }
+      };
+
+      try {
+        const errorRes = await idbGetWithStatus('test_status_key');
+        assert.equal(errorRes.status, 'error', 'Database failure must return status: "error"');
+        assert.equal(errorRes.data, null);
+        assert.ok(errorRes.error, 'Must provide the underlying database error');
+        assert.match(errorRes.error.message, /disk error/i);
+
+        const rawRes = await idbGetRawWithStatus('test_status_key');
+        assert.equal(rawRes.status, 'error');
+        assert.ok(rawRes.error);
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+    });
+
+    test('loadKeyFromVaultWithStatus explicitly distinguishes absent, success, and error without collapsing errors into null', async () => {
+      // 1. Absent
+      const absent = await loadKeyFromVaultWithStatus('absent_key_id');
+      assert.equal(absent.status, 'absent');
+      assert.equal(absent.key, null);
+
+      // 2. Success
+      const testKey = await createKeyFromSeed(new Uint8Array(32).fill(3));
+      await saveKeyToVault('usable_key_id', testKey);
+      const success = await loadKeyFromVaultWithStatus('usable_key_id');
+      assert.equal(success.status, 'success');
+      assert.ok(success.key);
+
+      // 3. Error on DB failure
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated vault read error') };
+          setTimeout(() => {
+            if (req.onerror) req.onerror({ target: req });
+          }, 0);
+          return req;
+        }
+      };
+
+      try {
+        // Clear memory cache and close active DB connection to force IDB open & read
+        lockCryptographicVault();
+        const errRes = await loadKeyFromVaultWithStatus('usable_key_id');
+        assert.equal(errRes.status, 'error', 'Database failure must return status: "error"');
+        assert.equal(errRes.key, null);
+        assert.ok(errRes.error);
+        assert.match(errRes.error.message, /vault read error/i);
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closeKeyVaultDB();
+      }
     });
   });
 });

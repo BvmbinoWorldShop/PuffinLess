@@ -19,7 +19,7 @@ import {
   purgeVaultKeys,
   DecryptionError,
 } from './crypto.ts';
-import { idbGet, idbGetRaw, idbSet, deletePuffinLessDB } from './indexedDb.ts';
+import { idbGet, idbGetRawWithStatus, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
 import {
   recoverAllDeviceData,
@@ -1343,14 +1343,13 @@ export async function readWithStatus<T>(
     let foundInIdb = false;
 
     if (typeof window !== 'undefined' && window.indexedDB) {
-      try {
-        const idbVal = await idbGetRaw(key);
-        if (idbVal !== null && idbVal !== undefined && idbVal !== '') {
-          raw = idbVal;
-          foundInIdb = true;
-        }
-      } catch (err) {
-        return { status: 'decryption_error', data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      const idbRes = await idbGetRawWithStatus(key);
+      if (idbRes.status === 'error') {
+        return { status: 'decryption_error', data: null, error: idbRes.error };
+      }
+      if (idbRes.status === 'success' && idbRes.data !== null && idbRes.data !== undefined && idbRes.data !== '') {
+        raw = idbRes.data;
+        foundInIdb = true;
       }
     }
 

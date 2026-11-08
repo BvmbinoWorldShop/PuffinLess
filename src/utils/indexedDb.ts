@@ -5,7 +5,7 @@
  *
  * All data stored at rest in IndexedDB is encrypted with AES-256 via the device's local vault key.
  */
-import { encryptData, decryptData } from './crypto.ts';
+import { encryptData, decryptData, decryptWithStatus } from './crypto.ts';
 
 const DB_NAME = 'puffinless_indexeddb';
 const DB_VERSION = 1;
@@ -13,6 +13,21 @@ const STORE_NAME = 'kv_store';
 
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+/**
+ * Closes the active IndexedDB connection and resets cached instances.
+ */
+export function closePuffinLessDB(): void {
+  if (dbInstance) {
+    try {
+      dbInstance.close();
+    } catch {
+      // ignore
+    }
+    dbInstance = null;
+  }
+  dbPromise = null;
+}
 
 /**
  * Open (or reuse) the IndexedDB database instance with automatic connection recovery.
@@ -91,24 +106,104 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+export type IdbReadResult<T> =
+  | { status: 'absent'; data: null }
+  | { status: 'success'; data: T }
+  | { status: 'error'; data: null; error: Error };
+
+/**
+ * Retrieve the raw record from IndexedDB kv_store with explicit status:
+ * - 'absent': Key does not exist in store
+ * - 'success': Key exists and value is returned
+ * - 'error': Opening, transaction or query error
+ * Strictly prevents collapsing database errors into null or mistaken for missing data.
+ */
+export async function idbGetRawWithStatus(
+  key: string
+): Promise<{ status: 'absent' | 'success' | 'error'; data: unknown; error?: Error }> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return { status: 'error', data: null, error: new Error('[IndexedDB] IndexedDB is not available in this environment') };
+  }
+  let db: IDBDatabase;
+  try {
+    db = await openPuffinLessDB();
+  } catch (err) {
+    return { status: 'error', data: null, error: err instanceof Error ? err : new Error(String(err)) };
+  }
+
+  return await new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(key);
+
+      req.onsuccess = () => {
+        if (req.result === undefined || req.result === null) {
+          resolve({ status: 'absent', data: null });
+        } else {
+          resolve({ status: 'success', data: req.result });
+        }
+      };
+      req.onerror = () => {
+        resolve({ status: 'error', data: null, error: req.error || new Error(`[IndexedDB] Query error for key "${key}"`) });
+      };
+      tx.onerror = () => {
+        resolve({ status: 'error', data: null, error: tx.error || new Error(`[IndexedDB] Transaction error for key "${key}"`) });
+      };
+    } catch (err) {
+      resolve({ status: 'error', data: null, error: err instanceof Error ? err : new Error(String(err)) });
+    }
+  });
+}
+
 /**
  * Retrieve the raw (undecrypted) record from IndexedDB kv_store.
  * Returns null strictly when the key does not exist.
  * Throws explicitly on database or transaction failure.
  */
 export async function idbGetRaw(key: string): Promise<unknown> {
-  const db = await openPuffinLessDB();
-  return await new Promise<unknown>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.get(key);
+  const res = await idbGetRawWithStatus(key);
+  if (res.status === 'success') {
+    return res.data;
+  }
+  if (res.status === 'error') {
+    throw res.error || new Error(`[IndexedDB] Query error for key "${key}"`);
+  }
+  return null;
+}
 
-    req.onsuccess = () => {
-      resolve(req.result !== undefined ? req.result : null);
-    };
-    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Query error for key "${key}"`));
-    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error for key "${key}"`));
-  });
+/**
+ * Reads a record from IndexedDB with explicit tri-state result:
+ * - 'absent': Record does not exist in IndexedDB kv_store
+ * - 'success': Record retrieved and decrypted
+ * - 'error': Database connection, query, or decryption failure
+ * Do NOT collapse database errors into null.
+ */
+export async function idbGetWithStatus<T = unknown>(
+  key: string,
+  options?: { decrypt?: boolean }
+): Promise<IdbReadResult<T>> {
+  const rawRes = await idbGetRawWithStatus(key);
+  if (rawRes.status === 'error') {
+    return { status: 'error', data: null, error: rawRes.error || new Error(`[IndexedDB] Read error for key "${key}"`) };
+  }
+  if (rawRes.status === 'absent') {
+    return { status: 'absent', data: null };
+  }
+
+  const rawVal = rawRes.data;
+  if (options?.decrypt !== false && typeof rawVal === 'string') {
+    const decRes = await decryptWithStatus<T>(rawVal);
+    if (decRes.status === 'success') {
+      return { status: 'success', data: decRes.data as T };
+    }
+    if (decRes.status === 'error') {
+      return { status: 'error', data: null, error: decRes.error || new Error(`[IndexedDB] Decryption failed for key "${key}"`) };
+    }
+    return { status: 'absent', data: null };
+  }
+
+  return { status: 'success', data: rawVal as T };
 }
 
 /**
@@ -116,12 +211,18 @@ export async function idbGetRaw(key: string): Promise<unknown> {
  * Strictly distinguishes missing keys (null) from decryption/storage failures (throws on error if requested).
  */
 export async function idbGet<T>(key: string, options?: { throwOnError?: boolean }): Promise<T | null> {
-  const rawCipher = await idbGetRaw(key);
-  if (rawCipher === null || rawCipher === undefined) {
+  const res = await idbGetWithStatus<T>(key, { decrypt: true });
+  if (res.status === 'success') {
+    return res.data;
+  }
+  if (res.status === 'error') {
+    if (options?.throwOnError) {
+      throw res.error;
+    }
+    console.warn(`[IndexedDB] Error reading key "${key}":`, res.error);
     return null;
   }
-  // Transparently decrypt AES-GCM payload (or handle legacy AES-CBC / raw objects)
-  return await decryptData<T | null>(rawCipher, null, options);
+  return null;
 }
 
 /**
@@ -192,19 +293,10 @@ export async function idbClear(): Promise<void> {
  */
 export async function deletePuffinLessDB(): Promise<void> {
   if (typeof window === 'undefined' || !window.indexedDB) {
-    dbInstance = null;
-    dbPromise = null;
+    closePuffinLessDB();
     return;
   }
-  if (dbInstance) {
-    try {
-      dbInstance.close();
-    } catch {
-      // ignore
-    }
-    dbInstance = null;
-  }
-  dbPromise = null;
+  closePuffinLessDB();
 
   if (typeof window !== 'undefined' && window.indexedDB) {
     await new Promise<void>((resolve, reject) => {
