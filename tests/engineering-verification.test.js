@@ -70,7 +70,11 @@ import {
 import {
   recoverAllDeviceData,
   isValidDateField,
+  createDeviceRescueSnapshot,
+  getDeviceRescueSnapshot,
 } from '../src/utils/recovery.ts';
+import { localDateStr, dayLabel } from '../src/utils/dates.ts';
+import { buildCoreReport, sumIntake } from '../src/core/obsidianCore.ts';
 import {
   purgeSecurityState,
   getSecurityConfig,
@@ -755,6 +759,116 @@ describe('PuffinLess Production Code Verification', () => {
       const res = await recoverAllDeviceData();
       assert.equal(res.recovered, false, 'Must reject corrupted quit_date and unrelated storage keys');
       assert.equal(res.profile, null, 'Must not manufacture a recovery profile from corrupted date markers');
+    });
+  });
+
+  describe('Pillar 7: Zero Data Loss Safeguards & Crash Resilience', () => {
+    test('createDeviceRescueSnapshot never overwrites populated arrays with empty arrays', () => {
+      const sampleCravings = [
+        { id: 'c1', timestamp: '2026-02-10T10:00:00.000Z', intensity: 5, trigger: 'stress', resisted: true },
+        { id: 'c2', timestamp: '2026-02-11T14:00:00.000Z', intensity: 7, trigger: 'habit', resisted: false },
+      ];
+      const sampleStreaks = [
+        { id: 'st1', start: '2026-02-01T00:00:00.000Z', end: '2026-02-08T00:00:00.000Z', brokenBy: 'cigarette' },
+      ];
+
+      // 1. Initial save with populated data
+      createDeviceRescueSnapshot({
+        cravings: sampleCravings,
+        streaks: sampleStreaks,
+      });
+
+      let snap = getDeviceRescueSnapshot();
+      assert.equal(snap?.cravings?.length, 2, 'Initial snapshot must have 2 cravings');
+      assert.equal(snap?.streaks?.length, 1, 'Initial snapshot must have 1 streak');
+
+      // 2. Mistaken call with empty arrays (must NOT overwrite existing data)
+      createDeviceRescueSnapshot({
+        cravings: [],
+        streaks: [],
+      });
+
+      snap = getDeviceRescueSnapshot();
+      assert.equal(snap?.cravings?.length, 2, 'Empty array call must NEVER erase existing cravings');
+      assert.equal(snap?.streaks?.length, 1, 'Empty array call must NEVER erase existing streaks');
+    });
+
+    test('recoverAllDeviceData never overwrites populated keys with empty arrays', async () => {
+      // 1. Prepopulate a valid streak in localStorage
+      const validStreakCipher = await encryptData([
+        { id: 'st-persist', start: '2026-02-01T08:00:00.000Z' },
+      ]);
+      globalThis.localStorage.setItem('puffinless_streaks_v2', validStreakCipher);
+
+      // 2. Set profile in rescue snapshot
+      createDeviceRescueSnapshot({
+        profile: {
+          name: 'Hero',
+          quitDate: '2026-02-01T08:00:00.000Z',
+          isOnboarded: true,
+        },
+      });
+
+      // 3. Trigger deep recovery
+      const res = await recoverAllDeviceData();
+      assert.equal(res.recovered, true);
+      assert.equal(res.streaks.length, 1, 'Must recover the streak');
+
+      // 4. Verify streaks in storage was NOT wiped
+      const storedStreakRaw = globalThis.localStorage.getItem('puffinless_streaks_v2');
+      assert.ok(storedStreakRaw, 'Streaks key must still exist in localStorage');
+      const decryptedStreaks = await decryptData(storedStreakRaw, []);
+      assert.equal(decryptedStreaks.length, 1, 'Stored streak must not be wiped');
+    });
+
+    test('cold restart preserves a full week of logs via rescue snapshot fallback', async () => {
+      const oneWeekCravings = Array.from({ length: 7 }).map((_, i) => ({
+        id: `crav-${i}`,
+        timestamp: `2026-02-0${i + 1}T12:00:00.000Z`,
+        intensity: 6,
+        trigger: 'routine',
+        resisted: true,
+      }));
+
+      createDeviceRescueSnapshot({
+        profile: {
+          name: 'Hero',
+          quitDate: '2026-02-01T00:00:00.000Z',
+          isOnboarded: true,
+        },
+        cravings: oneWeekCravings,
+      });
+
+      // Simulate cold restart where IndexedDB is empty
+      const hydrated = await initIndexedDBStorage();
+      assert.ok(hydrated);
+      assert.equal(hydrated.cravings?.length, 7, 'Must restore full 7 days of cravings');
+    });
+
+    test('dayLabel and localDateStr never throw RangeError on invalid inputs', () => {
+      assert.doesNotThrow(() => {
+        dayLabel('invalid-date-string');
+        dayLabel('');
+        dayLabel('NaN-NaN-NaN');
+        localDateStr('invalid-date');
+        localDateStr(NaN);
+      });
+      assert.equal(dayLabel('invalid-date-string'), '');
+    });
+
+    test('buildCoreReport and sumIntake never crash on undefined profile names or malformed logs', () => {
+      assert.doesNotThrow(() => {
+        sumIntake(null, '2026-02-15');
+        sumIntake([null, { count: 1 }], '2026-02-15');
+        buildCoreReport({
+          profile: { name: undefined, quitDate: '' },
+          stats: { slipsBySubstance: null, dailyBaselineCost: 0, level: { next: null } },
+          substanceLogs: [null, { timestamp: 'invalid-time' }],
+          cravings: [null, { trigger: null }],
+          sleepLogs: [],
+          streaks: [null],
+        });
+      });
     });
   });
 });

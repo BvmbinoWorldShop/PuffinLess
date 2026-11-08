@@ -9,9 +9,9 @@
  * personalised coaching insights.
  */
 import type { UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, StreakRecord, SubstanceType } from '../types';
-import type { CalculatedStats } from '../utils/calculations';
-import { computeSleepEnergyCorrelation } from '../utils/sleepTracker';
-import { formatDuration, formatHour, lastNDates, dayLabel, localDateStr } from '../utils/dates';
+import type { CalculatedStats } from '../utils/calculations.ts';
+import { computeSleepEnergyCorrelation } from '../utils/sleepTracker.ts';
+import { formatDuration, formatHour, lastNDates, dayLabel, localDateStr } from '../utils/dates.ts';
 
 export type InsightTone = 'win' | 'alert' | 'tip' | 'info';
 
@@ -82,10 +82,17 @@ const SUBSTANCE_NAME: Record<SubstanceType, string> = {
   cannabis: 'joints',
 };
 
-export function sumIntake(logs: SubstanceLog[], date: string): Intake {
+export function sumIntake(logs: SubstanceLog[] = [], date: string): Intake {
   const out: Intake = { cigarette: 0, puff_vape: 0, cannabis: 0 };
+  if (!Array.isArray(logs)) return out;
   logs.forEach((l) => {
-    if (localDateStr(l.timestamp) === date) out[l.substance] += l.count;
+    if (!l || !l.timestamp) return;
+    if (localDateStr(l.timestamp) === date) {
+      const sub = l.substance;
+      if (sub === 'cigarette' || sub === 'puff_vape' || sub === 'cannabis') {
+        out[sub] += Number(l.count) || 0;
+      }
+    }
   });
   return out;
 }
@@ -118,9 +125,10 @@ export function computeDailyReality(profile: UserProfile, dailyCost: number): Da
   };
 }
 
-function greetingFor(name: string, isFr: boolean = false): string {
+function greetingFor(name?: string, isFr: boolean = false): string {
   const h = new Date().getHours();
-  const firstName = name.split(' ')[0] || (isFr ? 'ami' : 'friend');
+  const safeName = typeof name === 'string' ? name.trim() : '';
+  const firstName = (safeName ? safeName.split(' ')[0] : '') || (isFr ? 'ami' : 'friend');
   if (isFr) {
     const part = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
     return `${part}, ${firstName}`;
@@ -182,22 +190,32 @@ export function buildCoreReport(input: {
 
   // ---- Habit memory ----
   const hourHist = new Array(24).fill(0) as number[];
-  substanceLogs.forEach((l) => {
-    hourHist[new Date(l.timestamp).getHours()] += 1;
-  });
+  if (Array.isArray(substanceLogs)) {
+    substanceLogs.forEach((l) => {
+      if (!l || !l.timestamp) return;
+      const d = new Date(l.timestamp);
+      if (!isNaN(d.getTime())) {
+        const h = d.getHours();
+        if (h >= 0 && h < 24) hourHist[h] += 1;
+      }
+    });
+  }
   const peakCount = Math.max(...hourHist);
   const peakHour = substanceLogs.length >= 3 && peakCount >= 2 ? hourHist.indexOf(peakCount) : null;
 
   const triggerCounts: Record<string, number> = {};
-  cravings.forEach((c) => {
-    triggerCounts[c.trigger] = (triggerCounts[c.trigger] || 0) + 1;
-  });
+  if (Array.isArray(cravings)) {
+    cravings.forEach((c) => {
+      if (!c || !c.trigger) return;
+      triggerCounts[c.trigger] = (triggerCounts[c.trigger] || 0) + 1;
+    });
+  }
   const triggerEntries = Object.entries(triggerCounts).sort((a, b) => b[1] - a[1]);
   const topTrigger = cravings.length >= 2 && triggerEntries.length ? triggerEntries[0][0] : null;
 
-  const subCounts = stats.slipsBySubstance;
-  const topSub = (Object.keys(subCounts) as SubstanceType[]).sort((a, b) => subCounts[b] - subCounts[a])[0];
-  const topSubstance = subCounts[topSub] > 0 ? topSub : null;
+  const subCounts = stats.slipsBySubstance || { cigarette: 0, puff_vape: 0, cannabis: 0 };
+  const topSub = (Object.keys(subCounts) as SubstanceType[]).sort((a, b) => (subCounts[b] || 0) - (subCounts[a] || 0))[0];
+  const topSubstance = (subCounts[topSub] || 0) > 0 ? topSub : null;
 
   const habit = {
     peakHour,

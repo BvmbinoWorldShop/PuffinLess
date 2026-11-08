@@ -73,16 +73,27 @@ export function calculateStats(
   const seconds = elapsedSeconds % 60;
 
   // Streak memory
-  const pastDurations = streaks.map((s) =>
-    Math.max(0, Math.floor((new Date(s.end || Date.now()).getTime() - new Date(s.start).getTime()) / 1000))
-  );
+  const pastDurations = Array.isArray(streaks)
+    ? streaks
+        .filter((s) => s && s.start && !isNaN(new Date(s.start).getTime()))
+        .map((s) => {
+          const endTime = s.end && !isNaN(new Date(s.end).getTime()) ? new Date(s.end).getTime() : Date.now();
+          const startTime = new Date(s.start).getTime();
+          return Math.max(0, Math.floor((endTime - startTime) / 1000));
+        })
+    : [];
   const bestStreakSeconds = Math.max(elapsedSeconds, ...pastDurations, 0);
   const totalCleanSeconds = elapsedSeconds + pastDurations.reduce((a, b) => a + b, 0);
 
   const slipsBySubstance = { cigarette: 0, puff_vape: 0, cannabis: 0 };
-  substanceLogs.forEach((l) => {
-    slipsBySubstance[l.substance] += l.count;
-  });
+  if (Array.isArray(substanceLogs)) {
+    substanceLogs.forEach((l) => {
+      if (!l || !l.substance) return;
+      if (l.substance === 'cigarette' || l.substance === 'puff_vape' || l.substance === 'cannabis') {
+        slipsBySubstance[l.substance] += Number(l.count) || 0;
+      }
+    });
+  }
 
   // Everything avoided = baseline habit over all smoke-free time, strictly for selected substances in settings
   const habits = profile.habits ?? [];

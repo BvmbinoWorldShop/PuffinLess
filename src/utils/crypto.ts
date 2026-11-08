@@ -99,7 +99,7 @@ let keyDbPromise: Promise<IDBDatabase> | null = null;
  * Open (or reuse) the dedicated IndexedDB Key Vault database for non-extractable CryptoKeys
  */
 function openKeyVaultDB(): Promise<IDBDatabase> {
-  if (keyDbInstance) {
+  if (keyDbInstance && keyDbInstance.objectStoreNames.contains(KEY_STORE_NAME)) {
     return Promise.resolve(keyDbInstance);
   }
   if (keyDbPromise) {
@@ -117,7 +117,36 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
       }
     };
     req.onsuccess = () => {
-      keyDbInstance = req.result;
+      const db = req.result;
+      if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
+        // Database exists but lacks the keys store: upgrade version dynamically
+        const nextVersion = db.version + 1;
+        db.close();
+        keyDbInstance = null;
+        const upgradeReq = window.indexedDB.open(KEY_DB_NAME, nextVersion);
+        upgradeReq.onupgradeneeded = (ue) => {
+          const uDb = (ue.target as IDBOpenDBRequest).result;
+          if (!uDb.objectStoreNames.contains(KEY_STORE_NAME)) {
+            uDb.createObjectStore(KEY_STORE_NAME);
+          }
+        };
+        upgradeReq.onsuccess = () => {
+          keyDbInstance = upgradeReq.result;
+          keyDbInstance.onversionchange = () => {
+            keyDbInstance?.close();
+            keyDbInstance = null;
+            keyDbPromise = null;
+          };
+          resolve(keyDbInstance);
+        };
+        upgradeReq.onerror = () => {
+          keyDbPromise = null;
+          reject(upgradeReq.error || new Error('Failed to upgrade key vault database'));
+        };
+        return;
+      }
+
+      keyDbInstance = db;
       keyDbInstance.onversionchange = () => {
         keyDbInstance?.close();
         keyDbInstance = null;

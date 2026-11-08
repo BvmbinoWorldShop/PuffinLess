@@ -18,7 +18,7 @@ let dbPromise: Promise<IDBDatabase> | null = null;
  * Open (or reuse) the IndexedDB database instance with automatic connection recovery.
  */
 export function openPuffinLessDB(): Promise<IDBDatabase> {
-  if (dbInstance) {
+  if (dbInstance && dbInstance.objectStoreNames.contains(STORE_NAME)) {
     return Promise.resolve(dbInstance);
   }
   if (dbPromise) {
@@ -41,7 +41,35 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => {
-      dbInstance = request.result;
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const nextVersion = db.version + 1;
+        db.close();
+        dbInstance = null;
+        const upgradeReq = window.indexedDB.open(DB_NAME, nextVersion);
+        upgradeReq.onupgradeneeded = (ue) => {
+          const uDb = (ue.target as IDBOpenDBRequest).result;
+          if (!uDb.objectStoreNames.contains(STORE_NAME)) {
+            uDb.createObjectStore(STORE_NAME);
+          }
+        };
+        upgradeReq.onsuccess = () => {
+          dbInstance = upgradeReq.result;
+          dbInstance.onversionchange = () => {
+            dbInstance?.close();
+            dbInstance = null;
+            dbPromise = null;
+          };
+          resolve(dbInstance);
+        };
+        upgradeReq.onerror = () => {
+          dbPromise = null;
+          reject(upgradeReq.error || new Error('Failed to upgrade PuffinLess database'));
+        };
+        return;
+      }
+
+      dbInstance = db;
       dbInstance.onversionchange = () => {
         dbInstance?.close();
         dbInstance = null;

@@ -3,6 +3,10 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** Local calendar date as YYYY-MM-DD (never UTC, so "today" is always the user's today). */
 export function localDateStr(input: Date | string | number = new Date()): string {
   const d = new Date(input);
+  if (isNaN(d.getTime())) {
+    const today = new Date();
+    return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  }
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
@@ -18,8 +22,14 @@ export function lastNDates(n: number): string[] {
 }
 
 export function dayLabel(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' });
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return '';
+  const [y, m, d] = parts.map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+  const dt = new Date(y, m - 1, d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleDateString(undefined, { weekday: 'short' });
 }
 
 export function formatDuration(totalSeconds: number): string {

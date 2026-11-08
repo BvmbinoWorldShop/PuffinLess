@@ -52,6 +52,10 @@ export function loadStreaks(): StreakRecord[] {
   } catch {
     // ignore
   }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.streaks && snap.streaks.length > 0) {
+    return snap.streaks;
+  }
   return [];
 }
 
@@ -780,11 +784,15 @@ export async function saveProfile(profile: UserProfile): Promise<void> {
 export function loadExpenses(): PurchaseExpense[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    if (raw && !raw.startsWith('aes-gcm:')) {
+    if (raw && !raw.startsWith('aes-gcm:') && !raw.startsWith('aes256:')) {
       return JSON.parse(raw) as PurchaseExpense[];
     }
   } catch {
     // ignore
+  }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.expenses && snap.expenses.length > 0) {
+    return snap.expenses;
   }
   return [];
 }
@@ -828,6 +836,10 @@ export function loadSubstanceLogs(): SubstanceLog[] {
   } catch {
     // ignore
   }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.substanceLogs && snap.substanceLogs.length > 0) {
+    return snap.substanceLogs;
+  }
   return [];
 }
 
@@ -870,6 +882,10 @@ export function loadSleepEnergy(): SleepEnergyEntry[] {
   } catch {
     // ignore
   }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.sleepLogs && snap.sleepLogs.length > 0) {
+    return snap.sleepLogs;
+  }
   return [];
 }
 
@@ -910,6 +926,10 @@ export function loadSavingsGoals(): SavingsGoal[] {
     }
   } catch {
     // ignore
+  }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.goals && snap.goals.length > 0) {
+    return snap.goals;
   }
   return [];
 }
@@ -953,6 +973,10 @@ export function loadCravings(): CravingEntry[] {
   } catch {
     // ignore
   }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.cravings && snap.cravings.length > 0) {
+    return snap.cravings;
+  }
   return [];
 }
 
@@ -993,6 +1017,10 @@ export function loadSmokeLog(): SmokeLogEntry[] {
     }
   } catch {
     // ignore
+  }
+  const snap = getDeviceRescueSnapshot();
+  if (snap?.smokeLogs && snap.smokeLogs.length > 0) {
+    return snap.smokeLogs;
   }
   return [];
 }
@@ -1151,40 +1179,49 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       const consolidatedStreaks = mergeStreaks(streaks || [], localStreaks || []);
       const consolidatedSubstances = mergeSubstances(substanceLogs || [], localSubstances || []);
 
+      // Cross-check rescue snapshot so existing history is never left blank
+      const snap = getDeviceRescueSnapshot();
+      const finalCravings = consolidatedCravings.length > 0 ? consolidatedCravings : (snap?.cravings || []);
+      const finalStreaks = consolidatedStreaks.length > 0 ? consolidatedStreaks : (snap?.streaks || []);
+      const finalSubstances = consolidatedSubstances.length > 0 ? consolidatedSubstances : (snap?.substanceLogs || []);
+      const finalExpenses = (expenses && expenses.length > 0) ? expenses : (snap?.expenses || []);
+      const finalSleep = (sleepLogs && sleepLogs.length > 0) ? sleepLogs : (snap?.sleepLogs || []);
+      const finalGoals = (goals && goals.length > 0) ? goals : (snap?.goals || []);
+
       // If any entity suffered decryption failure or both streaks and cravings are empty, run deep scan to recover any historical data
-      if (hasDecryptionError || (consolidatedCravings.length === 0 && consolidatedStreaks.length === 0)) {
+      if (hasDecryptionError || (finalCravings.length === 0 && finalStreaks.length === 0)) {
         const deepScan = await recoverAllDeviceData();
         if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
           return {
             profile: deepScan.profile || idbProfile,
-            goals: deepScan.goals.length > 0 ? deepScan.goals : (goals || undefined),
-            cravings: deepScan.cravings,
-            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : (expenses || undefined),
-            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : consolidatedSubstances,
-            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : (sleepLogs || undefined),
-            streaks: deepScan.streaks,
+            goals: deepScan.goals.length > 0 ? deepScan.goals : (finalGoals.length > 0 ? finalGoals : undefined),
+            cravings: deepScan.cravings.length > 0 ? deepScan.cravings : finalCravings,
+            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : (finalExpenses.length > 0 ? finalExpenses : undefined),
+            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : finalSubstances,
+            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : (finalSleep.length > 0 ? finalSleep : undefined),
+            streaks: deepScan.streaks.length > 0 ? deepScan.streaks : finalStreaks,
           };
         }
       }
 
       createDeviceRescueSnapshot({
         profile: idbProfile,
-        goals: goals || undefined,
-        cravings: consolidatedCravings,
-        expenses: expenses || undefined,
-        substanceLogs: consolidatedSubstances,
-        sleepLogs: sleepLogs || undefined,
-        streaks: consolidatedStreaks,
+        goals: finalGoals.length > 0 ? finalGoals : undefined,
+        cravings: finalCravings,
+        expenses: finalExpenses.length > 0 ? finalExpenses : undefined,
+        substanceLogs: finalSubstances,
+        sleepLogs: finalSleep.length > 0 ? finalSleep : undefined,
+        streaks: finalStreaks,
       });
 
       return {
         profile: idbProfile,
-        goals: goals || undefined,
-        cravings: consolidatedCravings,
-        expenses: expenses || undefined,
-        substanceLogs: consolidatedSubstances,
-        sleepLogs: sleepLogs || undefined,
-        streaks: consolidatedStreaks,
+        goals: finalGoals.length > 0 ? finalGoals : undefined,
+        cravings: finalCravings,
+        expenses: finalExpenses.length > 0 ? finalExpenses : undefined,
+        substanceLogs: finalSubstances,
+        sleepLogs: finalSleep.length > 0 ? finalSleep : undefined,
+        streaks: finalStreaks,
       };
     }
 
@@ -1198,17 +1235,25 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       const sleep = await loadSleepEnergyAsync().catch(() => { loadHasDecryptionError = true; return []; });
       const goals = await loadSavingsGoalsAsync().catch(() => { loadHasDecryptionError = true; return []; });
 
-      if (loadHasDecryptionError || (cravings.length === 0 && streaks.length === 0)) {
+      const snap = getDeviceRescueSnapshot();
+      const finalStreaks = streaks.length > 0 ? streaks : (snap?.streaks || []);
+      const finalCravings = cravings.length > 0 ? cravings : (snap?.cravings || []);
+      const finalSubstances = substances.length > 0 ? substances : (snap?.substanceLogs || []);
+      const finalExpenses = expenses.length > 0 ? expenses : (snap?.expenses || []);
+      const finalSleep = sleep.length > 0 ? sleep : (snap?.sleepLogs || []);
+      const finalGoals = goals.length > 0 ? goals : (snap?.goals || []);
+
+      if (loadHasDecryptionError || (finalCravings.length === 0 && finalStreaks.length === 0)) {
         const deepScan = await recoverAllDeviceData();
         if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
           return {
             profile: deepScan.profile || localProfile,
-            goals: deepScan.goals.length > 0 ? deepScan.goals : goals,
-            cravings: deepScan.cravings,
-            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : expenses,
-            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : substances,
-            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : sleep,
-            streaks: deepScan.streaks,
+            goals: deepScan.goals.length > 0 ? deepScan.goals : finalGoals,
+            cravings: deepScan.cravings.length > 0 ? deepScan.cravings : finalCravings,
+            expenses: deepScan.expenses.length > 0 ? deepScan.expenses : finalExpenses,
+            substanceLogs: deepScan.substanceLogs.length > 0 ? deepScan.substanceLogs : finalSubstances,
+            sleepLogs: deepScan.sleepLogs.length > 0 ? deepScan.sleepLogs : finalSleep,
+            streaks: deepScan.streaks.length > 0 ? deepScan.streaks : finalStreaks,
           };
         }
       }
@@ -1216,35 +1261,33 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       // Sync active localProfile into IndexedDB safely ONLY if no decryption error occurred
       // (Never overwrite potentially recoverable corrupted data with blank arrays)
       if (!loadHasDecryptionError) {
-        await Promise.all([
-          saveProfile(localProfile),
-          saveStreaks(streaks),
-          saveCravings(cravings),
-          saveSubstanceLogs(substances),
-          saveExpenses(expenses),
-          saveSleepEnergy(sleep),
-          saveSavingsGoals(goals),
-        ]);
+        await saveProfile(localProfile);
+        if (finalStreaks.length > 0) await saveStreaks(finalStreaks).catch(() => {});
+        if (finalCravings.length > 0) await saveCravings(finalCravings).catch(() => {});
+        if (finalSubstances.length > 0) await saveSubstanceLogs(finalSubstances).catch(() => {});
+        if (finalExpenses.length > 0) await saveExpenses(finalExpenses).catch(() => {});
+        if (finalSleep.length > 0) await saveSleepEnergy(finalSleep).catch(() => {});
+        if (finalGoals.length > 0) await saveSavingsGoals(finalGoals).catch(() => {});
       }
 
       createDeviceRescueSnapshot({
         profile: localProfile,
-        goals,
-        cravings,
-        expenses,
-        substanceLogs: substances,
-        sleepLogs: sleep,
-        streaks,
+        goals: finalGoals.length > 0 ? finalGoals : undefined,
+        cravings: finalCravings,
+        expenses: finalExpenses.length > 0 ? finalExpenses : undefined,
+        substanceLogs: finalSubstances,
+        sleepLogs: finalSleep.length > 0 ? finalSleep : undefined,
+        streaks: finalStreaks,
       });
 
       return {
         profile: localProfile,
-        goals,
-        cravings,
-        expenses,
-        substanceLogs: substances,
-        sleepLogs: sleep,
-        streaks,
+        goals: finalGoals,
+        cravings: finalCravings,
+        expenses: finalExpenses,
+        substanceLogs: finalSubstances,
+        sleepLogs: finalSleep,
+        streaks: finalStreaks,
       };
     }
 

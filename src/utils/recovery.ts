@@ -95,13 +95,13 @@ export function createDeviceRescueSnapshot(snapshot: Partial<DeviceRescueSnapsho
       version: 2,
       timestamp: new Date().toISOString(),
       profile: snapshot.profile || existing?.profile,
-      goals: snapshot.goals || existing?.goals,
-      cravings: snapshot.cravings || existing?.cravings,
-      expenses: snapshot.expenses || existing?.expenses,
-      substanceLogs: snapshot.substanceLogs || existing?.substanceLogs,
-      sleepLogs: snapshot.sleepLogs || existing?.sleepLogs,
-      streaks: snapshot.streaks || existing?.streaks,
-      smokeLogs: snapshot.smokeLogs || existing?.smokeLogs,
+      goals: (snapshot.goals && snapshot.goals.length > 0) ? snapshot.goals : existing?.goals,
+      cravings: (snapshot.cravings && snapshot.cravings.length > 0) ? snapshot.cravings : existing?.cravings,
+      expenses: (snapshot.expenses && snapshot.expenses.length > 0) ? snapshot.expenses : existing?.expenses,
+      substanceLogs: (snapshot.substanceLogs && snapshot.substanceLogs.length > 0) ? snapshot.substanceLogs : existing?.substanceLogs,
+      sleepLogs: (snapshot.sleepLogs && snapshot.sleepLogs.length > 0) ? snapshot.sleepLogs : existing?.sleepLogs,
+      streaks: (snapshot.streaks && snapshot.streaks.length > 0) ? snapshot.streaks : existing?.streaks,
+      smokeLogs: (snapshot.smokeLogs && snapshot.smokeLogs.length > 0) ? snapshot.smokeLogs : existing?.smokeLogs,
     };
     localStorage.setItem(RESCUE_BACKUP_KEY, JSON.stringify(merged));
   } catch (err) {
@@ -346,15 +346,58 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     if (typeof val !== 'object') return;
 
     // Full snapshot or composite backup
-    if ('profile' in val || 'cravings' in val || 'streaks' in val) {
+    if (
+      'profile' in val ||
+      'cravings' in val ||
+      'streaks' in val ||
+      'substanceLogs' in val ||
+      'substances' in val ||
+      'smokeLogs' in val ||
+      'smokeLog' in val ||
+      'expenses' in val ||
+      'sleepLogs' in val ||
+      'sleepEnergy' in val ||
+      'sleep' in val ||
+      'goals' in val ||
+      'savingsGoals' in val
+    ) {
       const s = val as any;
       if (s.profile) candidateProfiles.push(s.profile);
       if (Array.isArray(s.streaks)) candidateStreaks = mergeStreaks(candidateStreaks, s.streaks);
       if (Array.isArray(s.cravings)) candidateCravings = mergeCravings(candidateCravings, s.cravings);
       if (Array.isArray(s.substanceLogs)) candidateSubstances = mergeSubstances(candidateSubstances, s.substanceLogs);
+      if (Array.isArray(s.substances)) candidateSubstances = mergeSubstances(candidateSubstances, s.substances);
+      if (Array.isArray(s.smokeLogs)) {
+        candidateSmokeLogs = [...candidateSmokeLogs, ...s.smokeLogs];
+        const converted = s.smokeLogs
+          .filter((sl: any) => sl && isValidDateField(sl.timestamp))
+          .map((sl: any) => ({
+            id: sl.id || `smoke-${Date.now()}-${Math.random()}`,
+            substance: 'cigarette' as const,
+            count: Number(sl.count) || 1,
+            timestamp: sl.timestamp,
+            note: sl.note,
+          }));
+        if (converted.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, converted);
+      }
+      if (Array.isArray(s.smokeLog)) {
+        const converted = s.smokeLog
+          .filter((sl: any) => sl && isValidDateField(sl.timestamp))
+          .map((sl: any) => ({
+            id: sl.id || `smoke-${Date.now()}-${Math.random()}`,
+            substance: 'cigarette' as const,
+            count: Number(sl.count) || 1,
+            timestamp: sl.timestamp,
+            note: sl.note,
+          }));
+        if (converted.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, converted);
+      }
       if (Array.isArray(s.expenses)) candidateExpenses = mergeExpenses(candidateExpenses, s.expenses);
       if (Array.isArray(s.sleepLogs)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleepLogs);
+      if (Array.isArray(s.sleepEnergy)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleepEnergy);
+      if (Array.isArray(s.sleep)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleep);
       if (Array.isArray(s.goals)) candidateGoals = mergeGoals(candidateGoals, s.goals);
+      if (Array.isArray(s.savingsGoals)) candidateGoals = mergeGoals(candidateGoals, s.savingsGoals);
       return;
     }
 
@@ -378,15 +421,39 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       const first = val[0];
       if (!first || typeof first !== 'object') return;
 
-      if ('intensity' in first || ('timestamp' in first && 'substance' in first && !('count' in first))) {
+      if ('intensity' in first || 'resisted' in first || ('timestamp' in first && ('trigger' in first || 'substance' in first) && !('count' in first))) {
         const valid = (val as CravingEntry[]).filter((c) => c && isValidDateField(c.timestamp));
         if (valid.length > 0) candidateCravings = mergeCravings(candidateCravings, valid);
-      } else if ('start' in first) {
-        const valid = (val as StreakRecord[]).filter((s) => s && isValidDateField(s.start));
+      } else if ('start' in first || 'startDate' in first || 'streakStart' in first) {
+        const normalized = (val as any[]).map((s) => ({
+          id: s.id,
+          start: s.start || s.startDate || s.streakStart,
+          end: s.end || s.endDate,
+          brokenBy: s.brokenBy,
+        }));
+        const valid = normalized.filter((s) => s && isValidDateField(s.start));
         if (valid.length > 0) candidateStreaks = mergeStreaks(candidateStreaks, valid);
-      } else if ('count' in first && 'substance' in first) {
-        const valid = (val as SubstanceLog[]).filter((s) => s && isValidDateField(s.timestamp));
+      } else if ('count' in first && ('substance' in first || 'substanceType' in first)) {
+        const normalized = (val as any[]).map((s) => ({
+          ...s,
+          substance: s.substance || s.substanceType,
+        }));
+        const valid = (normalized as SubstanceLog[]).filter((s) => s && isValidDateField(s.timestamp));
         if (valid.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, valid);
+      } else if ('count' in first && !('substance' in first) && 'timestamp' in first) {
+        // Legacy smoke log array -> restore as both smokeLog and substanceLog (cigarette)
+        const valid = (val as SmokeLogEntry[]).filter((s) => s && isValidDateField(s.timestamp));
+        if (valid.length > 0) {
+          candidateSmokeLogs = [...candidateSmokeLogs, ...valid];
+          const converted: SubstanceLog[] = valid.map((vl) => ({
+            id: vl.id,
+            substance: 'cigarette' as const,
+            count: Number(vl.count) || 1,
+            timestamp: vl.timestamp,
+            note: vl.note,
+          }));
+          candidateSubstances = mergeSubstances(candidateSubstances, converted);
+        }
       } else if ('itemType' in first || ('price' in first && 'quantity' in first)) {
         const valid = (val as PurchaseExpense[]).filter((e) => e && isValidDateField(e.timestamp));
         if (valid.length > 0) candidateExpenses = mergeExpenses(candidateExpenses, valid);
@@ -395,6 +462,25 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
         if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
       } else if ('targetAmount' in first || ('title' in first && 'price' in first)) {
         candidateGoals = mergeGoals(candidateGoals, val as SavingsGoal[]);
+      }
+      return;
+    }
+
+    // Single item handling (if stored individually in kv_store)
+    if ('substance' in val && 'count' in val && 'timestamp' in val) {
+      const s = val as SubstanceLog;
+      if (isValidDateField(s.timestamp)) {
+        candidateSubstances = mergeSubstances(candidateSubstances, [s]);
+      }
+    } else if (('intensity' in val || 'resisted' in val) && 'timestamp' in val) {
+      const c = val as CravingEntry;
+      if (isValidDateField(c.timestamp)) {
+        candidateCravings = mergeCravings(candidateCravings, [c]);
+      }
+    } else if ('start' in val) {
+      const st = val as StreakRecord;
+      if (isValidDateField(st.start)) {
+        candidateStreaks = mergeStreaks(candidateStreaks, [st]);
       }
     }
   };
@@ -463,7 +549,9 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       // Strictly restrict recovery scanning to verified PuffinLess storage keys
-      if (k && k.startsWith('puffinless_')) allKeys.add(k);
+      if (k && (k.startsWith('puffinless') || k.startsWith('puffin_') || k.includes('puffin') || k.includes('streak') || k.includes('craving') || k.includes('substance') || k.includes('rescue'))) {
+        allKeys.add(k);
+      }
     }
 
     for (const key of allKeys) {
@@ -574,45 +662,73 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   );
 
   // =========================================================================
-  // 5. IF DATA RECOVERED: RE-PERSIST TO PREVENT FUTURE LOSS
+  // 5. IF DATA RECOVERED: RE-PERSIST TO PREVENT FUTURE LOSS (NON-DESTRUCTIVE)
   // =========================================================================
   if (isDataRecovered && bestProfile) {
     try {
       // Force profile onboarded flag to true if user had an active week of data
       bestProfile.isOnboarded = true;
 
-      // Update rescue snapshot immediately
+      // Update rescue snapshot immediately ONLY with non-empty candidate fields
       createDeviceRescueSnapshot({
         profile: bestProfile,
-        streaks: candidateStreaks,
-        cravings: candidateCravings,
-        substanceLogs: candidateSubstances,
-        expenses: candidateExpenses,
-        sleepLogs: candidateSleep,
-        goals: candidateGoals,
-        smokeLogs: candidateSmokeLogs,
+        streaks: candidateStreaks.length > 0 ? candidateStreaks : undefined,
+        cravings: candidateCravings.length > 0 ? candidateCravings : undefined,
+        substanceLogs: candidateSubstances.length > 0 ? candidateSubstances : undefined,
+        expenses: candidateExpenses.length > 0 ? candidateExpenses : undefined,
+        sleepLogs: candidateSleep.length > 0 ? candidateSleep : undefined,
+        goals: candidateGoals.length > 0 ? candidateGoals : undefined,
+        smokeLogs: candidateSmokeLogs.length > 0 ? candidateSmokeLogs : undefined,
       });
 
-      // Encrypt and persist to localStorage and IndexedDB
+      // Encrypt and persist to localStorage and IndexedDB (NEVER overwrite populated data with empty arrays)
       if (typeof localStorage !== 'undefined') {
-        const [profCipher, strkCipher, cravCipher, subCipher, expCipher, slpCipher, golCipher] =
-          await Promise.all([
-            encryptData(bestProfile),
-            encryptData(candidateStreaks),
-            encryptData(candidateCravings),
-            encryptData(candidateSubstances),
-            encryptData(candidateExpenses),
-            encryptData(candidateSleep),
-            encryptData(candidateGoals),
-          ]);
-
+        const profCipher = await encryptData(bestProfile);
         localStorage.setItem('puffinless_profile_v2', profCipher);
-        localStorage.setItem('puffinless_streaks_v2', strkCipher);
-        localStorage.setItem('puffinless_cravings_v2', cravCipher);
-        localStorage.setItem('puffinless_substance_log_v2', subCipher);
-        localStorage.setItem('puffinless_expenses_v2', expCipher);
-        localStorage.setItem('puffinless_sleep_energy_v2', slpCipher);
-        localStorage.setItem('puffinless_savings_goals_v2', golCipher);
+        await idbSet('puffinless_profile_v2', profCipher).catch(() => {});
+        await idbSet('profile', profCipher).catch(() => {});
+
+        if (candidateStreaks.length > 0) {
+          const strkCipher = await encryptData(candidateStreaks);
+          localStorage.setItem('puffinless_streaks_v2', strkCipher);
+          await idbSet('puffinless_streaks_v2', strkCipher).catch(() => {});
+          await idbSet('streaks', strkCipher).catch(() => {});
+        }
+
+        if (candidateCravings.length > 0) {
+          const cravCipher = await encryptData(candidateCravings);
+          localStorage.setItem('puffinless_cravings_v2', cravCipher);
+          await idbSet('puffinless_cravings_v2', cravCipher).catch(() => {});
+          await idbSet('cravings', cravCipher).catch(() => {});
+        }
+
+        if (candidateSubstances.length > 0) {
+          const subCipher = await encryptData(candidateSubstances);
+          localStorage.setItem('puffinless_substance_log_v2', subCipher);
+          await idbSet('puffinless_substance_log_v2', subCipher).catch(() => {});
+          await idbSet('substances', subCipher).catch(() => {});
+        }
+
+        if (candidateExpenses.length > 0) {
+          const expCipher = await encryptData(candidateExpenses);
+          localStorage.setItem('puffinless_expenses_v2', expCipher);
+          await idbSet('puffinless_expenses_v2', expCipher).catch(() => {});
+          await idbSet('expenses', expCipher).catch(() => {});
+        }
+
+        if (candidateSleep.length > 0) {
+          const slpCipher = await encryptData(candidateSleep);
+          localStorage.setItem('puffinless_sleep_energy_v2', slpCipher);
+          await idbSet('puffinless_sleep_energy_v2', slpCipher).catch(() => {});
+          await idbSet('sleep', slpCipher).catch(() => {});
+        }
+
+        if (candidateGoals.length > 0) {
+          const golCipher = await encryptData(candidateGoals);
+          localStorage.setItem('puffinless_savings_goals_v2', golCipher);
+          await idbSet('puffinless_savings_goals_v2', golCipher).catch(() => {});
+          await idbSet('goals', golCipher).catch(() => {});
+        }
 
         // Synchronous non-sensitive markers to avoid presentation loops
         localStorage.setItem('puffinless_is_onboarded', 'true');
@@ -626,17 +742,6 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           localStorage.setItem('puffinless_theme', bestProfile.theme);
           localStorage.setItem('puffinless_app_theme', bestProfile.theme);
         }
-
-        // Also persist to IndexedDB
-        await Promise.all([
-          idbSet('profile', profCipher).catch(() => {}),
-          idbSet('streaks', strkCipher).catch(() => {}),
-          idbSet('cravings', cravCipher).catch(() => {}),
-          idbSet('substances', subCipher).catch(() => {}),
-          idbSet('expenses', expCipher).catch(() => {}),
-          idbSet('sleep', slpCipher).catch(() => {}),
-          idbSet('goals', golCipher).catch(() => {}),
-        ]);
       }
     } catch (persistErr) {
       console.warn('[Recovery] Warning during recovery persistence:', persistErr);

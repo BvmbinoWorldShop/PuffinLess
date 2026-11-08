@@ -77,7 +77,9 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
 
     // 1. Process substance logs (STRICT SOURCE OF TRUTH for intake)
     for (const log of substanceLogs) {
+      if (!log || typeof log.timestamp !== 'string') continue;
       const d = log.timestamp.split('T')[0];
+      if (!d) continue;
       const curr = map.get(d) || {
         date: d,
         cigarette: 0,
@@ -101,7 +103,9 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
 
     // 2. Merge cravings (does NOT fabricate or inflate substance units)
     for (const c of cravings) {
+      if (!c || typeof c.timestamp !== 'string') continue;
       const d = c.timestamp.split('T')[0];
+      if (!d) continue;
       const curr = map.get(d) || {
         date: d,
         cigarette: 0,
@@ -206,9 +210,14 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
       let occurrences = 0;
 
       dailyData.forEach((val, dateStr) => {
+        if (!dateStr || typeof dateStr !== 'string' || !dateStr.includes('-')) return;
         if (dateStr > todayStr) return; // ignore future dates
-        const [y, m, dayNum] = dateStr.split('-').map(Number);
+        const parts = dateStr.split('-');
+        if (parts.length < 3) return;
+        const [y, m, dayNum] = parts.map(Number);
+        if (isNaN(y) || isNaN(m) || isNaN(dayNum)) return;
         const dt = new Date(y, m - 1, dayNum);
+        if (isNaN(dt.getTime())) return;
         if (dt.getDay() === d.dayIdx) {
           totalUnits += val.totalUnits;
           occurrences += 1;
