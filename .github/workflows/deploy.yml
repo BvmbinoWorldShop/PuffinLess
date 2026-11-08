@@ -1,26 +1,20 @@
-name: Deploy to GitHub Pages
+name: Quality CI & Production Build
 
 on:
   push:
     branches:
       - main
       - master
+  pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: "pages"
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  ci-build:
+    name: Lint & Build Verification
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -35,17 +29,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build production app
+      - name: Run code linter
+        run: npm run lint
+
+      - name: Build production bundle
         run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

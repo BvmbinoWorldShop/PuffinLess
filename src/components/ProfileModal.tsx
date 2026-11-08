@@ -134,7 +134,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   // App Lock PIN security state
   const [securityEnabled, setSecurityEnabled] = useState(() => getSecurityConfig().enabled);
-  const [securityPin, setSecurityPin] = useState(() => getSecurityConfig().pin);
+  const [securityPin, setSecurityPin] = useState(() => (getSecurityConfig().pinHash ? '••••' : ''));
 
   const isFr = lang === 'fr';
 
@@ -322,10 +322,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     sound.setEnabled(soundEnabled);
     sound.playClick();
-    saveSecurityConfig({
-      enabled: securityEnabled && securityPin.trim().length > 0,
-      pin: securityPin.trim(),
-    });
+    saveSecurityConfig(
+      securityEnabled,
+      securityPin === '••••' ? undefined : securityPin.trim()
+    );
     onSaveProfile(updated);
     setSavedSuccess(true);
     setTimeout(() => {
@@ -1183,6 +1183,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         type="password"
                         maxLength={8}
                         value={securityPin}
+                        onFocus={() => {
+                          if (securityPin === '••••') setSecurityPin('');
+                        }}
                         onChange={(e) => setSecurityPin(e.target.value)}
                         placeholder={isFr ? 'Ex: 1234' : 'e.g. 1234'}
                         className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-white text-xs tracking-widest focus:outline-none focus:border-emerald-500/50"

@@ -13,7 +13,7 @@ if (!fs.existsSync(distHtmlPath)) {
 let html = fs.readFileSync(distHtmlPath, 'utf8');
 
 // Find CSS file in dist/assets
-const cssMatch = html.match(/<link rel="stylesheet"[^>]*href="\.\/assets\/([^"]+)"[^>]*>/);
+const cssMatch = html.match(/<link rel="stylesheet"[^>]*href="(?:\.\/|\/)?assets\/([^"]+)"[^>]*>/);
 if (cssMatch && cssMatch[1]) {
   const cssPath = path.join(distDir, 'assets', cssMatch[1]);
   if (fs.existsSync(cssPath)) {
@@ -23,7 +23,7 @@ if (cssMatch && cssMatch[1]) {
 }
 
 // Find JS file in dist/assets & apply advanced anti-reverse engineering obfuscation
-const jsMatch = html.match(/<script type="module"[^>]*src="\.\/assets\/([^"]+)"[^>]*><\/script>/);
+const jsMatch = html.match(/<script type="module"[^>]*src="(?:\.\/|\/)?assets\/([^"]+)"[^>]*><\/script>/);
 if (jsMatch && jsMatch[1]) {
   const jsPath = path.join(distDir, 'assets', jsMatch[1]);
   if (fs.existsSync(jsPath)) {

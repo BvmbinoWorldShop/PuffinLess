@@ -1,4 +1,4 @@
-const CACHE_NAME = 'puffinless-v1';
+const CACHE_NAME = 'puffinless-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -13,7 +13,11 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return Promise.all(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch((err) => console.warn(`Failed to pre-cache ${url}:`, err))
+        )
+      );
     })
   );
   self.skipWaiting();
@@ -24,7 +28,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          // Strictly delete only older PuffinLess caches, preserve other origins/apps
+          if (key.startsWith('puffinless-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -42,18 +47,32 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
           return response;
         })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
+        .catch(async () => {
+          const cachedIndex = await caches.match('/index.html');
+          if (cachedIndex) return cachedIndex;
+          const cachedRoot = await caches.match('/');
+          if (cachedRoot) return cachedRoot;
+          return new Response('PuffinLess Offline - Please reload when connected.', {
+            headers: { 'Content-Type': 'text/plain' },
+          });
         })
     );
     return;
   }
 
-  // For static assets (scripts, styles, images, fonts), stale-while-revalidate
+  // Only cache same-origin static assets (scripts, styles, icons)
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // For static assets, stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)

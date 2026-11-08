@@ -18,7 +18,6 @@ import {
 import type { UserProfile, Language, SubstanceLog, CravingEntry, SleepEnergyEntry, PurchaseExpense } from '../types';
 import type { CalculatedStats } from '../utils/calculations';
 import type { CoreReport } from '../core/obsidianCore';
-import { SAMPLE_SLEEP_DATA } from '../utils/sleepTracker';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
 import { loadExpenses } from '../utils/storage';
@@ -206,19 +205,22 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           ].filter(Boolean).join(', ')})`)
     : (isFr ? '0 prise (100% Abstinence)' : '0 intake (100% Clean)');
 
-  // Process Sleep Trend (Last 7 days chronological)
-  const sourceSleepLogs = filteredSleepLogs.length >= 3 ? filteredSleepLogs : sleepLogs.length >= 3 ? sleepLogs : SAMPLE_SLEEP_DATA;
-  const sleepTrendList = [...sourceSleepLogs]
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(-7);
+  // Process Sleep Trend (Last 7 days chronological - only real user logs, no mock fixtures)
+  const sourceSleepLogs = filteredSleepLogs.length >= 3 ? filteredSleepLogs : sleepLogs.length >= 3 ? sleepLogs : [];
+  const hasSufficientSleepData = sourceSleepLogs.length >= 3;
+  const sleepTrendList = hasSufficientSleepData
+    ? [...sourceSleepLogs]
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-7)
+    : [];
 
-  const avgSleep = sourceSleepLogs.length
+  const avgSleep = hasSufficientSleepData
     ? (sourceSleepLogs.reduce((acc, l) => acc + l.sleepRating, 0) / sourceSleepLogs.length).toFixed(1)
-    : '8.4';
+    : '--';
 
-  const avgEnergy = sourceSleepLogs.length
+  const avgEnergy = hasSufficientSleepData
     ? (sourceSleepLogs.reduce((acc, l) => acc + l.energyRating, 0) / sourceSleepLogs.length).toFixed(1)
-    : '8.1';
+    : '--';
 
   // Process Unified Activity & Intake Logs with Take Numbers & Explicit Substance Attribution
   const unifiedEvents: ActivityEvent[] = [];
@@ -449,19 +451,19 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="font-size: 7.5px; font-weight: 900; text-transform: uppercase; color: #fbbf24; letter-spacing: 0.08em;">
-              ${isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+              ${isFr ? 'BILAN PERSONNEL DE SOBRIÉTÉ' : 'PERSONAL SOBRIETY REPORT'}
             </div>
-            <div style="font-size: 9.5px; font-weight: 800; color: #ffffff; margin-top: 1px;">PUFFINLESS CLINICAL INSTITUTE</div>
+            <div style="font-size: 9.5px; font-weight: 800; color: #ffffff; margin-top: 1px;">PUFFINLESS RECOVERY PROGRAM</div>
             <div style="font-size: 7px; color: #34d399; margin-top: 1px;">
-              ✓ ${isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+              ✓ ${isFr ? 'Programme d\'Abstinence Autonome' : 'Self-Monitored Sobriety Program'}
             </div>
           </div>
           <div style="text-align: right;">
             <div style="font-size: 7px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">
-              ${isFr ? 'Direction Scientifique & Clinique' : 'Clinical & Scientific Direction'}
+              ${isFr ? 'Suivi Personnalisé Autonome' : 'Self-Monitored Recovery'}
             </div>
-            <div style="font-weight: 900; font-size: 10.5px; color: #ffffff; margin-top: 1px; letter-spacing: 0.04em;">PUFFINLESS CERTIFIED</div>
-            <div style="font-size: 7px; color: #34d399; font-weight: 800;">✓ ${isFr ? 'VALIDÉ MÉDICALEMENT' : 'MEDICALLY VERIFIED'}</div>
+            <div style="font-weight: 900; font-size: 10.5px; color: #ffffff; margin-top: 1px; letter-spacing: 0.04em;">PUFFINLESS PROTOCOL</div>
+            <div style="font-size: 7px; color: #34d399; font-weight: 800;">✓ ${isFr ? 'DONNÉES LOCALES VÉRIFIÉES' : 'LOCALLY VERIFIED DATA'}</div>
           </div>
         </div>
       </div>
@@ -876,21 +878,21 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
           </svg>
           <div>
             <span style="font-weight: 900; font-size: 14px; color: #ffffff; letter-spacing: 0.05em;">PUFFINLESS</span>
-            <span style="font-size: 9px; color: #34d399; font-weight: 700; margin-left: 6px;">${isFr ? 'CENTRE DE CONTRÔLE CLINIQUE' : 'CLINICAL CONTROL CENTER'}</span>
+            <span style="font-size: 9px; color: #34d399; font-weight: 700; margin-left: 6px;">${isFr ? 'CENTRE DE PROGRESSION & SOBRIÉTÉ' : 'RECOVERY PROGRESS CENTER'}</span>
           </div>
         </div>
-        <span class="pill pill-gold">${isFr ? 'DOSSIER MÉDICAL CERTIFIÉ' : 'CERTIFIED CLINICAL RECORD'}</span>
+        <span class="pill pill-gold">${isFr ? 'BILAN PERSONNEL VÉRIFIÉ' : 'VERIFIED PERSONAL RECORD'}</span>
       </div>
 
       <div class="title-box">
-        <h1>${isFr ? 'Dossier Clinique & Rapport Somatique' : 'Clinical Sobriety & Somatic Report'}</h1>
-        <p>${isFr ? 'Bilan officiel d\'abstinence, consommations et régénération neurochimique' : 'Official record of abstinence, intake events, and biological recovery'}</p>
+        <h1>${isFr ? 'Bilan Somatique & Rapport Personnel' : 'Personal Health & Recovery Report'}</h1>
+        <p>${isFr ? 'Bilan personnel d\'abstinence, consommations et régénération neurochimique' : 'Personal record of abstinence, intake events, and biological recovery'}</p>
       </div>
 
       <div class="glass-bubble-gold patient-ribbon">
         <div>
           <div style="font-size: 9px; text-transform: uppercase; color: #fbbf24; font-weight: 800; letter-spacing: 0.05em;">
-            ${isFr ? 'Bénéficiaire Certifié :' : 'Certified Victor:'}
+            ${isFr ? 'Titulaire du Bilan :' : 'Account Holder:'}
           </div>
           <div class="patient-name">${profile?.name || (isFr ? 'Membre PuffinLess' : 'PuffinLess Member')}</div>
           <div style="font-size: 9.5px; color: #34d399; font-weight: 700; margin-top: 2px;">
@@ -983,10 +985,11 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="section-title">
-        <span>${isFr ? '2. Qualité du Sommeil & Tendance sur 7 Jours' : '2. Sleep Quality & 7-Day Trend'}</span>
-        <span class="pill pill-indigo">${isFr ? `Sommeil Moyen: ${avgSleep}/10 • Énergie: ${avgEnergy}/10` : `Avg Sleep: ${avgSleep}/10 • Energy: ${avgEnergy}/10`}</span>
+        <span>${isFr ? '2. Qualité du Sommeil & Tendance Observée' : '2. Sleep Quality & Observed Trend'}</span>
+        <span class="pill pill-indigo">${hasSufficientSleepData ? (isFr ? `Sommeil Moyen: ${avgSleep}/10 • Énergie: ${avgEnergy}/10` : `Avg Sleep: ${avgSleep}/10 • Energy: ${avgEnergy}/10`) : (isFr ? 'Données en cours de collecte' : 'Data collection in progress')}</span>
       </div>
       
+      ${hasSufficientSleepData ? `
       <div class="sleep-trend-grid">
         ${sleepTrendList
           .map((item) => {
@@ -1015,9 +1018,9 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       </div>
 
       <div class="glass-bubble" style="margin-top: 6px; font-size: 9px; color: #cbd5e1; line-height: 1.35; border-color: rgba(99, 102, 241, 0.3);">
-        <b style="color: #a5b4fc;">${isFr ? 'Corrélation Clinique Démontrée :' : 'Clinical Correlation Insight:'}</b> ${isFr
-          ? 'Les nuits sans toxines inhalées affichent un sommeil profond supérieur de +32%, une réduction de 45% des réveils nocturnes et une vigueur cognitive maximale au réveil.'
-          : 'Nights without inhaled toxins exhibit +32% deeper restorative sleep, 45% fewer nocturnal awakenings, and complete cognitive vitality upon waking.'}
+        <b style="color: #a5b4fc;">${isFr ? 'Observations Physiologiques :' : 'Physiological Observations:'}</b> ${isFr
+          ? 'Les nuits sans toxines inhalées favorisent un sommeil profond réparateur et une meilleure vivacité au réveil.'
+          : 'Nights without inhaled substances promote restorative deep sleep and enhanced morning alertness.'}
       </div>
 
       <div style="font-size: 8.5px; font-weight: 800; color: #94a3b8; margin-top: 6px; text-transform: uppercase;">
@@ -1029,7 +1032,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
             <th style="width: 20%;">Date</th>
             <th style="width: 20%;">${isFr ? 'Score Sommeil' : 'Sleep Rating'}</th>
             <th style="width: 20%;">${isFr ? 'Énergie Réveil' : 'Energy'}</th>
-            <th style="width: 40%;">${isFr ? 'Observations Cliniques' : 'Clinical Notes'}</th>
+            <th style="width: 40%;">${isFr ? 'Observations' : 'Notes'}</th>
           </tr>
         </thead>
         <tbody>
@@ -1039,12 +1042,24 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <td><b>${s.date}</b></td>
               <td><span class="pill pill-indigo">${s.sleepRating} / 10</span></td>
               <td><span class="pill pill-emerald">${s.energyRating} / 10</span></td>
-              <td style="color: #cbd5e1;">${s.notes || (isFr ? 'Sommeil réparateur et récupération nerveuse optimale' : 'Restorative sleep and optimal nervous recovery')}</td>
+              <td style="color: #cbd5e1;">${s.notes || (isFr ? 'Récupération enregistrée' : 'Logged recovery')}</td>
             </tr>`
             ).join('')
           }
         </tbody>
       </table>
+      ` : `
+      <div class="glass-bubble" style="margin-top: 8px; padding: 14px; text-align: center; border-color: rgba(99, 102, 241, 0.2);">
+        <div style="font-size: 10px; font-weight: 800; color: #a5b4fc; margin-bottom: 3px;">
+          ${isFr ? '🌙 Données de sommeil insuffisantes pour tracer une courbe' : '🌙 Insufficient sleep records to plot a trend'}
+        </div>
+        <div style="font-size: 8.5px; color: #94a3b8; line-height: 1.4;">
+          ${isFr
+            ? 'Au moins 3 relevés de sommeil sont nécessaires pour afficher la tendance et les corrélations de récupération. Enregistrez vos nuits quotidiennes dans l\'onglet Sommeil.'
+            : 'At least 3 recorded nights are required to display sleep trend and recovery correlations. Log your nightly sleep in the Sleep tab.'}
+        </div>
+      </div>
+      `}
     </div>
 
     <div class="footer-bar">
@@ -1691,19 +1706,25 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
 
                 {/* 7-Day Mini Trend Grid */}
-                <div className="grid grid-cols-7 gap-2 text-center">
-                  {sleepTrendList.map((item) => {
-                    const d = new Date(item.date);
-                    const dayName = d.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', { weekday: 'short' });
-                    return (
-                      <div key={item.id} className="p-2 rounded-2xl bg-slate-900/90 border border-white/10">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase">{dayName}</div>
-                        <div className="text-sm font-black text-indigo-300 mt-0.5">{item.sleepRating}</div>
-                        <div className="text-[9px] text-emerald-400 font-bold">{item.energyRating}⚡</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                {hasSufficientSleepData ? (
+                  <div className="grid grid-cols-7 gap-2 text-center">
+                    {sleepTrendList.map((item) => {
+                      const d = new Date(item.date);
+                      const dayName = d.toLocaleDateString(isFr ? 'fr-FR' : 'en-US', { weekday: 'short' });
+                      return (
+                        <div key={item.id} className="p-2 rounded-2xl bg-slate-900/90 border border-white/10">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">{dayName}</div>
+                          <div className="text-sm font-black text-indigo-300 mt-0.5">{item.sleepRating}</div>
+                          <div className="text-[9px] text-emerald-400 font-bold">{item.energyRating}⚡</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center text-xs text-indigo-200">
+                    🌙 {isFr ? 'Données insuffisantes (au moins 3 nuits requises pour afficher la tendance).' : 'Insufficient data (at least 3 nights required to plot trend).'}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1716,7 +1737,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                   <Activity className="w-4 h-4" />
                   <span>{isFr ? `PAGE 2 / ${totalPages} — Journal des Prises, Déclencheurs & Actions` : `PAGE 2 / ${totalPages} — Intake Logs & Action Protocols`}</span>
                 </span>
-                <span className="text-slate-400">PuffinLess Clinical Report</span>
+                <span className="text-slate-400">PuffinLess Personal Report</span>
               </div>
 
               {/* Substance Color Codes Legend Bar */}
@@ -1921,22 +1942,22 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                 </div>
               </div>
 
-              {/* Official Attestation Footer (shown on Page 2 if strictly 2 pages) */}
+              {/* Personal Sobriety Seal Footer (shown on Page 2 if strictly 2 pages) */}
               {continuationChunks.length === 0 && (
                 <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
                   <div>
                     <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
-                      {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+                      {isFr ? 'BILAN PERSONNEL DE SOBRIÉTÉ' : 'PERSONAL SOBRIETY REPORT'}
                     </span>
-                    <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
+                    <span className="text-xs font-black text-white">PUFFINLESS RECOVERY PROGRAM</span>
                     <span className="text-[9px] text-emerald-400 block mt-0.5">
-                      ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+                      ✓ {isFr ? 'Programme d\'Abstinence Autonome' : 'Self-Monitored Sobriety Program'}
                     </span>
                   </div>
                   <div className="text-right">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold text-[11px]">
                       <Shield className="w-4 h-4" />
-                      <span>PuffinLess Certified</span>
+                      <span>PuffinLess Protocol</span>
                     </div>
                   </div>
                 </div>
@@ -2046,22 +2067,22 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                   </div>
                 </div>
 
-                {/* If last page, show the official attestation */}
+                {/* If last page, show the personal sobriety seal */}
                 {isLast && (
                   <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between text-xs">
                     <div>
                       <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-bold">
-                        {isFr ? 'ATTESTATION OFFICIELLE DE RÉMISSION' : 'OFFICIAL RECOVERY ATTESTATION'}
+                        {isFr ? 'BILAN PERSONNEL DE SOBRIÉTÉ' : 'PERSONAL SOBRIETY REPORT'}
                       </span>
-                      <span className="text-xs font-black text-white">PUFFINLESS CLINICAL INSTITUTE</span>
+                      <span className="text-xs font-black text-white">PUFFINLESS RECOVERY PROGRAM</span>
                       <span className="text-[9px] text-emerald-400 block mt-0.5">
-                        ✓ {isFr ? 'Programme d\'Abstinence Validé' : 'Verified Sobriety Program'}
+                        ✓ {isFr ? 'Programme d\'Abstinence Autonome' : 'Self-Monitored Sobriety Program'}
                       </span>
                     </div>
                     <div className="text-right">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold text-[11px]">
                         <Shield className="w-4 h-4" />
-                        <span>PuffinLess Certified</span>
+                        <span>PuffinLess Protocol</span>
                       </div>
                     </div>
                   </div>

@@ -55,7 +55,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [cigsInPack] = useState(initialProfile.cigarettesInPack || 20);
   const [currency, setCurrency] = useState(initialProfile.currency || '€');
   const [quitMode] = useState<QuitMode>(initialProfile.quitMode || 'cold_turkey');
-  const [quitDateChoice, setQuitDateChoice] = useState<'today' | 'yesterday' | 'few_days_ago'>('few_days_ago');
+  const [quitDateChoice, setQuitDateChoice] = useState<'today' | 'yesterday' | 'few_days_ago'>('today');
   const [selectedMotivators, setSelectedMotivators] = useState<string[]>(
     initialProfile.motivators.length > 0
       ? initialProfile.motivators
@@ -341,6 +341,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       </button>
                     ))}
                   </div>
+                  <div className="text-[10px] text-slate-400 mt-1.5 flex items-center justify-between px-1">
+                    <span>{isFr ? 'Point de départ enregistré :' : 'Recorded start point:'}</span>
+                    <span className="text-emerald-400 font-bold">
+                      {quitDateChoice === 'today'
+                        ? (isFr ? "Aujourd'hui (démarrage immédiat)" : 'Today (immediate start)')
+                        : quitDateChoice === 'yesterday'
+                        ? (isFr ? 'Hier (-24h)' : 'Yesterday (-24h)')
+                        : (isFr ? 'Il y a 3 jours (-72h)' : '3 days ago (-72h)')}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -465,6 +475,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         {isFr ? opt.labelFr : opt.labelEn}
                       </button>
                     ))}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1.5 flex items-center justify-between px-1">
+                    <span>{isFr ? 'Point de départ enregistré :' : 'Recorded start point:'}</span>
+                    <span className="text-emerald-400 font-bold">
+                      {quitDateChoice === 'today'
+                        ? (isFr ? "Aujourd'hui (démarrage immédiat)" : 'Today (immediate start)')
+                        : quitDateChoice === 'yesterday'
+                        ? (isFr ? 'Hier (-24h)' : 'Yesterday (-24h)')
+                        : (isFr ? 'Il y a 3 jours (-72h)' : '3 days ago (-72h)')}
+                    </span>
                   </div>
                 </div>
 

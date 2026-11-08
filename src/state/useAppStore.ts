@@ -27,6 +27,13 @@ import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
 import { sound } from '../utils/audio';
 
+function generateSecureId(prefix: string = ''): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return prefix ? `${prefix}-${crypto.randomUUID()}` : crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 /**
  * Central app store. Owns all persisted state and every action, so screens stay thin and the
  * Obsidian Core always reads one consistent source of truth.
@@ -85,7 +92,7 @@ export function useAppStore() {
   const logSubstance = (substance: SubstanceType, count: number, trigger?: string, intensity?: number) => {
     const now = new Date();
     const entry: SubstanceLog = {
-      id: 'sub-' + now.getTime(),
+      id: generateSecureId('sub'),
       substance,
       count,
       timestamp: now.toISOString(),
@@ -98,7 +105,7 @@ export function useAppStore() {
     // Also record a craving entry with resisted: false if triggered or with intensity
     if (intensity !== undefined || trigger) {
       const craveEntry: CravingEntry = {
-        id: 'c-' + now.getTime(),
+        id: generateSecureId('c'),
         timestamp: now.toISOString(),
         intensity: intensity ?? 5,
         trigger: trigger || 'Stress',
@@ -115,7 +122,7 @@ export function useAppStore() {
     const streakLength = now.getTime() - new Date(profile.quitDate).getTime();
     if (streakLength >= 60000) {
       const record: StreakRecord = {
-        id: 'st-' + now.getTime(),
+        id: generateSecureId('st'),
         start: profile.quitDate,
         end: now.toISOString(),
         brokenBy: substance,
@@ -163,15 +170,19 @@ export function useAppStore() {
       setSubstanceLogs(newLogs);
       saveSubstanceLogs(newLogs);
 
-      // If today is now clean and a streak was broken, restore previous streak start
+      // If today is now clean and a streak was broken TODAY, safely restore previous streak start
       const todayTotal = sumIntake(newLogs, today);
       if (todayTotal.cigarette === 0 && todayTotal.puff_vape === 0 && todayTotal.cannabis === 0) {
         if (streaks.length > 0) {
           const lastStreak = streaks[0];
-          const remainingStreaks = streaks.slice(1);
-          setStreaks(remainingStreaks);
-          saveStreaks(remainingStreaks);
-          updateProfile({ ...profile, quitDate: lastStreak.start });
+          const lastStreakEndDay = localDateStr(lastStreak.end);
+          // Only restore if the most recent streak actually ended today and was broken by this substance
+          if (lastStreakEndDay === today && lastStreak.brokenBy === substance) {
+            const remainingStreaks = streaks.slice(1);
+            setStreaks(remainingStreaks);
+            saveStreaks(remainingStreaks);
+            updateProfile({ ...profile, quitDate: lastStreak.start });
+          }
         }
       }
     }
@@ -180,7 +191,7 @@ export function useAppStore() {
   /** Mark a craving as resisted (from the Craving button). Remembered by the Core. */
   const resistCraving = (trigger: string, intensity: number, substance?: SubstanceType) => {
     const entry: CravingEntry = {
-      id: 'c-' + Date.now(),
+      id: generateSecureId('c'),
       timestamp: new Date().toISOString(),
       intensity,
       trigger,
@@ -243,7 +254,19 @@ export function useAppStore() {
   const completeOnboarding = (p: UserProfile) => updateProfile(p);
 
   const resetAll = () => {
-    localStorage.clear();
+    // Only remove PuffinLess-namespaced keys from localStorage
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('puffinless_') || k.startsWith('puffinless-'))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch (e) {
+      console.error('Error in targeted reset', e);
+    }
     setProfile({ ...DEFAULT_PROFILE, quitDate: new Date().toISOString() });
     setGoals([]);
     setPosts(DEFAULT_FORUM_POSTS);
