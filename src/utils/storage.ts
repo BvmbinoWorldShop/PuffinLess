@@ -19,7 +19,7 @@ import {
   purgeVaultKeys,
   DecryptionError,
 } from './crypto.ts';
-import { idbGet, idbSet, deletePuffinLessDB } from './indexedDb.ts';
+import { idbGet, idbGetRaw, idbSet, deletePuffinLessDB } from './indexedDb.ts';
 import { purgeSecurityState } from './security.ts';
 import {
   recoverAllDeviceData,
@@ -1047,18 +1047,20 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   try {
     // 1. Check IndexedDB across primary and legacy keys with explicit status distinction
     let idbProfile: UserProfile | null = null;
-    const idbProfileRaw =
-      (await idbGet<unknown>(STORAGE_KEYS.PROFILE)) ||
-      (await idbGet<unknown>('profile')) ||
-      (await idbGet<unknown>('puffinless_profile')) ||
-      (await idbGet<unknown>('puffinless_user_profile'));
+    let hasDecryptionError = false;
 
-    if (idbProfileRaw) {
-      const statusRes = await decryptWithStatus<UserProfile>(idbProfileRaw);
-      if (statusRes.status === 'success' && statusRes.data) {
-        idbProfile = statusRes.data;
-      } else if (statusRes.status === 'error') {
-        console.warn('[Storage] Decryption failure detected for IndexedDB profile record - engaging deep recovery');
+    const primaryProfileRes = await readWithStatus<UserProfile>(STORAGE_KEYS.PROFILE);
+    if (primaryProfileRes.status === 'success' && primaryProfileRes.data) {
+      idbProfile = primaryProfileRes.data;
+    } else if (primaryProfileRes.status === 'decryption_error') {
+      hasDecryptionError = true;
+      console.warn('[Storage] Decryption failure detected for IndexedDB profile record - engaging deep recovery');
+    } else {
+      const legacyProfileRes = await readWithStatus<UserProfile>('puffinless_profile');
+      if (legacyProfileRes.status === 'success' && legacyProfileRes.data) {
+        idbProfile = legacyProfileRes.data;
+      } else if (legacyProfileRes.status === 'decryption_error') {
+        hasDecryptionError = true;
       }
     }
 
@@ -1074,6 +1076,7 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       if (localStatus.status === 'success' && localStatus.data) {
         localProfile = localStatus.data;
       } else if (localStatus.status === 'error') {
+        hasDecryptionError = true;
         console.warn('[Storage] Decryption failure detected for localStorage profile record - engaging deep recovery');
       }
     }
@@ -1091,8 +1094,8 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       localProfile && typeof localProfile === 'object' && (localProfile.isOnboarded || localProfile.quitDate)
     );
 
-    // If neither storage has a verified active profile, run deep device recovery
-    if (!hasActiveIdb && !hasActiveLocal) {
+    // If neither storage has a verified active profile, or decryption error occurred, run deep device recovery
+    if ((!hasActiveIdb && !hasActiveLocal) || hasDecryptionError) {
       const recovery = await recoverAllDeviceData();
       if (recovery.recovered && recovery.profile) {
         return {
@@ -1109,24 +1112,33 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
 
     // If IndexedDB has active profile:
     if (hasActiveIdb && idbProfile) {
-      const [goalsRaw, cravingsRaw, expensesRaw, substanceLogsRaw, sleepLogsRaw, streaksRaw] =
+      const [goalsRes, cravingsRes, expensesRes, substanceRes, sleepRes, streaksRes] =
         await Promise.all([
-          idbGet<unknown>(STORAGE_KEYS.SAVINGS_GOALS),
-          idbGet<unknown>(STORAGE_KEYS.CRAVINGS),
-          idbGet<unknown>(STORAGE_KEYS.EXPENSES),
-          idbGet<unknown>(STORAGE_KEYS.SUBSTANCE_LOG),
-          idbGet<unknown>(STORAGE_KEYS.SLEEP_ENERGY),
-          idbGet<unknown>(STORAGE_KEYS.STREAKS),
+          readWithStatus<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS),
+          readWithStatus<CravingEntry[]>(STORAGE_KEYS.CRAVINGS),
+          readWithStatus<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES),
+          readWithStatus<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG),
+          readWithStatus<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY),
+          readWithStatus<StreakRecord[]>(STORAGE_KEYS.STREAKS),
         ]);
 
-      const [goals, cravings, expenses, substanceLogs, sleepLogs, streaks] = await Promise.all([
-        decryptData<SavingsGoal[]>(goalsRaw, []),
-        decryptData<CravingEntry[]>(cravingsRaw, []),
-        decryptData<PurchaseExpense[]>(expensesRaw, []),
-        decryptData<SubstanceLog[]>(substanceLogsRaw, []),
-        decryptData<SleepEnergyEntry[]>(sleepLogsRaw, []),
-        decryptData<StreakRecord[]>(streaksRaw, []),
-      ]);
+      if (
+        goalsRes.status === 'decryption_error' ||
+        cravingsRes.status === 'decryption_error' ||
+        expensesRes.status === 'decryption_error' ||
+        substanceRes.status === 'decryption_error' ||
+        sleepRes.status === 'decryption_error' ||
+        streaksRes.status === 'decryption_error'
+      ) {
+        hasDecryptionError = true;
+      }
+
+      const goals = goalsRes.data || [];
+      const cravings = cravingsRes.data || [];
+      const expenses = expensesRes.data || [];
+      const substanceLogs = substanceRes.data || [];
+      const sleepLogs = sleepRes.data || [];
+      const streaks = streaksRes.data || [];
 
       // Consolidate with any items in localStorage
       const [localCravings, localStreaks, localSubstances] = await Promise.all([
@@ -1139,8 +1151,8 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
       const consolidatedStreaks = mergeStreaks(streaks || [], localStreaks || []);
       const consolidatedSubstances = mergeSubstances(substanceLogs || [], localSubstances || []);
 
-      // If both streaks and cravings are empty, run deep scan to recover any historical data
-      if (consolidatedCravings.length === 0 && consolidatedStreaks.length === 0) {
+      // If any entity suffered decryption failure or both streaks and cravings are empty, run deep scan to recover any historical data
+      if (hasDecryptionError || (consolidatedCravings.length === 0 && consolidatedStreaks.length === 0)) {
         const deepScan = await recoverAllDeviceData();
         if (deepScan.recovered && (deepScan.cravings.length > 0 || deepScan.streaks.length > 0 || deepScan.profile?.quitDate)) {
           return {
@@ -1285,12 +1297,28 @@ export async function readWithStatus<T>(
 ): Promise<{ status: 'absent' | 'success' | 'decryption_error'; data: T | null; error?: Error }> {
   try {
     let raw: unknown = null;
+    let foundInIdb = false;
+
     if (typeof window !== 'undefined' && window.indexedDB) {
-      raw = await idbGet<unknown>(key);
+      try {
+        const idbVal = await idbGetRaw(key);
+        if (idbVal !== null && idbVal !== undefined && idbVal !== '') {
+          raw = idbVal;
+          foundInIdb = true;
+        }
+      } catch (err) {
+        return { status: 'decryption_error', data: null, error: err instanceof Error ? err : new Error(String(err)) };
+      }
     }
-    if (raw === null || raw === undefined) {
-      if (typeof localStorage !== 'undefined') {
-        raw = localStorage.getItem(key);
+
+    if (!foundInIdb && typeof localStorage !== 'undefined') {
+      try {
+        const localVal = localStorage.getItem(key);
+        if (localVal !== null && localVal !== undefined && localVal !== '') {
+          raw = localVal;
+        }
+      } catch (err) {
+        return { status: 'decryption_error', data: null, error: err instanceof Error ? err : new Error(String(err)) };
       }
     }
 

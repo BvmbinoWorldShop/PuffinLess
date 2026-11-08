@@ -61,11 +61,15 @@ import {
   loadStreaksAsync,
   saveCravings,
   loadCravingsAsync,
+  saveExpenses,
+  saveSleepEnergy,
+  saveSavingsGoals,
   initIndexedDBStorage,
   readWithStatus,
 } from '../src/utils/storage.ts';
 import {
   recoverAllDeviceData,
+  isValidDateField,
 } from '../src/utils/recovery.ts';
 import {
   purgeSecurityState,
@@ -74,7 +78,9 @@ import {
   verifyPin,
   calculateLockoutDurationMs,
   isAppSessionUnlocked,
+  setAppSessionUnlocked,
 } from '../src/utils/security.ts';
+import { idbSet, deletePuffinLessDB } from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 
 describe('PuffinLess Production Code Verification', () => {
@@ -83,6 +89,7 @@ describe('PuffinLess Production Code Verification', () => {
     globalThis.localStorage.clear();
     globalThis.sessionStorage.clear();
     await purgeVaultKeys();
+    await deletePuffinLessDB();
   });
 
   describe('Pillar 1: AES-GCM via Non-Extractable CryptoKey & IndexedDB Vault', () => {
@@ -527,6 +534,10 @@ describe('PuffinLess Production Code Verification', () => {
     test('fresh install onboarding initializes profile with isOnboarded: false and empty quitDate', async () => {
       // On brand new installation with empty storage:
       globalThis.localStorage.clear();
+      globalThis.sessionStorage.clear();
+      await deletePuffinLessDB();
+      await purgeVaultKeys();
+
       const freshSyncProfile = loadProfile();
       assert.equal(freshSyncProfile.isOnboarded, false, 'Fresh install profile must have isOnboarded: false');
       assert.equal(freshSyncProfile.quitDate, '', 'Fresh install profile must have empty quitDate');
@@ -616,6 +627,134 @@ describe('PuffinLess Production Code Verification', () => {
         DecryptionError,
         'loadProfileAsync must throw DecryptionError when corrupted ciphertext is present'
       );
+    });
+  });
+
+  describe('Pillar 6: Genuine Browser Cold-Restart & Storage Lifecycle Verification', () => {
+    test('cold restart with complete volatile memory wipe restores all entities from real IndexedDB without onboarding guide flash', async () => {
+      const verifiedQuitDate = '2026-02-20T09:00:00.000Z';
+      const sampleProfile = {
+        name: 'ColdRestartChampion',
+        isOnboarded: true,
+        cigarettesPerDay: 18,
+        quitDate: verifiedQuitDate,
+        createdAt: verifiedQuitDate,
+        currency: 'EUR',
+        pricePerPack: 12.0,
+      };
+      const sampleStreaks = [
+        { id: 'streak-cold-1', start: verifiedQuitDate }
+      ];
+      const sampleCravings = [
+        { id: 'crav-cold-1', timestamp: verifiedQuitDate, intensity: 7, trigger: 'stress' }
+      ];
+      const sampleExpenses = [
+        { id: 'exp-cold-1', title: 'Gum', price: 5, quantity: 1, itemType: 'accessories', timestamp: verifiedQuitDate }
+      ];
+      const sampleSleep = [
+        { id: 'sleep-cold-1', date: '2026-02-21', sleepRating: 8, energyRating: 7 }
+      ];
+      const sampleGoals = [
+        { id: 'goal-cold-1', title: 'Trip', targetAmount: 500, category: 'travel', icon: 'Plane', completed: false }
+      ];
+
+      // Save complete production data
+      await saveProfile(sampleProfile);
+      await saveStreaks(sampleStreaks);
+      await saveCravings(sampleCravings);
+      await saveExpenses(sampleExpenses);
+      await saveSleepEnergy(sampleSleep);
+      await saveSavingsGoals(sampleGoals);
+
+      // SIMULATE GENUINE BROWSER PROCESS TERMINATION & COLD RESTART:
+      // 1. Purge all in-memory keys from volatile memory
+      lockCryptographicVault();
+      assert.equal(getCryptoLifecycleState(), 'BOOTING');
+
+      // 2. Wipe sessionStorage (which is strictly wiped on browser tab/window close)
+      globalThis.sessionStorage.clear();
+
+      // BOOT PHASE 1: Synchronous initial state check
+      // Verifies that loadProfile() synchronously reports isOnboarded: true so the onboarding presentation never flashes
+      const syncProfile = loadProfile();
+      assert.equal(syncProfile.isOnboarded, true, 'Synchronous loadProfile on restart must report isOnboarded: true');
+      assert.equal(syncProfile.quitDate, verifiedQuitDate, 'Synchronous loadProfile must preserve verified quitDate');
+
+      // BOOT PHASE 2: Asynchronous hydration from physical IndexedDB on disk
+      const hydrated = await initIndexedDBStorage();
+      assert.ok(hydrated, 'Storage must hydrate data successfully on restart');
+      assert.equal(hydrated.profile.name, 'ColdRestartChampion');
+      assert.equal(hydrated.profile.isOnboarded, true);
+      assert.equal(hydrated.profile.cigarettesPerDay, 18);
+      assert.equal(hydrated.streaks.length, 1);
+      assert.equal(hydrated.streaks[0].id, 'streak-cold-1');
+      assert.equal(hydrated.cravings.length, 1);
+      assert.equal(hydrated.cravings[0].id, 'crav-cold-1');
+      assert.equal(hydrated.expenses.length, 1);
+      assert.equal(hydrated.expenses[0].id, 'exp-cold-1');
+      assert.equal(hydrated.sleepLogs.length, 1);
+      assert.equal(hydrated.goals.length, 1);
+    });
+
+    test('cold restart with PIN lock demands PIN on cold start and unlocks without data loss', async () => {
+      const pin = '4321';
+      saveSecurityConfig(true, pin);
+      setAppSessionUnlocked(true);
+      assert.equal(isAppSessionUnlocked(), true, 'App session must be unlocked during active use');
+
+      // SIMULATE BROWSER TERMINATION & COLD RESTART:
+      globalThis.sessionStorage.clear();
+      lockCryptographicVault();
+
+      // On cold restart, session is strictly locked (demands PIN)
+      assert.equal(isAppSessionUnlocked(), false, 'Cold restart must demand PIN screen lock');
+
+      // Entering invalid PIN fails
+      const failRes = verifyPin('9999');
+      assert.equal(failRes.success, false, 'Invalid PIN must fail');
+      assert.equal(isAppSessionUnlocked(), false);
+
+      // Entering valid PIN succeeds and unlocks session
+      const successRes = verifyPin(pin);
+      assert.equal(successRes.success, true, 'Valid PIN must unlock');
+      assert.equal(isAppSessionUnlocked(), true, 'Session must now be unlocked');
+    });
+
+    test('readWithStatus strictly distinguishes absent records from corrupted records in both IndexedDB and localStorage', async () => {
+      // 1. Missing record: returns 'absent'
+      const absent = await readWithStatus('strictly_absent_key_404');
+      assert.equal(absent.status, 'absent');
+      assert.equal(absent.data, null);
+
+      // 2. Corrupted record in IndexedDB: returns 'decryption_error'
+      await idbSet('puffinless_corrupted_idb_key', 'aes-gcm:corrupted:deadbeef');
+      const idbCorrupt = await readWithStatus('puffinless_corrupted_idb_key');
+      assert.equal(idbCorrupt.status, 'decryption_error', 'Corrupted IndexedDB record must return decryption_error');
+      assert.ok(idbCorrupt.error);
+
+      // 3. Corrupted record in localStorage: returns 'decryption_error'
+      globalThis.localStorage.setItem('puffinless_corrupted_local_key', 'aes-gcm:corrupted:deadbeef');
+      const localCorrupt = await readWithStatus('puffinless_corrupted_local_key');
+      assert.equal(localCorrupt.status, 'decryption_error', 'Corrupted localStorage record must return decryption_error');
+      assert.ok(localCorrupt.error);
+    });
+
+    test('recovery strictly rejects arbitrary or corrupted date fields and only recovers verified dates', async () => {
+      // Verify date validator logic
+      assert.equal(isValidDateField(''), false);
+      assert.equal(isValidDateField('not-a-date'), false);
+      assert.equal(isValidDateField('2099-01-01T00:00:00.000Z'), false, 'Future dates must be rejected');
+      assert.equal(isValidDateField('1990-01-01T00:00:00.000Z'), false, 'Dates before 2000 must be rejected');
+      assert.equal(isValidDateField('2026-02-15T12:00:00.000Z'), true, 'Valid date must be accepted');
+
+      // Place corrupted and arbitrary date markers in storage
+      globalThis.localStorage.clear();
+      globalThis.localStorage.setItem('puffinless_quit_date', 'corrupted-timestamp');
+      globalThis.localStorage.setItem('unrelated_key', '2026-02-15T12:00:00.000Z');
+
+      const res = await recoverAllDeviceData();
+      assert.equal(res.recovered, false, 'Must reject corrupted quit_date and unrelated storage keys');
+      assert.equal(res.profile, null, 'Must not manufacture a recovery profile from corrupted date markers');
     });
   });
 });

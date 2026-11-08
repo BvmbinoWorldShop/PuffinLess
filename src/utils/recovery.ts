@@ -37,6 +37,18 @@ import { DEFAULT_PROFILE } from './storage.ts';
 export const RESCUE_BACKUP_KEY = 'puffinless_device_rescue_backup_v2';
 export const LEGACY_RESCUE_KEY = 'puffinless_device_rescue_backup';
 
+/**
+ * Verifies that a date string is a valid, realistic ISO-8601 date.
+ * Restricts recovery strictly to verified date fields, rejecting corrupt or arbitrary date markers.
+ */
+export function isValidDateField(val: unknown): val is string {
+  if (typeof val !== 'string' || val.trim().length < 10) return false;
+  const t = Date.parse(val);
+  if (isNaN(t)) return false;
+  // Realistic date bounds: between 2000-01-01 and tomorrow (to accommodate timezone offsets)
+  return t >= 946684800000 && t <= Date.now() + 86400000;
+}
+
 export interface DeviceRescueSnapshot {
   version: number;
   timestamp: string;
@@ -346,30 +358,41 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       return;
     }
 
-    // UserProfile
-    if ('quitDate' in val || 'cigarettesPerDay' in val || 'quitMode' in val || 'primarySubstance' in val) {
-      const p = val as UserProfile;
-      if (p.quitDate || p.isOnboarded || p.name) {
+    // UserProfile strictly verified
+    if (('quitDate' in val || 'cigarettesPerDay' in val || 'quitMode' in val || 'primarySubstance' in val) && typeof val === 'object') {
+      const p = { ...(val as UserProfile) };
+      if (p.quitDate && !isValidDateField(p.quitDate)) {
+        p.quitDate = '';
+      }
+      if (p.createdAt && !isValidDateField(p.createdAt)) {
+        p.createdAt = '';
+      }
+      if (p.isOnboarded || isValidDateField(p.quitDate) || p.name) {
         candidateProfiles.push(p);
       }
       return;
     }
 
-    // Array of items
+    // Array of items strictly verified by date fields
     if (Array.isArray(val) && val.length > 0) {
       const first = val[0];
       if (!first || typeof first !== 'object') return;
 
       if ('intensity' in first || ('timestamp' in first && 'substance' in first && !('count' in first))) {
-        candidateCravings = mergeCravings(candidateCravings, val as CravingEntry[]);
+        const valid = (val as CravingEntry[]).filter((c) => c && isValidDateField(c.timestamp));
+        if (valid.length > 0) candidateCravings = mergeCravings(candidateCravings, valid);
       } else if ('start' in first) {
-        candidateStreaks = mergeStreaks(candidateStreaks, val as StreakRecord[]);
+        const valid = (val as StreakRecord[]).filter((s) => s && isValidDateField(s.start));
+        if (valid.length > 0) candidateStreaks = mergeStreaks(candidateStreaks, valid);
       } else if ('count' in first && 'substance' in first) {
-        candidateSubstances = mergeSubstances(candidateSubstances, val as SubstanceLog[]);
+        const valid = (val as SubstanceLog[]).filter((s) => s && isValidDateField(s.timestamp));
+        if (valid.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, valid);
       } else if ('itemType' in first || ('price' in first && 'quantity' in first)) {
-        candidateExpenses = mergeExpenses(candidateExpenses, val as PurchaseExpense[]);
+        const valid = (val as PurchaseExpense[]).filter((e) => e && isValidDateField(e.timestamp));
+        if (valid.length > 0) candidateExpenses = mergeExpenses(candidateExpenses, valid);
       } else if ('sleepRating' in first || 'energyRating' in first) {
-        candidateSleep = mergeSleepLogs(candidateSleep, val as SleepEnergyEntry[]);
+        const valid = (val as SleepEnergyEntry[]).filter((s) => s && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s.date));
+        if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
       } else if ('targetAmount' in first || ('title' in first && 'price' in first)) {
         candidateGoals = mergeGoals(candidateGoals, val as SavingsGoal[]);
       }
@@ -439,7 +462,8 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     const allKeys = new Set<string>(candidateKeys);
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k) allKeys.add(k);
+      // Strictly restrict recovery scanning to verified PuffinLess storage keys
+      if (k && k.startsWith('puffinless_')) allKeys.add(k);
     }
 
     for (const key of allKeys) {
@@ -461,7 +485,8 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   if (typeof sessionStorage !== 'undefined') {
     for (let i = 0; i < sessionStorage.length; i++) {
       const k = sessionStorage.key(i);
-      if (!k) continue;
+      // Strictly restrict recovery scanning to verified PuffinLess storage keys
+      if (!k || !k.startsWith('puffinless_')) continue;
       const raw = sessionStorage.getItem(k);
       if (!raw) continue;
 
@@ -482,55 +507,65 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   // =========================================================================
   let bestProfile: UserProfile | null = null;
   if (candidateProfiles.length > 0) {
-    // Pick the profile with the earliest valid quitDate (or createdAt) to preserve maximum streak history
+    // Pick the profile with the earliest valid verified quitDate
     bestProfile = candidateProfiles.reduce((chosen, curr) => {
       if (!chosen) return curr;
       // Prefer onboarded profile
       if (curr.isOnboarded && !chosen.isOnboarded) return curr;
       if (!curr.isOnboarded && chosen.isOnboarded) return chosen;
 
-      const dateCurr = new Date(curr.quitDate || curr.createdAt || Date.now()).getTime();
-      const dateChosen = new Date(chosen.quitDate || chosen.createdAt || Date.now()).getTime();
+      const dateCurr = isValidDateField(curr.quitDate) ? new Date(curr.quitDate).getTime() : Infinity;
+      const dateChosen = isValidDateField(chosen.quitDate) ? new Date(chosen.quitDate).getTime() : Infinity;
       return dateCurr < dateChosen ? curr : chosen;
     });
   }
 
-  // If profile was lost but verified streaks, cravings or explicit PuffinLess markers exist, reconstruct active profile anchored to earliest timestamp
-  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || (typeof localStorage !== 'undefined' && (localStorage.getItem('puffinless_quit_date') || localStorage.getItem('puffinless_is_onboarded') === 'true')))) {
-    let earliestDate = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_quit_date')) || '';
+  // If profile was lost but verified streaks, cravings or verified quit_date exist:
+  const rawSavedQuitDate = typeof localStorage !== 'undefined' ? localStorage.getItem('puffinless_quit_date') : null;
+  const verifiedSavedQuitDate = isValidDateField(rawSavedQuitDate) ? rawSavedQuitDate : '';
+
+  if (!bestProfile && (candidateStreaks.length > 0 || candidateCravings.length > 0 || verifiedSavedQuitDate)) {
+    let earliestDate = verifiedSavedQuitDate;
     if (!earliestDate) {
       if (candidateStreaks.length > 0) {
-        const dates = candidateStreaks.map((s) => new Date(s.start).getTime()).filter((t) => !isNaN(t));
-        if (dates.length > 0) earliestDate = new Date(Math.min(...dates)).toISOString();
+        const validStreakDates = candidateStreaks
+          .map((s) => s.start)
+          .filter(isValidDateField)
+          .map((d) => new Date(d).getTime());
+        if (validStreakDates.length > 0) earliestDate = new Date(Math.min(...validStreakDates)).toISOString();
       } else if (candidateCravings.length > 0) {
-        const dates = candidateCravings.map((c) => new Date(c.timestamp).getTime()).filter((t) => !isNaN(t));
-        if (dates.length > 0) earliestDate = new Date(Math.min(...dates)).toISOString();
+        const validCravingDates = candidateCravings
+          .map((c) => c.timestamp)
+          .filter(isValidDateField)
+          .map((d) => new Date(d).getTime());
+        if (validCravingDates.length > 0) earliestDate = new Date(Math.min(...validCravingDates)).toISOString();
       }
     }
-    const savedName = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_user_name')) || '';
 
-    bestProfile = {
-      ...DEFAULT_PROFILE,
-      name: savedName,
-      isOnboarded: true,
-      quitDate: earliestDate || new Date().toISOString(),
-      createdAt: earliestDate || new Date().toISOString(),
-      customQuitDate: Boolean(earliestDate),
-      language: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_lang') || localStorage.getItem('puffinless_lang')) as any)) || 'fr',
-      theme: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_theme') || localStorage.getItem('puffinless_theme')) as any)) || 'dark',
-    };
+    if (isValidDateField(earliestDate)) {
+      const savedName = (typeof localStorage !== 'undefined' && localStorage.getItem('puffinless_user_name')) || '';
+      bestProfile = {
+        ...DEFAULT_PROFILE,
+        name: savedName,
+        isOnboarded: true,
+        quitDate: earliestDate,
+        createdAt: earliestDate,
+        customQuitDate: true,
+        language: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_lang') || localStorage.getItem('puffinless_lang')) as any)) || 'fr',
+        theme: (typeof localStorage !== 'undefined' && ((localStorage.getItem('puffinless_app_theme') || localStorage.getItem('puffinless_theme')) as any)) || 'dark',
+      };
+    }
   }
 
-  // Calculate days since quit if profile exists
+  // Calculate days since quit ONLY if quitDate is a verified date field
   let daysSinceQuit = 0;
-  if (bestProfile?.quitDate) {
+  if (bestProfile?.quitDate && isValidDateField(bestProfile.quitDate)) {
     const diffMs = Date.now() - new Date(bestProfile.quitDate).getTime();
     daysSinceQuit = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   }
 
   const isDataRecovered = Boolean(
-    bestProfile?.isOnboarded ||
-    daysSinceQuit > 0 ||
+    (bestProfile && (bestProfile.isOnboarded || isValidDateField(bestProfile.quitDate))) ||
     candidateStreaks.length > 0 ||
     candidateCravings.length > 0 ||
     candidateSubstances.length > 0 ||

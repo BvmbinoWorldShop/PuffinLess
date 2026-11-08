@@ -64,31 +64,36 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
 }
 
 /**
- * Retrieve a value by key from IndexedDB and decrypt it with AES-GCM (or legacy AES-CBC).
+ * Retrieve the raw (undecrypted) record from IndexedDB kv_store.
+ * Returns null strictly when the key does not exist.
+ * Throws explicitly on database or transaction failure.
  */
-export async function idbGet<T>(key: string): Promise<T | null> {
-  try {
-    const db = await openPuffinLessDB();
-    const rawCipher = await new Promise<unknown>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(key);
+export async function idbGetRaw(key: string): Promise<unknown> {
+  const db = await openPuffinLessDB();
+  return await new Promise<unknown>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(key);
 
-      req.onsuccess = () => {
-        resolve(req.result !== undefined ? req.result : null);
-      };
-      req.onerror = () => reject(req.error);
-    });
+    req.onsuccess = () => {
+      resolve(req.result !== undefined ? req.result : null);
+    };
+    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Query error for key "${key}"`));
+    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error for key "${key}"`));
+  });
+}
 
-    if (rawCipher === null || rawCipher === undefined) {
-      return null;
-    }
-    // Transparently decrypt AES-GCM payload (or handle legacy AES-CBC / raw objects)
-    return await decryptData<T | null>(rawCipher, null);
-  } catch (err) {
-    console.warn(`[IndexedDB] Error reading key "${key}":`, err);
+/**
+ * Retrieve a value by key from IndexedDB and decrypt it with AES-GCM (or legacy AES-CBC).
+ * Strictly distinguishes missing keys (null) from decryption/storage failures (throws on error if requested).
+ */
+export async function idbGet<T>(key: string, options?: { throwOnError?: boolean }): Promise<T | null> {
+  const rawCipher = await idbGetRaw(key);
+  if (rawCipher === null || rawCipher === undefined) {
     return null;
   }
+  // Transparently decrypt AES-GCM payload (or handle legacy AES-CBC / raw objects)
+  return await decryptData<T | null>(rawCipher, null, options);
 }
 
 /**
