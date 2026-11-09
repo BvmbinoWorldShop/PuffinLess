@@ -90,12 +90,15 @@ import {
   isAppSessionUnlocked,
   setAppSessionUnlocked,
 } from '../src/utils/security.ts';
-import { idbSet, deletePuffinLessDB, idbGetWithStatus, idbGetRawWithStatus, closePuffinLessDB } from '../src/utils/indexedDb.ts';
+import { idbSet, deletePuffinLessDB, idbGetWithStatus, idbGetRawWithStatus, closePuffinLessDB, idbGetAllEventsWithStatus, openPuffinLessDB, EVENTS_STORE_NAME } from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 import {
   recordJournalEvent,
   getHistoricalJournalEvents,
+  getHistoricalJournalEventsWithStatus,
   replayJournalEvents,
+  restoreJournalSequence,
+  clearJournalEvents,
 } from '../src/utils/journal.ts';
 
 describe('PuffinLess Production Code Verification', () => {
@@ -1238,6 +1241,176 @@ describe('PuffinLess Production Code Verification', () => {
       assert.ok(recoveredScan.stats.sources.includes('Rescue Snapshot'));
       assert.ok(recoveredScan.integrity.validRecords >= 2);
       assert.equal(recoveredScan.integrity.datesVerified >= 2, true);
+    });
+
+    test('journal events are encrypted at rest with AES-GCM before persistence in events_store', async () => {
+      // Record a sensitive intake event
+      const event = await recordJournalEvent('SUBSTANCE_LOGGED', {
+        id: 'sub-encrypt-check',
+        substance: 'cannabis',
+        count: 3,
+        note: 'Secret medicinal intake',
+        timestamp: '2026-02-10T20:00:00.000Z',
+      });
+
+      // Directly read the raw disk record from IndexedDB events_store
+      const db = await openPuffinLessDB();
+      const rawRecord = await new Promise((resolve, reject) => {
+        const tx = db.transaction(EVENTS_STORE_NAME, 'readonly');
+        const store = tx.objectStore(EVENTS_STORE_NAME);
+        const req = store.get(event.id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      assert.ok(rawRecord, 'Raw record must exist in events_store');
+      assert.ok(rawRecord.ciphertext, 'Raw record MUST contain ciphertext property');
+      assert.ok(rawRecord.ciphertext.startsWith('aes-gcm:'), 'Ciphertext must start with aes-gcm: envelope');
+      assert.equal(rawRecord.payload, undefined, 'Plaintext payload must NOT be stored at rest in IndexedDB');
+      assert.ok(!rawRecord.ciphertext.includes('Secret medicinal intake'), 'Ciphertext must not leak sensitive notes in plaintext');
+
+      // Verify that getHistoricalJournalEvents decrypts it back faithfully
+      const events = await getHistoricalJournalEvents();
+      const loaded = events.find((e) => e.id === event.id);
+      assert.ok(loaded);
+      assert.equal(loaded.payload.substance, 'cannabis');
+      assert.equal(loaded.payload.note, 'Secret medicinal intake');
+    });
+
+    test('journal writes fail visibly instead of silently when storage operation fails', async () => {
+      // Simulate storage failure in IndexedDB
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated journal write failure') };
+          setTimeout(() => {
+            if (req.onerror) req.onerror({ target: req });
+          }, 0);
+          return req;
+        }
+      };
+
+      try {
+        await assert.rejects(
+          async () => {
+            await recordJournalEvent('CRAVING_LOGGED', { id: 'c-fail-test', intensity: 5 });
+          },
+          /(journal write failure|encryption failed)/i,
+          'recordJournalEvent MUST throw error when persistence fails and never swallow silently'
+        );
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+    });
+
+    test('idbGetAllEventsWithStatus explicitly distinguishes an empty journal from a failed journal read', async () => {
+      // 1. Empty journal: returns status 'empty'
+      await clearJournalEvents();
+      const emptyRes = await getHistoricalJournalEventsWithStatus();
+      assert.equal(emptyRes.status, 'empty');
+      assert.deepEqual(emptyRes.events, []);
+
+      // 2. Populated journal: returns status 'success'
+      await recordJournalEvent('SAVINGS_GOAL_ADDED', { id: 'goal-status-check', title: 'Vacation' });
+      const successRes = await getHistoricalJournalEventsWithStatus();
+      assert.equal(successRes.status, 'success');
+      assert.equal(successRes.events.length, 1);
+      assert.equal(successRes.events[0].payload.title, 'Vacation');
+
+      // 3. Failed read: returns status 'error' and does NOT collapse into empty
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated journal read error') };
+          setTimeout(() => {
+            if (req.onerror) req.onerror({ target: req });
+          }, 0);
+          return req;
+        }
+      };
+
+      try {
+        const errorRes = await getHistoricalJournalEventsWithStatus();
+        assert.equal(errorRes.status, 'error', 'Database failure must return status: "error"');
+        assert.ok(errorRes.error, 'Must provide the underlying error');
+        assert.match(errorRes.error.message, /journal read error/i);
+        assert.equal(errorRes.events.length, 0);
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+    });
+
+    test('removal-event replay correctly handles substance count decrements and streak removals', async () => {
+      // 1. Log two separate substance events
+      await recordJournalEvent('SUBSTANCE_LOGGED', {
+        id: 'sub-remove-1',
+        substance: 'cigarette',
+        count: 2,
+        timestamp: '2026-02-10T08:00:00.000Z',
+      });
+      await recordJournalEvent('SUBSTANCE_LOGGED', {
+        id: 'sub-remove-2',
+        substance: 'cigarette',
+        count: 1,
+        timestamp: '2026-02-10T12:00:00.000Z',
+      });
+
+      // 2. Log a streak event
+      await recordJournalEvent('STREAK_RECORDED', {
+        id: 'streak-to-remove',
+        start: '2026-02-01T00:00:00.000Z',
+        end: '2026-02-10T12:00:00.000Z',
+        brokenBy: 'cigarette',
+      });
+
+      // 3. Record SUBSTANCE_REMOVED with { substance: 'cigarette', count: 1 } (matches useAppStore removeSubstance)
+      await recordJournalEvent('SUBSTANCE_REMOVED', {
+        substance: 'cigarette',
+        count: 1,
+        date: '2026-02-10',
+      });
+
+      // 4. Record STREAK_REMOVED
+      await recordJournalEvent('STREAK_REMOVED', {
+        streakId: 'streak-to-remove',
+      });
+
+      const events = await getHistoricalJournalEvents();
+      const projections = replayJournalEvents(events);
+
+      // Total cigarettes initially was 3 (2 + 1). After removal of 1, should be 2!
+      const totalRemainingCount = projections.substanceLogs.reduce((acc, l) => acc + l.count, 0);
+      assert.equal(totalRemainingCount, 2, 'Replay of SUBSTANCE_REMOVED must decrement total count from 3 to 2');
+
+      // Streak must be removed from projections
+      assert.equal(projections.streaks.some((s) => s.id === 'streak-to-remove'), false, 'Replay of STREAK_REMOVED must delete streak');
+    });
+
+    test('sequence numbers are restored after cold restart without reset or collisions', async () => {
+      await clearJournalEvents();
+      // 1. Record 3 initial events
+      await recordJournalEvent('CRAVING_LOGGED', { id: 'crav-seq-1' });
+      await recordJournalEvent('CRAVING_LOGGED', { id: 'crav-seq-2' });
+      const ev3 = await recordJournalEvent('CRAVING_LOGGED', { id: 'crav-seq-3' });
+      assert.equal(ev3.seq, 3);
+
+      // 2. SIMULATE BROWSER COLD RESTART:
+      // Purge vault in-memory cache and restore sequence from IndexedDB disk state
+      lockCryptographicVault();
+      const restoredSeq = await restoreJournalSequence();
+      assert.equal(restoredSeq, 3, 'Restored sequence number must equal the max sequence on disk (3)');
+
+      // 3. Record subsequent event after restart
+      const ev4 = await recordJournalEvent('CRAVING_LOGGED', { id: 'crav-seq-4' });
+      assert.equal(ev4.seq, 4, 'Next event after cold restart MUST be sequence 4 (never reset to 1)');
+
+      const allEvents = await getHistoricalJournalEvents();
+      const sequences = allEvents.map((e) => e.seq);
+      assert.deepEqual(sequences, [1, 2, 3, 4], 'Sequence numbers must be strictly monotonic without collision');
     });
   });
 });

@@ -162,10 +162,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               <Coins className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 dark:text-amber-300">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 dark:text-amber-200">
                 {isFr ? 'Centre Financier PuffinLess' : 'PuffinLess Money Center'}
               </span>
-              <p className="text-[11px] text-slate-900 dark:text-amber-200/90 light-text-black font-medium leading-tight">
+              <p className="text-[11px] text-white/95 font-medium leading-tight">
                 {isFr ? 'Suivi précis des dépenses, du capital préservé et des intérêts composés' : 'Track spending, compounded loss & preserved capital'}
               </p>
             </div>
@@ -193,7 +193,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             <div className="text-2xl sm:text-3xl font-extrabold text-emerald-200 mt-1">
               {profile.currency}{stats.moneySaved.toLocaleString()}
             </div>
-            <p className="text-[10px] text-emerald-300/70 mt-1">
+            <p className="text-[11px] text-white/90 font-medium mt-1">
               {isFr ? 'Resté dans votre poche' : 'Kept in your pocket'}
             </p>
           </div>
@@ -206,7 +206,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             <div className="text-2xl sm:text-3xl font-extrabold text-rose-200 mt-1">
               {profile.currency}{totalMoneySpent.toLocaleString()}
             </div>
-            <p className="text-[10px] text-rose-300/70 mt-1">
+            <p className="text-[11px] text-white/90 font-medium mt-1">
               {isFr ? `${expenses.length} achats enregistrés` : `${expenses.length} purchases recorded`}
             </p>
           </div>
@@ -267,10 +267,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   {isFr ? 'Calculateur d\'Impact Clinique & Financier' : 'Clinical Habit Cost Calculator'}
                 </h3>
               </div>
-              <span className="text-[10px] text-slate-400">BMJ & CDC Medical Benchmarks</span>
+              <span className="text-[11px] text-white/80 font-medium">BMJ & CDC Medical Benchmarks</span>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-white/95 leading-relaxed font-normal">
               {isFr
                 ? 'Chaque achat de tabac, de vape, d\'herbe ou d\'accessoires prélève un double tribut : l\'érosion de votre capital et l\'usure biologique accélérée de vos organes.'
                 : 'Every purchase of cigarettes, vape pods, weed, or rolling gear extracts a dual toll: instant wealth erosion plus biological depreciation.'}
@@ -286,7 +286,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 <div className="text-xl font-extrabold text-amber-200">
                   {profile.currency}{harmReport.opportunityCost10Years.toLocaleString()}
                 </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
+                <p className="text-[11px] text-white/85 leading-tight font-medium">
                   {isFr
                     ? 'Valeur si cette somme était investie en ETF monde à 7% d\'intérêts composés annuels.'
                     : 'Value if invested in S&P 500 at 7% compound annual return instead of smoke.'}
@@ -302,7 +302,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 <div className="text-xl font-extrabold text-rose-200">
                   {harmReport.estimatedLifeLostHours} <span className="text-xs font-normal">{isFr ? 'heures' : 'hrs'}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
+                <p className="text-[11px] text-white/85 leading-tight font-medium">
                   {isFr
                     ? 'Selon le British Medical Journal : 11 min par cigarette / joint consumé.'
                     : 'Based on British Medical Journal: 11 mins per cigarette / joint combustion.'}
@@ -318,7 +318,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 <div className="text-xl font-extrabold text-purple-200">
                   -{harmReport.sleepEfficiencyLossPercent}%
                 </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
+                <p className="text-[11px] text-white/85 leading-tight font-medium">
                   {isFr
                     ? 'La nicotine et le THC suppriment les phases profondes de régénération cérébrale.'
                     : 'Nicotine & THC suppress Stage 4 restorative dreaming sleep.'}
@@ -334,7 +334,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 <div className="text-xl font-extrabold text-cyan-200">
                   {harmReport.toxicLoadIndex} <span className="text-xs font-normal">/ 100</span>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
+                <p className="text-[11px] text-white/85 leading-tight font-medium">
                   {isFr
                     ? 'Dépôts alvéolaires estimés de goudrons, d\'acroléine et de métaux lourds chauffés.'
                     : 'Estimated alveolar sediment from tar, acrolein, and heated aerosols.'}
@@ -361,11 +361,11 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 { period: isFr ? '5 Ans' : '5 Years', amount: (dailyCost * 365 * 5).toFixed(0), label: isFr ? 'Apport pour un bien / Voiture' : 'Car down-payment' },
               ].map((h) => (
                 <div key={h.period} className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5 space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-400">{h.period}</span>
+                  <span className="text-[11px] font-bold text-white">{h.period}</span>
                   <div className="text-sm font-extrabold text-emerald-300">
                     {profile.currency}{Number(h.amount).toLocaleString()}
                   </div>
-                  <span className="text-[9px] text-slate-400 block truncate">{h.label}</span>
+                  <span className="text-[10px] text-white/80 block truncate font-medium">{h.label}</span>
                 </div>
               ))}
             </div>
@@ -393,7 +393,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           </div>
 
           {expenses.length === 0 ? (
-            <p className="text-xs text-slate-400 py-6 text-center">
+            <p className="text-xs text-white/85 py-6 text-center font-medium">
               {isFr ? 'Aucun achat enregistré. Bravo pour avoir gardé votre argent intact !' : 'No purchases recorded. Click "Add Purchase" above to track your spending.'}
             </p>
           ) : (
@@ -417,11 +417,11 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                               {badge.label}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-white/90 mt-0.5 font-medium">
                             {exp.quantity}x @ {profile.currency}{exp.price.toFixed(2)} • {new Date(exp.timestamp).toLocaleDateString()}
                           </p>
                           {exp.note && (
-                            <p className="text-[10px] text-slate-500 italic mt-0.5">{exp.note}</p>
+                            <p className="text-[10px] text-white/75 italic mt-0.5">{exp.note}</p>
                           )}
                         </div>
                       </div>
@@ -435,7 +435,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                             sound.playClick();
                             onDeleteExpense(exp.id);
                           }}
-                          className="p-1 rounded-lg text-slate-500 hover:text-rose-400 transition-colors"
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
                           title="Delete expense"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -495,7 +495,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-white/90 mt-0.5 font-medium">
                         {isFr ? 'Objectif :' : 'Goal:'} <b className="text-white">{profile.currency}{g.targetAmount}</b>
                       </p>
                     </div>
@@ -516,7 +516,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-white/90 font-medium">
                     <span>
                       {isFunded ? (
                         <span className="text-amber-300 font-semibold flex items-center gap-1">
@@ -580,7 +580,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             <h3 className="text-lg font-bold text-white mb-1">
               {isFr ? 'Enregistrer une dépense' : 'Log an Expense'}
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-white/90 mb-4 font-medium">
               {isFr
                 ? 'Mesurez précisément le cash englouti dans les paquets, puffs, herbe et accessoires.'
                 : 'Track how much cash is going into cigarettes, weed, vapes, papers, and lighters.'}
@@ -588,7 +588,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
             <form onSubmit={handleCreateExpense} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Catégorie d\'article' : 'Item Category'}
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -609,7 +609,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                       className={`p-2 rounded-xl text-xs font-medium border text-center transition-all ${
                         itemType === cat.id
                           ? 'bg-amber-500/25 border-amber-400/50 text-amber-200'
-                          : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                          : 'bg-slate-900/40 border-white/10 text-slate-300 hover:text-white'
                       }`}
                     >
                       {cat.label}
@@ -619,7 +619,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Description de l\'article' : 'Item Description'}
                 </label>
                 <input
@@ -634,7 +634,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-white mb-1">
                     {isFr ? 'Prix unitaire' : 'Price'} ({profile.currency})
                   </label>
                   <input
@@ -649,7 +649,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-white mb-1">
                     {isFr ? 'Quantité' : 'Quantity'}
                   </label>
                   <input
@@ -665,7 +665,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Note (optionnelle)' : 'Note (Optional)'}
                 </label>
                 <input
@@ -704,7 +704,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             <h3 className="text-lg font-bold text-white mb-1">
               {isFr ? 'Créer un Projet d\'Épargne' : 'Create Wishlist Goal'}
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-white/90 mb-4 font-medium">
               {isFr
                 ? 'Récompensez-vous avec un cadeau qui vous passionne grâce à l\'argent sauvé.'
                 : 'Reward yourself with something you love using your unburned money.'}
@@ -712,7 +712,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
             <form onSubmit={handleCreateGoal} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Nom du projet' : 'Goal Name'}
                 </label>
                 <input
@@ -726,7 +726,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Montant cible' : 'Target Cost'} ({profile.currency})
                 </label>
                 <input
@@ -741,7 +741,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-white mb-1">
                   {isFr ? 'Catégorie' : 'Category'}
                 </label>
                 <div className="grid grid-cols-3 gap-2">

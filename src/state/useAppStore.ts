@@ -23,7 +23,7 @@ import {
   DEFAULT_PROFILE,
 } from '../utils/storage';
 import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery';
-import { recordJournalEvent } from '../utils/journal';
+import { recordJournalEvent, restoreJournalSequence } from '../utils/journal';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
@@ -56,8 +56,11 @@ export function useAppStore() {
   // Hydrate from IndexedDB on startup (with automatic migration of localStorage on first run)
   useEffect(() => {
     let isMounted = true;
-    initIndexedDBStorage()
-      .then((data) => {
+    Promise.all([
+      initIndexedDBStorage(),
+      restoreJournalSequence().catch(() => 0),
+    ])
+      .then(([data]) => {
         if (!isMounted || !data) return;
         if (data.profile) setProfile(data.profile);
         if (data.goals) setGoals(data.goals);
@@ -203,17 +206,21 @@ export function useAppStore() {
     if (modified) {
       setSubstanceLogs(newLogs);
       saveSubstanceLogs(newLogs, { overwrite: true });
-      recordJournalEvent('SUBSTANCE_REMOVED', { substance, count });
+      recordJournalEvent('SUBSTANCE_REMOVED', { substance, count, date: today });
 
       // Clean up corresponding unresisted craving entries from the same time
       if (removedLogTimes.length > 0) {
-        const cleanedCravings = cravings.filter((c) => {
-          if (c.resisted) return true;
+        const removedCravings = cravings.filter((c) => {
+          if (c.resisted) return false;
           const cTime = new Date(c.timestamp).getTime();
-          return !removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
+          return removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
         });
+        const cleanedCravings = cravings.filter((c) => !removedCravings.includes(c));
         setCravings(cleanedCravings);
         saveCravings(cleanedCravings, { overwrite: true });
+        for (const rc of removedCravings) {
+          recordJournalEvent('CRAVING_REMOVED', { cravingId: rc.id }, rc.id);
+        }
       }
 
       // If today is now clean and a streak was broken TODAY, safely restore previous streak start
@@ -227,6 +234,7 @@ export function useAppStore() {
             const remainingStreaks = streaks.slice(1);
             setStreaks(remainingStreaks);
             saveStreaks(remainingStreaks, { overwrite: true });
+            recordJournalEvent('STREAK_REMOVED', { streakId: lastStreak.id }, lastStreak.id);
             updateProfile({ ...profile, quitDate: lastStreak.start });
           }
         }

@@ -31,7 +31,7 @@ import {
 } from './crypto.ts';
 import {
   idbSet,
-  idbGetAllEvents,
+  idbGetAllEventsWithStatus,
 } from './indexedDb.ts';
 import {
   replayJournalEvents,
@@ -785,12 +785,15 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   // 3. SCAN INDEXEDDB EVENT JOURNAL (events_store)
   // =========================================================================
   try {
-    const journalEvents = await idbGetAllEvents();
-    if (journalEvents && journalEvents.length > 0) {
-      sources.push(`Journal d'événements (${journalEvents.length} événements)`);
-      totalScanned += journalEvents.length;
-      validRecords += journalEvents.length;
-      const projections = replayJournalEvents(journalEvents);
+    const journalRes = await idbGetAllEventsWithStatus();
+    if (journalRes.status === 'error') {
+      corruptedRejected++;
+      console.warn('[Recovery] Warning: Journal read failure:', journalRes.error);
+    } else if (journalRes.status === 'success' && journalRes.events.length > 0) {
+      sources.push(`Journal d'événements (${journalRes.events.length} événements)`);
+      totalScanned += journalRes.events.length;
+      validRecords += journalRes.events.length;
+      const projections = replayJournalEvents(journalRes.events);
       if (projections.substanceLogs.length > 0) {
         candidateSubstances = mergeSubstances(candidateSubstances, projections.substanceLogs);
       }
@@ -817,6 +820,7 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       }
     }
   } catch (jErr) {
+    corruptedRejected++;
     console.warn('[Recovery] Warning reading events_store:', jErr);
   }
 

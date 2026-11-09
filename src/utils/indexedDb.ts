@@ -5,8 +5,14 @@
  *
  * All data stored at rest in IndexedDB is encrypted with AES-256 via the device's local vault key.
  */
-import { encryptData, decryptData, decryptWithStatus } from './crypto.ts';
+import { encryptData, decryptData, decryptWithStatus, DecryptionError } from './crypto.ts';
 import type { JournalEvent } from '../types/index.ts';
+
+export interface JournalReadResult {
+  status: 'empty' | 'success' | 'error';
+  events: JournalEvent[];
+  error?: Error;
+}
 
 const DB_NAME = 'puffinless_indexeddb';
 const DB_VERSION = 2;
@@ -399,15 +405,27 @@ export async function idbGetAllEntries(): Promise<Record<string, unknown>> {
 
 /**
  * Append an immutable event to the IndexedDB events_store journal.
- * Throws explicitly on failure.
+ * Encrypts the event before persistence.
+ * Throws explicitly on failure so writes fail visibly.
  */
 export async function idbAppendEvent(event: JournalEvent): Promise<void> {
+  const cipher = await encryptData(event);
+  const recordToStore = {
+    id: event.id,
+    seq: event.seq,
+    type: event.type,
+    timestamp: event.timestamp,
+    schemaVersion: event.schemaVersion || 1,
+    entityId: event.entityId,
+    ciphertext: cipher,
+  };
+
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
     try {
       const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
       const store = tx.objectStore(EVENTS_STORE_NAME);
-      store.put(event);
+      store.put(recordToStore);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Error appending event "${event.id}"`));
       tx.onabort = () => reject(tx.error || new Error(`[IndexedDB] Transaction aborted appending event "${event.id}"`));
@@ -419,29 +437,62 @@ export async function idbAppendEvent(event: JournalEvent): Promise<void> {
 
 /**
  * Retrieve all historical events from the immutable IndexedDB events_store journal,
- * sorted chronologically by monotonic sequence / timestamp.
+ * decrypting each event payload. Throws explicitly on failure.
  */
 export async function idbGetAllEvents(): Promise<JournalEvent[]> {
-  try {
-    const db = await openPuffinLessDB();
-    return await new Promise<JournalEvent[]>((resolve, reject) => {
-      try {
-        const tx = db.transaction(EVENTS_STORE_NAME, 'readonly');
-        const store = tx.objectStore(EVENTS_STORE_NAME);
-        const req = store.getAll();
-        req.onsuccess = () => {
-          const events = (req.result || []) as JournalEvent[];
-          events.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const db = await openPuffinLessDB();
+  return new Promise<JournalEvent[]>((resolve, reject) => {
+    try {
+      const tx = db.transaction(EVENTS_STORE_NAME, 'readonly');
+      const store = tx.objectStore(EVENTS_STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = async () => {
+        try {
+          const rawRecords = (req.result || []) as Array<any>;
+          const events: JournalEvent[] = [];
+          for (const raw of rawRecords) {
+            if (raw.ciphertext) {
+              const decrypted = await decryptData<JournalEvent | null>(raw.ciphertext, null);
+              if (!decrypted) {
+                throw new DecryptionError(`[IndexedDB] Failed to decrypt journal event with ID "${raw.id}"`);
+              }
+              events.push(decrypted);
+            } else if (raw.payload && raw.type) {
+              // Backward compatibility for existing plaintext events
+              events.push(raw as JournalEvent);
+            }
+          }
+          events.sort(
+            (a, b) =>
+              (a.seq ?? 0) - (b.seq ?? 0) ||
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
           resolve(events);
-        };
-        req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to query events_store'));
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
+        } catch (decryptErr) {
+          reject(decryptErr instanceof Error ? decryptErr : new Error(String(decryptErr)));
+        }
+      };
+      req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to query events_store'));
+      tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error reading events_store'));
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+}
+
+/**
+ * Explicitly distinguishes an empty journal from a failed journal read.
+ */
+export async function idbGetAllEventsWithStatus(): Promise<JournalReadResult> {
+  try {
+    const events = await idbGetAllEvents();
+    if (events.length === 0) {
+      return { status: 'empty', events: [] };
+    }
+    return { status: 'success', events };
   } catch (err) {
-    console.warn('[IndexedDB] Could not retrieve events from events_store:', err);
-    return [];
+    const error = err instanceof Error ? err : new Error(String(err));
+    return { status: 'error', events: [], error };
   }
 }
 
