@@ -57,6 +57,7 @@ interface ActivityEvent {
 
 /** Formulates clinical corrective action to neutralize a specific trigger */
 function getCorrectiveAction(trigger: string, isFr: boolean): string {
+  if (!trigger) return isFr ? 'Respiration 4-7-8 immédiate' : 'Immediate 4-7-8 breathing';
   const t = trigger.toLowerCase();
   if (t.includes('café') || t.includes('coffee') || t.includes('matin') || t.includes('morning') || t.includes('réveil')) {
     return isFr

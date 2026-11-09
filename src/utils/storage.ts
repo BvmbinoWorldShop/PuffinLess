@@ -19,7 +19,8 @@ import {
   purgeVaultKeys,
   DecryptionError,
 } from './crypto.ts';
-import { idbGet, idbGetRawWithStatus, idbSet, deletePuffinLessDB } from './indexedDb.ts';
+import { idbGet, idbGetRawWithStatus, idbSet, deletePuffinLessDB, idbPersistAtomic } from './indexedDb.ts';
+import type { JournalEvent } from '../types/index.ts';
 import { purgeSecurityState } from './security.ts';
 import {
   recoverAllDeviceData,
@@ -67,6 +68,43 @@ export const STORAGE_KEYS = {
   SLEEP_ENERGY: 'puffinless_sleep_energy_v2',
   STREAKS: 'puffinless_streaks_v2',
 };
+
+export interface AtomicPersistenceBatch {
+  projections: Array<{ key: string; value: unknown }>;
+  events: JournalEvent[];
+  rescueSnapshot?: Parameters<typeof createDeviceRescueSnapshot>[0];
+}
+
+/**
+ * Persist projections and journal events atomically across both kv_store and events_store.
+ * Serialized through storageQueue.
+ * Enforces pre-encryption, multi-store IndexedDB transaction, and localStorage/rescue synchronization.
+ * If IndexedDB fails or aborts, nothing is committed and localStorage is untouched.
+ */
+export async function persistAtomicBatch(batch: AtomicPersistenceBatch): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    // 1. Execute atomic IndexedDB transaction across kv_store and events_store
+    await idbPersistAtomic({
+      projections: batch.projections,
+      events: batch.events,
+    });
+
+    // 2. Synchronize localStorage mirror for fast synchronous boot & redundancy
+    for (const proj of batch.projections) {
+      try {
+        const cipher = await encryptData(proj.value);
+        localStorage.setItem(proj.key, cipher);
+      } catch (err) {
+        console.warn(`[Storage] Failed to update localStorage mirror for ${proj.key}:`, err);
+      }
+    }
+
+    // 3. Update device rescue snapshot if provided
+    if (batch.rescueSnapshot) {
+      createDeviceRescueSnapshot(batch.rescueSnapshot);
+    }
+  });
+}
 
 /**
  * Verifies whether it is safe to persist an empty array for a given entity key.

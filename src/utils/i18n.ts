@@ -344,16 +344,18 @@ export const TRIGGER_OPTIONS: { id: string; labelEn: string; labelFr: string }[]
 ];
 
 export function getTriggerLabel(triggerId: string, lang: Language = 'en'): string {
+  if (!triggerId || typeof triggerId !== 'string') return '';
   let lookupId = triggerId;
   if (triggerId === 'After Meal' || triggerId === 'Après repas') lookupId = 'Avant/Après repas';
   if (triggerId === 'Coffee/Drink' || triggerId === 'Café / Verre') lookupId = 'Café/Matin';
 
+  const tLower = triggerId.toLowerCase();
   const found = TRIGGER_OPTIONS.find(
     (t) =>
       t.id === lookupId ||
       t.id === triggerId ||
-      t.labelEn.toLowerCase() === triggerId.toLowerCase() ||
-      t.labelFr.toLowerCase() === triggerId.toLowerCase()
+      (t.labelEn && t.labelEn.toLowerCase() === tLower) ||
+      (t.labelFr && t.labelFr.toLowerCase() === tLower)
   );
   if (found) {
     return lang === 'fr' ? found.labelFr : found.labelEn;

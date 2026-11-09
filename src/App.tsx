@@ -105,7 +105,7 @@ export function App() {
         {/* Fixed / Sticky Top Bar (Contains centered PuffinLess pill + Header) */}
         <div className="sticky top-0 z-40 w-full bg-slate-950/90 backdrop-blur-xl border-b border-white/5 transition-colors">
           {persistenceError && (
-            <div className="w-full bg-rose-950/95 border-b border-rose-500/50 px-4 py-2 flex items-center justify-between text-xs text-rose-100 z-50 shadow-lg">
+            <div data-testid="persistence-error-banner" className="w-full bg-rose-950/95 border-b border-rose-500/50 px-4 py-2 flex items-center justify-between text-xs text-rose-100 z-50 shadow-lg">
               <div className="flex items-center gap-2 overflow-hidden">
                 <span className="w-2 h-2 shrink-0 rounded-full bg-rose-500 animate-ping" />
                 <span className="font-bold text-rose-300 shrink-0">

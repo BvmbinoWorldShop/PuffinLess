@@ -44,7 +44,6 @@ const {
   loadStreaksAsync,
   saveProfile,
   loadProfileAsync,
-  storageQueue,
   importUserDataJSON,
   exportAllUserDataJSON,
   resetAllUserData,

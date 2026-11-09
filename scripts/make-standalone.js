@@ -31,7 +31,7 @@ if (cssMatch && cssMatch[1]) {
       }
     }
 
-    html = html.replace(cssMatch[0], `<style>\n${cssContent}\n</style>`);
+    html = html.replace(cssMatch[0], () => `<style>\n${cssContent}\n</style>`);
   }
 }
 
@@ -66,8 +66,8 @@ if (jsMatch && jsMatch[1]) {
     // Update the dist asset so web deployment is also protected
     fs.writeFileSync(jsPath, protectedJs, 'utf8');
 
-    // Embed into standalone single-file HTML
-    html = html.replace(jsMatch[0], `<script>\n${protectedJs}\n</script>`);
+    // Embed into standalone single-file HTML (use function replacer to safely protect $ tokens)
+    html = html.replace(jsMatch[0], () => `<script type="module">\n${protectedJs}\n</script>`);
   }
 }
 

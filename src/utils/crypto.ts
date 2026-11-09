@@ -124,7 +124,7 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
     if (typeof window === 'undefined' || !window.indexedDB) {
       return reject(new Error('IndexedDB is not available in this environment'));
     }
-    const req = window.indexedDB.open(KEY_DB_NAME, 1);
+    const req = window.indexedDB.open(KEY_DB_NAME);
     req.onupgradeneeded = (e) => {
       const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
@@ -135,7 +135,7 @@ function openKeyVaultDB(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
         // Database exists but lacks the keys store: upgrade version dynamically
-        const nextVersion = db.version + 1;
+        const nextVersion = (db.version || 1) + 1;
         db.close();
         keyDbInstance = null;
         const upgradeReq = window.indexedDB.open(KEY_DB_NAME, nextVersion);

@@ -30,6 +30,53 @@ let monotonicSequence = 0;
 let sequenceInitialized = false;
 let initSequencePromise: Promise<number> | null = null;
 
+const SYNC_CHANNEL_NAME = 'puffinless_journal_sync';
+const SEQ_STORAGE_KEY = 'puffinless_seq_sync';
+let syncChannel: BroadcastChannel | null = null;
+
+if (typeof window !== 'undefined' && typeof window.BroadcastChannel !== 'undefined') {
+  try {
+    syncChannel = new window.BroadcastChannel(SYNC_CHANNEL_NAME);
+    syncChannel.onmessage = (event) => {
+      if (event.data && typeof event.data.seq === 'number') {
+        monotonicSequence = Math.max(monotonicSequence, event.data.seq);
+        sequenceInitialized = true;
+      }
+    };
+  } catch {
+    // fallback to storage events
+  }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === SEQ_STORAGE_KEY && event.newValue) {
+      const parsed = parseInt(event.newValue, 10);
+      if (!Number.isNaN(parsed)) {
+        monotonicSequence = Math.max(monotonicSequence, parsed);
+        sequenceInitialized = true;
+      }
+    }
+  });
+}
+
+function broadcastSequence(seq: number): void {
+  if (syncChannel) {
+    try {
+      syncChannel.postMessage({ type: 'SEQ_ADVANCED', seq });
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(SEQ_STORAGE_KEY, String(seq));
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function generateEventId(prefix: string = 'ev'): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -48,10 +95,12 @@ export async function restoreJournalSequence(): Promise<number> {
     const maxSeq = await idbGetMaxEventSeq();
     monotonicSequence = Math.max(monotonicSequence, maxSeq);
     sequenceInitialized = true;
+    broadcastSequence(monotonicSequence);
     return monotonicSequence;
   } catch (err) {
     sequenceInitialized = false;
-    throw err instanceof Error ? err : new Error(`Failed to restore journal sequence: ${String(err)}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to restore journal sequence: ${msg}`, { cause: err });
   } finally {
     initSequencePromise = null;
   }
@@ -77,6 +126,59 @@ export function getJournalSequenceState(): { seq: number; initialized: boolean }
 }
 
 /**
+ * Coordinate journal sequencing across tabs and disk.
+ * Queries the on-disk sequence and broadcasts advances to all open tabs.
+ */
+export async function getNextMonotonicSequence(): Promise<number> {
+  await ensureSequenceInitialized();
+  try {
+    const diskMax = await idbGetMaxEventSeq();
+    if (diskMax >= monotonicSequence) {
+      monotonicSequence = diskMax;
+    }
+  } catch {
+    // continue with local counter if disk query errors
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const syncVal = localStorage.getItem(SEQ_STORAGE_KEY);
+      if (syncVal) {
+        const parsed = parseInt(syncVal, 10);
+        if (!Number.isNaN(parsed) && parsed > monotonicSequence) {
+          monotonicSequence = parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  monotonicSequence++;
+  broadcastSequence(monotonicSequence);
+  return monotonicSequence;
+}
+
+/**
+ * Factory to create an immutable JournalEvent with coordinated sequence numbering.
+ */
+export async function createJournalEvent(
+  type: JournalEventType,
+  payload: any,
+  entityId?: string
+): Promise<JournalEvent> {
+  const seq = await getNextMonotonicSequence();
+  const event: JournalEvent = {
+    id: generateEventId('ev'),
+    seq,
+    type,
+    timestamp: new Date().toISOString(),
+    schemaVersion: 1,
+    payload,
+    entityId,
+  };
+  return event;
+}
+
+/**
  * Record an immutable event to the event journal.
  * Guarantees monotonic sequence numbering and encrypted persistence.
  * Fails VISIBLY by rethrowing errors if persistence fails.
@@ -86,19 +188,7 @@ export async function recordJournalEvent(
   payload: any,
   entityId?: string
 ): Promise<JournalEvent> {
-  await ensureSequenceInitialized();
-  monotonicSequence++;
-  const event: JournalEvent = {
-    id: generateEventId('ev'),
-    seq: monotonicSequence,
-    type,
-    timestamp: new Date().toISOString(),
-    schemaVersion: 1,
-    payload,
-    entityId,
-  };
-
-  // Must fail VISIBLY if writing to disk/IndexedDB fails
+  const event = await createJournalEvent(type, payload, entityId);
   await idbAppendEvent(event);
   return event;
 }
@@ -127,6 +217,7 @@ export async function clearJournalEvents(): Promise<void> {
   monotonicSequence = 0;
   sequenceInitialized = true;
   initSequencePromise = null;
+  broadcastSequence(0);
 }
 
 export interface ReplayedProjections {

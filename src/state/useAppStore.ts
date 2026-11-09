@@ -9,21 +9,24 @@ import type {
   SubstanceType,
   SleepEnergyEntry,
   StreakRecord,
+  JournalEvent,
 } from '../types/index.ts';
 import {
-  loadProfile, saveProfile,
-  loadSavingsGoals, saveSavingsGoals,
-  loadCravings, saveCravings,
-  loadExpenses, saveExpenses,
-  loadSubstanceLogs, saveSubstanceLogs,
-  loadSleepEnergy, saveSleepEnergy,
-  loadStreaks, saveStreaks,
+  loadProfile,
+  loadSavingsGoals,
+  loadCravings,
+  loadExpenses,
+  loadSubstanceLogs,
+  loadSleepEnergy,
+  loadStreaks,
   initIndexedDBStorage, resetAllUserData,
   importUserDataJSON,
   DEFAULT_PROFILE,
+  STORAGE_KEYS,
+  persistAtomicBatch,
 } from '../utils/storage.ts';
 import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery.ts';
-import { recordJournalEvent, restoreJournalSequence } from '../utils/journal.ts';
+import { createJournalEvent, restoreJournalSequence } from '../utils/journal.ts';
 import { calculateStats } from '../utils/calculations.ts';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore.ts';
 import { localDateStr } from '../utils/dates.ts';
@@ -69,13 +72,13 @@ export function useAppStore() {
     ])
       .then(([data]) => {
         if (!isMounted || !data) return;
-        if (data.profile) setProfile(data.profile);
-        if (data.goals) setGoals(data.goals);
-        if (data.cravings) setCravings(data.cravings);
-        if (data.expenses) setExpenses(data.expenses);
-        if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
-        if (data.sleepLogs) setSleepLogs(data.sleepLogs);
-        if (data.streaks) setStreaks(data.streaks);
+        if (data.profile) setProfile((prev) => data.profile || prev);
+        if (data.goals && data.goals.length > 0) setGoals(data.goals);
+        if (data.cravings && data.cravings.length > 0) setCravings(data.cravings);
+        if (data.expenses && data.expenses.length > 0) setExpenses(data.expenses);
+        if (data.substanceLogs && data.substanceLogs.length > 0) setSubstanceLogs(data.substanceLogs);
+        if (data.sleepLogs && data.sleepLogs.length > 0) setSleepLogs(data.sleepLogs);
+        if (data.streaks && data.streaks.length > 0) setStreaks(data.streaks);
       })
       .catch((err) => {
         console.error('[Store] Initialization / sequence restoration error:', err);
@@ -119,14 +122,19 @@ export function useAppStore() {
     [profile, substanceLogs, cravings, sleepLogs, streaks, minuteTick]
   );
 
-  // ---------- Actions with Fail-Visibly Journal Persistence ----------
+  // ---------- Actions with Truly Atomic Journal & Projection Persistence ----------
 
-  const updateProfile = async (p: UserProfile): Promise<void> => {
+  const updateProfile = async (p: Partial<UserProfile>): Promise<void> => {
     const prevProfile = profile;
-    setProfile(p);
+    const merged: UserProfile = { ...DEFAULT_PROFILE, ...profile, ...p };
+    setProfile(merged);
     try {
-      await saveProfile(p);
-      await recordJournalEvent('PROFILE_UPDATED', p);
+      const event = await createJournalEvent('PROFILE_UPDATED', merged);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.PROFILE, value: merged }],
+        events: [event],
+        rescueSnapshot: { profile: merged },
+      });
       setPersistenceError(null);
     } catch (err) {
       setProfile(prevProfile);
@@ -211,23 +219,42 @@ export function useAppStore() {
     }
 
     try {
-      await saveSubstanceLogs(logs);
-      await recordJournalEvent('SUBSTANCE_LOGGED', entry, entry.id);
-
-      await saveCravings(nextCravings);
-      await recordJournalEvent('CRAVING_LOGGED', craveEntry, craveEntry.id);
+      const evLog = await createJournalEvent('SUBSTANCE_LOGGED', entry, entry.id);
+      const evCrave = await createJournalEvent('CRAVING_LOGGED', craveEntry, craveEntry.id);
+      const events: JournalEvent[] = [evLog, evCrave];
 
       if (streakRecord) {
-        await saveStreaks(nextStreaks);
-        await recordJournalEvent('STREAK_RECORDED', streakRecord, streakRecord.id);
+        const evStreak = await createJournalEvent('STREAK_RECORDED', streakRecord, streakRecord.id);
+        events.push(evStreak);
       }
 
-      await saveProfile(updatedProfile);
-      await recordJournalEvent('PROFILE_UPDATED', updatedProfile);
+      const evProfile = await createJournalEvent('PROFILE_UPDATED', updatedProfile);
+      events.push(evProfile);
 
+      const projections: Array<{ key: string; value: unknown }> = [
+        { key: STORAGE_KEYS.SUBSTANCE_LOG, value: logs },
+        { key: STORAGE_KEYS.CRAVINGS, value: nextCravings },
+        { key: STORAGE_KEYS.PROFILE, value: updatedProfile },
+      ];
+      if (streakRecord) {
+        projections.push({ key: STORAGE_KEYS.STREAKS, value: nextStreaks });
+      }
       if (syncedSleep !== sleepLogs) {
-        await saveSleepEnergy(syncedSleep);
+        projections.push({ key: STORAGE_KEYS.SLEEP_ENERGY, value: syncedSleep });
       }
+
+      await persistAtomicBatch({
+        projections,
+        events,
+        rescueSnapshot: {
+          substanceLogs: logs,
+          cravings: nextCravings,
+          streaks: nextStreaks,
+          profile: updatedProfile,
+          sleepLogs: syncedSleep,
+        },
+      });
+
       setPersistenceError(null);
     } catch (err) {
       // Rollback optimistic state on persistence or journal failure
@@ -309,23 +336,43 @@ export function useAppStore() {
     }
 
     try {
-      await saveSubstanceLogs(newLogs, { overwrite: true });
-      await recordJournalEvent('SUBSTANCE_REMOVED', { substance, count, date: today });
+      const events: JournalEvent[] = [
+        await createJournalEvent('SUBSTANCE_REMOVED', { substance, count, date: today }),
+      ];
 
       if (removedCravings.length > 0) {
-        await saveCravings(cleanedCravings, { overwrite: true });
         for (const rc of removedCravings) {
-          await recordJournalEvent('CRAVING_REMOVED', { cravingId: rc.id }, rc.id);
+          events.push(await createJournalEvent('CRAVING_REMOVED', { cravingId: rc.id }, rc.id));
         }
       }
 
       if (restoredStreak && restoredQuitDate) {
-        await saveStreaks(remainingStreaks, { overwrite: true });
-        await recordJournalEvent('STREAK_REMOVED', { streakId: restoredStreak.id }, restoredStreak.id);
-        const updated = { ...profile, quitDate: restoredQuitDate };
-        await saveProfile(updated);
-        await recordJournalEvent('PROFILE_UPDATED', updated);
+        events.push(await createJournalEvent('STREAK_REMOVED', { streakId: restoredStreak.id }, restoredStreak.id));
+        events.push(await createJournalEvent('PROFILE_UPDATED', { ...profile, quitDate: restoredQuitDate }));
       }
+
+      const projections: Array<{ key: string; value: unknown }> = [
+        { key: STORAGE_KEYS.SUBSTANCE_LOG, value: newLogs },
+      ];
+      if (removedCravings.length > 0) {
+        projections.push({ key: STORAGE_KEYS.CRAVINGS, value: cleanedCravings });
+      }
+      if (restoredStreak && restoredQuitDate) {
+        projections.push({ key: STORAGE_KEYS.STREAKS, value: remainingStreaks });
+        projections.push({ key: STORAGE_KEYS.PROFILE, value: { ...profile, quitDate: restoredQuitDate } });
+      }
+
+      await persistAtomicBatch({
+        projections,
+        events,
+        rescueSnapshot: {
+          substanceLogs: newLogs,
+          cravings: cleanedCravings,
+          streaks: remainingStreaks,
+          profile: restoredStreak && restoredQuitDate ? { ...profile, quitDate: restoredQuitDate } : undefined,
+        },
+      });
+
       setPersistenceError(null);
     } catch (err) {
       // Rollback on persistence failure
@@ -358,8 +405,12 @@ export function useAppStore() {
     setCravings(next);
 
     try {
-      await saveCravings(next);
-      await recordJournalEvent('CRAVING_LOGGED', entry, entry.id);
+      const event = await createJournalEvent('CRAVING_LOGGED', entry, entry.id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.CRAVINGS, value: next }],
+        events: [event],
+        rescueSnapshot: { cravings: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setCravings(prevCravings);
@@ -376,8 +427,12 @@ export function useAppStore() {
     setSleepLogs(next);
 
     try {
-      await saveSleepEnergy(next);
-      await recordJournalEvent('SLEEP_ENERGY_LOGGED', entry, entry.id || entry.date);
+      const event = await createJournalEvent('SLEEP_ENERGY_LOGGED', entry, entry.id || entry.date);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.SLEEP_ENERGY, value: next }],
+        events: [event],
+        rescueSnapshot: { sleepLogs: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setSleepLogs(prevSleep);
@@ -393,8 +448,12 @@ export function useAppStore() {
     setExpenses(next);
 
     try {
-      await saveExpenses(next);
-      await recordJournalEvent('PURCHASE_EXPENSE_LOGGED', e, e.id);
+      const event = await createJournalEvent('PURCHASE_EXPENSE_LOGGED', e, e.id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.EXPENSES, value: next }],
+        events: [event],
+        rescueSnapshot: { expenses: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setExpenses(prevExpenses);
@@ -410,8 +469,12 @@ export function useAppStore() {
     setExpenses(next);
 
     try {
-      await saveExpenses(next, { overwrite: true });
-      await recordJournalEvent('PURCHASE_EXPENSE_DELETED', { expenseId: id }, id);
+      const event = await createJournalEvent('PURCHASE_EXPENSE_DELETED', { expenseId: id }, id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.EXPENSES, value: next }],
+        events: [event],
+        rescueSnapshot: { expenses: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setExpenses(prevExpenses);
@@ -427,8 +490,12 @@ export function useAppStore() {
     setGoals(next);
 
     try {
-      await saveSavingsGoals(next);
-      await recordJournalEvent('SAVINGS_GOAL_ADDED', g, g.id);
+      const event = await createJournalEvent('SAVINGS_GOAL_ADDED', g, g.id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.SAVINGS_GOALS, value: next }],
+        events: [event],
+        rescueSnapshot: { goals: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setGoals(prevGoals);
@@ -444,8 +511,12 @@ export function useAppStore() {
     setGoals(next);
 
     try {
-      await saveSavingsGoals(next, { overwrite: true });
-      await recordJournalEvent('SAVINGS_GOAL_DELETED', { goalId: id }, id);
+      const event = await createJournalEvent('SAVINGS_GOAL_DELETED', { goalId: id }, id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.SAVINGS_GOALS, value: next }],
+        events: [event],
+        rescueSnapshot: { goals: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setGoals(prevGoals);
@@ -462,8 +533,12 @@ export function useAppStore() {
     setGoals(next);
 
     try {
-      await saveSavingsGoals(next, { overwrite: true });
-      await recordJournalEvent('SAVINGS_GOAL_TOGGLED', { goalId: id, completed: !current?.completed }, id);
+      const event = await createJournalEvent('SAVINGS_GOAL_TOGGLED', { goalId: id, completed: !current?.completed }, id);
+      await persistAtomicBatch({
+        projections: [{ key: STORAGE_KEYS.SAVINGS_GOALS, value: next }],
+        events: [event],
+        rescueSnapshot: { goals: next },
+      });
       setPersistenceError(null);
     } catch (err) {
       setGoals(prevGoals);
@@ -473,20 +548,20 @@ export function useAppStore() {
     }
   };
 
-  const completeOnboarding = async (p: UserProfile): Promise<void> => {
-    const finalized: UserProfile = { ...p, isOnboarded: true };
+  const completeOnboarding = async (p: Partial<UserProfile>): Promise<void> => {
+    const finalized: UserProfile = { ...DEFAULT_PROFILE, ...profile, ...p, isOnboarded: true };
     await updateProfile(finalized);
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('puffinless_is_onboarded', 'true');
-      if (p.quitDate) localStorage.setItem('puffinless_quit_date', p.quitDate);
-      if (p.name) localStorage.setItem('puffinless_user_name', p.name);
-      if (p.language) {
-        localStorage.setItem('puffinless_app_lang', p.language);
-        localStorage.setItem('puffinless_lang', p.language);
+      if (finalized.quitDate) localStorage.setItem('puffinless_quit_date', finalized.quitDate);
+      if (finalized.name) localStorage.setItem('puffinless_user_name', finalized.name);
+      if (finalized.language) {
+        localStorage.setItem('puffinless_app_lang', finalized.language);
+        localStorage.setItem('puffinless_lang', finalized.language);
       }
-      if (p.theme) {
-        localStorage.setItem('puffinless_app_theme', p.theme);
-        localStorage.setItem('puffinless_theme', p.theme);
+      if (finalized.theme) {
+        localStorage.setItem('puffinless_app_theme', finalized.theme);
+        localStorage.setItem('puffinless_theme', finalized.theme);
       }
     }
     createDeviceRescueSnapshot({ profile: finalized });
@@ -509,13 +584,13 @@ export function useAppStore() {
     try {
       const data = await initIndexedDBStorage();
       if (data) {
-        if (data.profile) setProfile(data.profile);
-        if (data.goals) setGoals(data.goals);
-        if (data.cravings) setCravings(data.cravings);
-        if (data.expenses) setExpenses(data.expenses);
-        if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
-        if (data.sleepLogs) setSleepLogs(data.sleepLogs);
-        if (data.streaks) setStreaks(data.streaks);
+        if (data.profile) setProfile((prev) => data.profile || prev);
+        if (data.goals && data.goals.length > 0) setGoals(data.goals);
+        if (data.cravings && data.cravings.length > 0) setCravings(data.cravings);
+        if (data.expenses && data.expenses.length > 0) setExpenses(data.expenses);
+        if (data.substanceLogs && data.substanceLogs.length > 0) setSubstanceLogs(data.substanceLogs);
+        if (data.sleepLogs && data.sleepLogs.length > 0) setSleepLogs(data.sleepLogs);
+        if (data.streaks && data.streaks.length > 0) setStreaks(data.streaks);
       }
       setPersistenceError(null);
     } catch (err) {
@@ -555,7 +630,7 @@ export function useAppStore() {
     return res;
   };
 
-  return {
+  const store = {
     isHydrated,
     persistenceError,
     clearPersistenceError,
@@ -566,4 +641,10 @@ export function useAppStore() {
       addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData, importUserData,
     },
   };
+
+  if (typeof window !== 'undefined') {
+    (window as any).__PUFFINLESS_STORE__ = store;
+  }
+
+  return store;
 }

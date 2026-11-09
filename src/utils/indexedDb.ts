@@ -14,13 +14,54 @@ export interface JournalReadResult {
   error?: Error;
 }
 
+export class IndexedDBUnavailableError extends Error {
+  cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'IndexedDBUnavailableError';
+    this.cause = cause;
+  }
+}
+
+export class IndexedDBTransactionError extends Error {
+  cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'IndexedDBTransactionError';
+    this.cause = cause;
+  }
+}
+
 const DB_NAME = 'puffinless_indexeddb';
-const DB_VERSION = 2;
 const STORE_NAME = 'kv_store';
 export const EVENTS_STORE_NAME = 'events_store';
 
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+/**
+ * Explicit check for IndexedDB availability and read/write transaction viability.
+ */
+export async function isIndexedDBAvailable(): Promise<{ available: boolean; reason?: string }> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return { available: false, reason: 'IndexedDB API is not present on window' };
+  }
+  try {
+    const db = await openPuffinLessDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    return { available: true };
+  } catch (err) {
+    return {
+      available: false,
+      reason: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
 
 /**
  * Closes the active IndexedDB connection and resets cached instances.
@@ -39,6 +80,8 @@ export function closePuffinLessDB(): void {
 
 /**
  * Open (or reuse) the IndexedDB database instance with automatic connection recovery.
+ * Opens without a hardcoded version argument to seamlessly adopt the existing on-disk version,
+ * and dynamically upgrades if any required store is missing, completely preventing VersionError.
  */
 export function openPuffinLessDB(): Promise<IDBDatabase> {
   if (
@@ -54,11 +97,13 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
 
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
-      reject(new Error('IndexedDB is not supported in this environment'));
+      dbPromise = null;
+      reject(new IndexedDBUnavailableError('IndexedDB is not supported or accessible in this environment'));
       return;
     }
 
-    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+    // Open without hardcoded version parameter to inspect existing version without VersionError
+    const request = window.indexedDB.open(DB_NAME);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -75,11 +120,16 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
 
     request.onsuccess = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME) || !db.objectStoreNames.contains(EVENTS_STORE_NAME)) {
-        const nextVersion = db.version + 1;
+      const hasKv = db.objectStoreNames.contains(STORE_NAME);
+      const hasEvents = db.objectStoreNames.contains(EVENTS_STORE_NAME);
+
+      if (!hasKv || !hasEvents) {
+        // Upgrade required: bump current version by 1
+        const targetVersion = (db.version || 1) + 1;
         db.close();
         dbInstance = null;
-        const upgradeReq = window.indexedDB.open(DB_NAME, nextVersion);
+
+        const upgradeReq = window.indexedDB.open(DB_NAME, targetVersion);
         upgradeReq.onupgradeneeded = (ue) => {
           const uDb = (ue.target as IDBOpenDBRequest).result;
           if (!uDb.objectStoreNames.contains(STORE_NAME)) {
@@ -99,11 +149,19 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
             dbInstance = null;
             dbPromise = null;
           };
+          dbPromise = null;
           resolve(dbInstance);
         };
         upgradeReq.onerror = () => {
           dbPromise = null;
-          reject(upgradeReq.error || new Error('Failed to upgrade PuffinLess database'));
+          const detail = upgradeReq.error?.message ? `: ${upgradeReq.error.message}` : '';
+          reject(new IndexedDBTransactionError(
+            `Failed to upgrade database "${DB_NAME}" to version ${targetVersion}${detail}`,
+            upgradeReq.error
+          ));
+        };
+        upgradeReq.onblocked = () => {
+          console.warn('[IndexedDB] Database upgrade blocked by another connection');
         };
         return;
       }
@@ -114,16 +172,21 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
         dbInstance = null;
         dbPromise = null;
       };
+      dbPromise = null;
       resolve(dbInstance);
     };
 
     request.onerror = () => {
       dbPromise = null;
-      reject(request.error || new Error('Failed to open IndexedDB'));
+      const detail = request.error?.message ? `: ${request.error.message}` : '';
+      reject(new IndexedDBUnavailableError(
+        `Failed to open IndexedDB database "${DB_NAME}"${detail}`,
+        request.error
+      ));
     };
 
     request.onblocked = () => {
-      console.warn('PuffinLess IndexedDB open blocked by existing connection');
+      console.warn('[IndexedDB] Database open blocked by another connection');
     };
   });
 
@@ -560,6 +623,100 @@ export async function idbClearEvents(): Promise<void> {
       tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing events_store'));
       tx.onabort = () => reject(tx.error || new Error('[IndexedDB] Transaction aborted clearing events_store'));
       tx.oncomplete = () => resolve();
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+}
+
+export interface AtomicPersistenceOperation {
+  projections?: Array<{ key: string; value: unknown }>;
+  events?: JournalEvent[];
+}
+
+/**
+ * Genuinely atomic persistence across both `kv_store` (projections) and `events_store` (journal).
+ *
+ * All values are pre-encrypted with AES-GCM before the IndexedDB transaction is opened,
+ * ensuring no asynchronous pauses occur inside the transaction (which would cause auto-commit).
+ *
+ * Then, a single ACID multi-store transaction spanning both [STORE_NAME, EVENTS_STORE_NAME]
+ * executes all updates synchronously. If any operation fails or is aborted, both stores roll back
+ * atomically with zero disk changes, ensuring the UI, projections, and event journal NEVER disagree.
+ */
+export async function idbPersistAtomic(op: AtomicPersistenceOperation): Promise<void> {
+  const projectionsToStore: Array<{ key: string; encrypted: string }> = [];
+  if (op.projections && op.projections.length > 0) {
+    for (const proj of op.projections) {
+      const encrypted =
+        typeof proj.value === 'string' && proj.value.startsWith('aes-gcm:')
+          ? proj.value
+          : await encryptData(proj.value);
+      projectionsToStore.push({ key: proj.key, encrypted });
+    }
+  }
+
+  const eventsToStore: Array<{
+    id: string;
+    seq: number;
+    type: string;
+    timestamp: string;
+    schemaVersion: number;
+    entityId?: string;
+    ciphertext: string;
+  }> = [];
+
+  if (op.events && op.events.length > 0) {
+    for (const event of op.events) {
+      const cipher = await encryptData(event);
+      eventsToStore.push({
+        id: event.id,
+        seq: event.seq,
+        type: event.type,
+        timestamp: event.timestamp,
+        schemaVersion: event.schemaVersion || 1,
+        entityId: event.entityId,
+        ciphertext: cipher,
+      });
+    }
+  }
+
+  if (projectionsToStore.length === 0 && eventsToStore.length === 0) {
+    return;
+  }
+
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    throw new IndexedDBUnavailableError('IndexedDB is not available in this environment');
+  }
+
+  const db = await openPuffinLessDB();
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const tx = db.transaction([STORE_NAME, EVENTS_STORE_NAME], 'readwrite');
+      const kvStore = tx.objectStore(STORE_NAME);
+      const eventsStore = tx.objectStore(EVENTS_STORE_NAME);
+
+      for (const proj of projectionsToStore) {
+        kvStore.put(proj.encrypted, proj.key);
+      }
+
+      for (const ev of eventsToStore) {
+        eventsStore.put(ev);
+      }
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => {
+        reject(new IndexedDBTransactionError(
+          `[IndexedDB] Atomic transaction failed: ${tx.error?.message || 'unknown error'}`,
+          tx.error
+        ));
+      };
+      tx.onabort = () => {
+        reject(new IndexedDBTransactionError(
+          `[IndexedDB] Atomic transaction aborted: ${tx.error?.message || 'unknown abort'}`,
+          tx.error
+        ));
+      };
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));
     }
