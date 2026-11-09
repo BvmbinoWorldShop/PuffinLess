@@ -220,6 +220,7 @@ export function App() {
           onClose={() => setIsProfileOpen(false)}
           onSaveProfile={actions.updateProfile}
           onRecoverData={actions.recoverLocalData}
+          onImportData={actions.importUserData}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
             setIsOnboardingDismissed(false);

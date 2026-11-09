@@ -28,9 +28,31 @@ import {
   mergeStreaks,
   mergeCravings,
   mergeSubstances,
+  mergeExpenses,
+  mergeSleepLogs,
+  mergeGoals,
   RESCUE_BACKUP_KEY,
   LEGACY_RESCUE_KEY,
 } from './recovery.ts';
+
+/**
+ * Single-threaded FIFO persistence queue.
+ * Ensures that all storage writes to IndexedDB and localStorage are serialized,
+ * eliminating race conditions, out-of-order completions, and state collisions.
+ */
+class StoragePersistenceQueue {
+  private tail: Promise<unknown> = Promise.resolve();
+
+  enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = async () => {
+      return await task();
+    };
+    const next = this.tail.then(run, run);
+    this.tail = next.then(() => {}, () => {});
+    return next;
+  }
+}
+export const storageQueue = new StoragePersistenceQueue();
 
 export const STORAGE_KEYS = {
   PROFILE: 'puffinless_profile_v2',
@@ -79,11 +101,21 @@ export async function loadStreaksAsync(): Promise<StreakRecord[]> {
   return [];
 }
 
-export async function saveStreaks(streaks: StreakRecord[]): Promise<void> {
-  const cipher = await encryptData(streaks);
-  localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
-  await idbSet(STORAGE_KEYS.STREAKS, cipher);
-  createDeviceRescueSnapshot({ streaks });
+export async function saveStreaks(streaks: StreakRecord[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (streaks.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadStreaksAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} streaks with empty array.`);
+        createDeviceRescueSnapshot({ streaks: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(streaks);
+    localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
+    await idbSet(STORAGE_KEYS.STREAKS, cipher);
+    createDeviceRescueSnapshot({ streaks });
+  });
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -762,23 +794,25 @@ export async function loadProfileAsync(): Promise<UserProfile> {
 }
 
 export async function saveProfile(profile: UserProfile): Promise<void> {
-  const cipher = await encryptData(profile);
-  localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
-  await idbSet(STORAGE_KEYS.PROFILE, cipher);
-  if (profile.isOnboarded && typeof localStorage !== 'undefined') {
-    localStorage.setItem('puffinless_is_onboarded', 'true');
-    if (profile.name) localStorage.setItem('puffinless_user_name', profile.name);
-    if (profile.quitDate) localStorage.setItem('puffinless_quit_date', profile.quitDate);
-    if (profile.language) {
-      localStorage.setItem('puffinless_app_lang', profile.language);
-      localStorage.setItem('puffinless_lang', profile.language);
+  return storageQueue.enqueue(async () => {
+    const cipher = await encryptData(profile);
+    localStorage.setItem(STORAGE_KEYS.PROFILE, cipher);
+    await idbSet(STORAGE_KEYS.PROFILE, cipher);
+    if (profile.isOnboarded && typeof localStorage !== 'undefined') {
+      localStorage.setItem('puffinless_is_onboarded', 'true');
+      if (profile.name) localStorage.setItem('puffinless_user_name', profile.name);
+      if (profile.quitDate) localStorage.setItem('puffinless_quit_date', profile.quitDate);
+      if (profile.language) {
+        localStorage.setItem('puffinless_app_lang', profile.language);
+        localStorage.setItem('puffinless_lang', profile.language);
+      }
+      if (profile.theme) {
+        localStorage.setItem('puffinless_app_theme', profile.theme);
+        localStorage.setItem('puffinless_theme', profile.theme);
+      }
     }
-    if (profile.theme) {
-      localStorage.setItem('puffinless_app_theme', profile.theme);
-      localStorage.setItem('puffinless_theme', profile.theme);
-    }
-  }
-  createDeviceRescueSnapshot({ profile });
+    createDeviceRescueSnapshot({ profile });
+  });
 }
 
 export function loadExpenses(): PurchaseExpense[] {
@@ -817,11 +851,21 @@ export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
   return [];
 }
 
-export async function saveExpenses(expenses: PurchaseExpense[]): Promise<void> {
-  const cipher = await encryptData(expenses);
-  localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
-  await idbSet(STORAGE_KEYS.EXPENSES, cipher);
-  createDeviceRescueSnapshot({ expenses });
+export async function saveExpenses(expenses: PurchaseExpense[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (expenses.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadExpensesAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} expenses with empty array.`);
+        createDeviceRescueSnapshot({ expenses: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(expenses);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
+    await idbSet(STORAGE_KEYS.EXPENSES, cipher);
+    createDeviceRescueSnapshot({ expenses });
+  });
 }
 
 export function loadSubstanceLogs(): SubstanceLog[] {
@@ -863,11 +907,21 @@ export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
   return [];
 }
 
-export async function saveSubstanceLogs(logs: SubstanceLog[]): Promise<void> {
-  const cipher = await encryptData(logs);
-  localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
-  await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
-  createDeviceRescueSnapshot({ substanceLogs: logs });
+export async function saveSubstanceLogs(logs: SubstanceLog[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (logs.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadSubstanceLogsAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} substance logs with empty array.`);
+        createDeviceRescueSnapshot({ substanceLogs: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(logs);
+    localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
+    await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
+    createDeviceRescueSnapshot({ substanceLogs: logs });
+  });
 }
 
 export function loadSleepEnergy(): SleepEnergyEntry[] {
@@ -909,11 +963,21 @@ export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
   return [];
 }
 
-export async function saveSleepEnergy(entries: SleepEnergyEntry[]): Promise<void> {
-  const cipher = await encryptData(entries);
-  localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
-  await idbSet(STORAGE_KEYS.SLEEP_ENERGY, cipher);
-  createDeviceRescueSnapshot({ sleepLogs: entries });
+export async function saveSleepEnergy(entries: SleepEnergyEntry[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (entries.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadSleepEnergyAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} sleep logs with empty array.`);
+        createDeviceRescueSnapshot({ sleepLogs: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(entries);
+    localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
+    await idbSet(STORAGE_KEYS.SLEEP_ENERGY, cipher);
+    createDeviceRescueSnapshot({ sleepLogs: entries });
+  });
 }
 
 export function loadSavingsGoals(): SavingsGoal[] {
@@ -954,11 +1018,21 @@ export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
   return [];
 }
 
-export async function saveSavingsGoals(goals: SavingsGoal[]): Promise<void> {
-  const cipher = await encryptData(goals);
-  localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
-  await idbSet(STORAGE_KEYS.SAVINGS_GOALS, cipher);
-  createDeviceRescueSnapshot({ goals });
+export async function saveSavingsGoals(goals: SavingsGoal[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (goals.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadSavingsGoalsAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} savings goals with empty array.`);
+        createDeviceRescueSnapshot({ goals: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(goals);
+    localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
+    await idbSet(STORAGE_KEYS.SAVINGS_GOALS, cipher);
+    createDeviceRescueSnapshot({ goals });
+  });
 }
 
 export function loadCravings(): CravingEntry[] {
@@ -1000,11 +1074,21 @@ export async function loadCravingsAsync(): Promise<CravingEntry[]> {
   return [];
 }
 
-export async function saveCravings(cravings: CravingEntry[]): Promise<void> {
-  const cipher = await encryptData(cravings);
-  localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
-  await idbSet(STORAGE_KEYS.CRAVINGS, cipher);
-  createDeviceRescueSnapshot({ cravings });
+export async function saveCravings(cravings: CravingEntry[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+  return storageQueue.enqueue(async () => {
+    if (cravings.length === 0 && !options?.allowEmptyReset) {
+      const existing = await loadCravingsAsync().catch(() => []);
+      if (existing.length > 0) {
+        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} cravings with empty array.`);
+        createDeviceRescueSnapshot({ cravings: existing });
+        return;
+      }
+    }
+    const cipher = await encryptData(cravings);
+    localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
+    await idbSet(STORAGE_KEYS.CRAVINGS, cipher);
+    createDeviceRescueSnapshot({ cravings });
+  });
 }
 
 export function loadSmokeLog(): SmokeLogEntry[] {
@@ -1046,10 +1130,12 @@ export async function loadSmokeLogAsync(): Promise<SmokeLogEntry[]> {
 }
 
 export async function saveSmokeLog(logs: SmokeLogEntry[]): Promise<void> {
-  const cipher = await encryptData(logs);
-  localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
-  await idbSet(STORAGE_KEYS.SMOKE_LOG, cipher);
-  createDeviceRescueSnapshot({ smokeLogs: logs });
+  return storageQueue.enqueue(async () => {
+    const cipher = await encryptData(logs);
+    localStorage.setItem(STORAGE_KEYS.SMOKE_LOG, cipher);
+    await idbSet(STORAGE_KEYS.SMOKE_LOG, cipher);
+    createDeviceRescueSnapshot({ smokeLogs: logs });
+  });
 }
 
 export interface HydratedStorageData {
@@ -1476,4 +1562,132 @@ export async function downloadUserDataJSON(): Promise<void> {
   link.download = `puffinless-export-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export interface ImportBackupResult {
+  success: boolean;
+  message: string;
+  imported: {
+    profile: boolean;
+    substanceLogsCount: number;
+    cravingsCount: number;
+    streaksCount: number;
+    expensesCount: number;
+    sleepLogsCount: number;
+    goalsCount: number;
+  };
+  data?: {
+    profile?: UserProfile;
+    substanceLogs?: SubstanceLog[];
+    cravings?: CravingEntry[];
+    streaks?: StreakRecord[];
+    expenses?: PurchaseExpense[];
+    sleepLogs?: SleepEnergyEntry[];
+    goals?: SavingsGoal[];
+  };
+}
+
+/**
+ * Import and seamlessly restore user data from an exported PuffinLess JSON backup file.
+ * Automatically performs non-destructive deduplicated merging with any existing device data.
+ */
+export async function importUserDataJSON(jsonStr: string): Promise<ImportBackupResult> {
+  try {
+    const data = JSON.parse(jsonStr);
+    if (!data || typeof data !== 'object') {
+      throw new Error('Fichier JSON invalide');
+    }
+    if (data.appName && data.appName !== 'PuffinLess') {
+      throw new Error("Le fichier sélectionné n'est pas une sauvegarde PuffinLess");
+    }
+
+    const currentSubstances = await loadSubstanceLogsAsync().catch(() => []);
+    const currentCravings = await loadCravingsAsync().catch(() => []);
+    const currentStreaks = await loadStreaksAsync().catch(() => []);
+    const currentExpenses = await loadExpensesAsync().catch(() => []);
+    const currentSleep = await loadSleepEnergyAsync().catch(() => []);
+    const currentGoals = await loadSavingsGoalsAsync().catch(() => []);
+
+    const importedSubstances = Array.isArray(data.substanceLogs) ? data.substanceLogs : [];
+    const importedCravings = Array.isArray(data.cravings) ? data.cravings : [];
+    const importedStreaks = Array.isArray(data.streaks) ? data.streaks : [];
+    const importedExpenses = Array.isArray(data.expenses) ? data.expenses : [];
+    const importedSleep = Array.isArray(data.sleepEnergy || data.sleepLogs) ? (data.sleepEnergy || data.sleepLogs) : [];
+    const importedGoals = Array.isArray(data.savingsGoals || data.goals) ? (data.savingsGoals || data.goals) : [];
+
+    const mergedSubstances = mergeSubstances(currentSubstances, importedSubstances);
+    const mergedCravings = mergeCravings(currentCravings, importedCravings);
+    const mergedStreaks = mergeStreaks(currentStreaks, importedStreaks);
+    const mergedExpenses = mergeExpenses(currentExpenses, importedExpenses);
+    const mergedSleep = mergeSleepLogs(currentSleep, importedSleep);
+    const mergedGoals = mergeGoals(currentGoals, importedGoals);
+
+    await saveSubstanceLogs(mergedSubstances);
+    await saveCravings(mergedCravings);
+    await saveStreaks(mergedStreaks);
+    await saveExpenses(mergedExpenses);
+    await saveSleepEnergy(mergedSleep);
+    await saveSavingsGoals(mergedGoals);
+
+    let updatedProfile: UserProfile | undefined = undefined;
+    let profileUpdated = false;
+    if (data.profile && typeof data.profile === 'object') {
+      const currentProfile = loadProfile();
+      const newProfile: UserProfile = {
+        ...currentProfile,
+        ...data.profile,
+        isOnboarded: true,
+      };
+      await saveProfile(newProfile);
+      updatedProfile = newProfile;
+      profileUpdated = true;
+    }
+
+    createDeviceRescueSnapshot({
+      profile: updatedProfile || data.profile,
+      substanceLogs: mergedSubstances,
+      cravings: mergedCravings,
+      streaks: mergedStreaks,
+      expenses: mergedExpenses,
+      sleepLogs: mergedSleep,
+      goals: mergedGoals,
+    });
+
+    return {
+      success: true,
+      message: 'Sauvegarde restaurée avec succès',
+      imported: {
+        profile: profileUpdated,
+        substanceLogsCount: mergedSubstances.length,
+        cravingsCount: mergedCravings.length,
+        streaksCount: mergedStreaks.length,
+        expensesCount: mergedExpenses.length,
+        sleepLogsCount: mergedSleep.length,
+        goalsCount: mergedGoals.length,
+      },
+      data: {
+        profile: updatedProfile,
+        substanceLogs: mergedSubstances,
+        cravings: mergedCravings,
+        streaks: mergedStreaks,
+        expenses: mergedExpenses,
+        sleepLogs: mergedSleep,
+        goals: mergedGoals,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Erreur lors de la lecture du fichier de sauvegarde',
+      imported: {
+        profile: false,
+        substanceLogsCount: 0,
+        cravingsCount: 0,
+        streaksCount: 0,
+        expensesCount: 0,
+        sleepLogsCount: 0,
+        goalsCount: 0,
+      },
+    };
+  }
 }

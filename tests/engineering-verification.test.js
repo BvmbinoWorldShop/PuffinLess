@@ -66,6 +66,11 @@ import {
   saveExpenses,
   saveSleepEnergy,
   saveSavingsGoals,
+  saveSubstanceLogs,
+  loadSubstanceLogsAsync,
+  importUserDataJSON,
+  exportAllUserDataJSON,
+  storageQueue,
   initIndexedDBStorage,
   readWithStatus,
 } from '../src/utils/storage.ts';
@@ -997,6 +1002,101 @@ describe('PuffinLess Production Code Verification', () => {
         globalThis.window.indexedDB = originalIndexedDB;
         closeKeyVaultDB();
       }
+    });
+
+    test('createDeviceRescueSnapshot performs union merge and never drops existing history on partial array updates', () => {
+      // 1. Initial snapshot with 2 substance logs
+      const sub1 = { id: 'sub-1', substance: 'cigarette', count: 1, timestamp: '2026-02-10T08:00:00.000Z' };
+      const sub2 = { id: 'sub-2', substance: 'cigarette', count: 2, timestamp: '2026-02-10T12:00:00.000Z' };
+      createDeviceRescueSnapshot({ substanceLogs: [sub1, sub2] });
+
+      let snap = getDeviceRescueSnapshot();
+      assert.equal(snap?.substanceLogs?.length, 2);
+
+      // 2. Component calls with only 1 new log (e.g., partial state)
+      const sub3 = { id: 'sub-3', substance: 'puff_vape', count: 5, timestamp: '2026-02-10T16:00:00.000Z' };
+      createDeviceRescueSnapshot({ substanceLogs: [sub3] });
+
+      snap = getDeviceRescueSnapshot();
+      // Must NOT truncate to 1! Must union/merge all 3!
+      assert.equal(snap?.substanceLogs?.length, 3, 'Union merge must preserve sub-1, sub-2 and add sub-3');
+      assert.ok(snap?.substanceLogs?.some((s) => s.id === 'sub-1'));
+      assert.ok(snap?.substanceLogs?.some((s) => s.id === 'sub-2'));
+      assert.ok(snap?.substanceLogs?.some((s) => s.id === 'sub-3'));
+    });
+
+    test('anti-truncation guard blocks accidental wipeout of populated history with empty array', async () => {
+      // 1. Populate substance logs
+      const initialLogs = [
+        { id: 'sub-safe-1', substance: 'cigarette', count: 1, timestamp: '2026-02-10T08:00:00.000Z' },
+        { id: 'sub-safe-2', substance: 'cigarette', count: 1, timestamp: '2026-02-10T10:00:00.000Z' },
+      ];
+      await saveSubstanceLogs(initialLogs);
+      const loaded = await loadSubstanceLogsAsync();
+      assert.equal(loaded.length, 2);
+
+      // 2. Accidental call with empty array without allowEmptyReset
+      await saveSubstanceLogs([]);
+
+      // 3. Storage must refuse to overwrite populated history with empty array
+      const preserved = await loadSubstanceLogsAsync();
+      assert.equal(preserved.length, 2, 'Anti-truncation guard must preserve populated records');
+      assert.equal(preserved[0].id, 'sub-safe-1');
+    });
+
+    test('storageQueue serializes rapid concurrent save operations in deterministic FIFO order', async () => {
+      const order = [];
+      const p1 = storageQueue.enqueue(async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        order.push(1);
+      });
+      const p2 = storageQueue.enqueue(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+        order.push(2);
+      });
+      const p3 = storageQueue.enqueue(async () => {
+        order.push(3);
+      });
+
+      await Promise.all([p1, p2, p3]);
+      assert.deepEqual(order, [1, 2, 3], 'Persistence queue must serialize tasks in strict FIFO order');
+    });
+
+    test('importUserDataJSON validates, merges, and safely restores user data from external JSON backup', async () => {
+      // 1. Existing local state with 1 craving
+      const existingCraving = { id: 'c-exist', timestamp: '2026-02-10T09:00:00.000Z', intensity: 5, trigger: 'stress', resisted: true };
+      await saveCravings([existingCraving]);
+
+      // 2. Backup file from user with 2 new cravings and 1 substance log
+      const backupJSON = JSON.stringify({
+        appName: 'PuffinLess',
+        formatVersion: '2.0',
+        exportedAt: '2026-02-10T18:00:00.000Z',
+        profile: {
+          name: 'Restored User',
+          quitDate: '2026-02-01T00:00:00.000Z',
+          isOnboarded: true,
+        },
+        cravings: [
+          existingCraving,
+          { id: 'c-imported-1', timestamp: '2026-02-10T14:00:00.000Z', intensity: 8, trigger: 'coffee', resisted: true },
+        ],
+        substanceLogs: [
+          { id: 'sub-imported-1', substance: 'cigarette', count: 1, timestamp: '2026-02-05T12:00:00.000Z' },
+        ],
+      });
+
+      const res = await importUserDataJSON(backupJSON);
+      assert.equal(res.success, true);
+      assert.equal(res.imported.cravingsCount, 2);
+      assert.equal(res.imported.substanceLogsCount, 1);
+
+      // 3. Verify disk reflects merged non-destructive state
+      const reloadedCravings = await loadCravingsAsync();
+      assert.equal(reloadedCravings.length, 2);
+      const reloadedSubs = await loadSubstanceLogsAsync();
+      assert.equal(reloadedSubs.length, 1);
+      assert.equal(reloadedSubs[0].id, 'sub-imported-1');
     });
   });
 });

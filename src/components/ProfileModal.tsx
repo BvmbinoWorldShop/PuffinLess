@@ -22,6 +22,7 @@ interface ProfileModalProps {
   onRerunOnboarding: (step?: number) => void;
   onResetData: () => Promise<void> | void;
   onRecoverData?: () => Promise<any>;
+  onImportData?: (jsonStr: string) => Promise<any>;
 }
 
 const PRESET_AVATARS = [
@@ -83,6 +84,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onRerunOnboarding,
   onResetData,
   onRecoverData,
+  onImportData,
 }) => {
   // Language & Theme
   const [lang, setLang] = useState<Language>(profile.language || 'en');
@@ -179,6 +181,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+
   const handleExportData = async () => {
     sound.playClick();
     setIsExporting(true);
@@ -188,6 +193,38 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       console.error('[ProfileModal] Error exporting data:', err);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImportData) return;
+    setIsImporting(true);
+    setRecoveryMessage(null);
+    try {
+      sound.playClick();
+      const text = await file.text();
+      const res = await onImportData(text);
+      if (res && res.success) {
+        sound.playCelebration();
+        setRecoveryMessage(
+          isFr
+            ? `✓ Sauvegarde restaurée avec succès : ${res.imported?.substanceLogsCount || 0} logs, ${res.imported?.cravingsCount || 0} envies et ${res.imported?.streaksCount || 0} séries réintégrées.`
+            : `✓ Backup restored successfully: ${res.imported?.substanceLogsCount || 0} logs, ${res.imported?.cravingsCount || 0} cravings, and ${res.imported?.streaksCount || 0} streaks restored.`
+        );
+      } else {
+        setRecoveryMessage(
+          res?.message || (isFr ? 'Impossible de restaurer ce fichier.' : 'Unable to restore this backup file.')
+        );
+      }
+    } catch (err) {
+      console.error('[ProfileModal] Error importing backup:', err);
+      setRecoveryMessage(
+        isFr ? 'Erreur lors de la lecture du fichier de sauvegarde.' : 'Error reading backup file.'
+      );
+    } finally {
+      setIsImporting(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -1359,37 +1396,64 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               )}
             </div>
 
-            {/* Save All Data Section (Export JSON) */}
-            <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-2">
+            {/* Save & Restore Data Section (Export & Import JSON) */}
+            <div className="p-3.5 rounded-2xl glass-panel border border-white/10 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
                 <div>
                   <span className="text-xs font-bold text-white block">
-                    {isFr ? 'Sauvegarder & Exporter les Données (JSON)' : 'Save & Export All Data (JSON)'}
+                    {isFr ? 'Sauvegarder & Restaurer les Données (JSON)' : 'Save & Restore All Data (JSON)'}
                   </span>
                   <span className="text-[11px] text-slate-400 block">
                     {isFr
-                      ? 'Vos données sont 100% privées et protégées par une sécurité de niveau militaire sur cet appareil. Téléchargez une sauvegarde intégrale (RGPD Art. 20).'
-                      : 'Your data is 100% private and protected with military-grade security on this device. Download a complete backup (GDPR Art. 20).'}
+                      ? 'Vos données sont 100% privées. Exportez une copie de secours sur votre téléphone/Drive ou restaurez un fichier existant à tout moment.'
+                      : 'Your data is 100% private. Export a backup copy to your device/Drive or restore an existing backup file at any time.'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={handleExportData}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md disabled:opacity-50"
-                >
-                  {isExporting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-emerald-300/30 border-t-emerald-300 rounded-full animate-spin" />
-                      <span>{isFr ? 'Exportation...' : 'Exporting...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{isFr ? 'Exporter JSON' : 'Export JSON'}</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    type="file"
+                    ref={importFileInputRef}
+                    accept=".json"
+                    onChange={handleImportFile}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={isImporting || !onImportData}
+                    onClick={() => importFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    {isImporting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" />
+                        <span>{isFr ? 'Restauration...' : 'Restoring...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{isFr ? 'Importer' : 'Import'}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={handleExportData}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    {isExporting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-300/30 border-t-emerald-300 rounded-full animate-spin" />
+                        <span>{isFr ? 'Exportation...' : 'Exporting...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>{isFr ? 'Exporter' : 'Export'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -95,12 +95,24 @@ export function createDeviceRescueSnapshot(snapshot: Partial<DeviceRescueSnapsho
       version: 2,
       timestamp: new Date().toISOString(),
       profile: snapshot.profile || existing?.profile,
-      goals: (snapshot.goals && snapshot.goals.length > 0) ? snapshot.goals : existing?.goals,
-      cravings: (snapshot.cravings && snapshot.cravings.length > 0) ? snapshot.cravings : existing?.cravings,
-      expenses: (snapshot.expenses && snapshot.expenses.length > 0) ? snapshot.expenses : existing?.expenses,
-      substanceLogs: (snapshot.substanceLogs && snapshot.substanceLogs.length > 0) ? snapshot.substanceLogs : existing?.substanceLogs,
-      sleepLogs: (snapshot.sleepLogs && snapshot.sleepLogs.length > 0) ? snapshot.sleepLogs : existing?.sleepLogs,
-      streaks: (snapshot.streaks && snapshot.streaks.length > 0) ? snapshot.streaks : existing?.streaks,
+      goals: (snapshot.goals && snapshot.goals.length > 0)
+        ? (existing?.goals ? mergeGoals(existing.goals, snapshot.goals) : snapshot.goals)
+        : existing?.goals,
+      cravings: (snapshot.cravings && snapshot.cravings.length > 0)
+        ? (existing?.cravings ? mergeCravings(existing.cravings, snapshot.cravings) : snapshot.cravings)
+        : existing?.cravings,
+      expenses: (snapshot.expenses && snapshot.expenses.length > 0)
+        ? (existing?.expenses ? mergeExpenses(existing.expenses, snapshot.expenses) : snapshot.expenses)
+        : existing?.expenses,
+      substanceLogs: (snapshot.substanceLogs && snapshot.substanceLogs.length > 0)
+        ? (existing?.substanceLogs ? mergeSubstances(existing.substanceLogs, snapshot.substanceLogs) : snapshot.substanceLogs)
+        : existing?.substanceLogs,
+      sleepLogs: (snapshot.sleepLogs && snapshot.sleepLogs.length > 0)
+        ? (existing?.sleepLogs ? mergeSleepLogs(existing.sleepLogs, snapshot.sleepLogs) : snapshot.sleepLogs)
+        : existing?.sleepLogs,
+      streaks: (snapshot.streaks && snapshot.streaks.length > 0)
+        ? (existing?.streaks ? mergeStreaks(existing.streaks, snapshot.streaks) : snapshot.streaks)
+        : existing?.streaks,
       smokeLogs: (snapshot.smokeLogs && snapshot.smokeLogs.length > 0) ? snapshot.smokeLogs : existing?.smokeLogs,
     };
     localStorage.setItem(RESCUE_BACKUP_KEY, JSON.stringify(merged));

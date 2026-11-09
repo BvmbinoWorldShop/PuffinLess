@@ -19,6 +19,7 @@ import {
   loadSleepEnergy, saveSleepEnergy,
   loadStreaks, saveStreaks,
   initIndexedDBStorage, resetAllUserData,
+  importUserDataJSON,
   DEFAULT_PROFILE,
 } from '../utils/storage';
 import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery';
@@ -341,13 +342,27 @@ export function useAppStore() {
     return res;
   };
 
+  const importUserData = async (jsonStr: string) => {
+    const res = await importUserDataJSON(jsonStr);
+    if (res.success && res.data) {
+      if (res.data.profile) setProfile(res.data.profile);
+      if (res.data.goals) setGoals(res.data.goals);
+      if (res.data.cravings) setCravings(res.data.cravings);
+      if (res.data.expenses) setExpenses(res.data.expenses);
+      if (res.data.substanceLogs) setSubstanceLogs(res.data.substanceLogs);
+      if (res.data.sleepLogs) setSleepLogs(res.data.sleepLogs);
+      if (res.data.streaks) setStreaks(res.data.streaks);
+    }
+    return res;
+  };
+
   return {
     isHydrated,
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {
       updateProfile, toggleTheme, toggleSound, toggleLanguage, setLanguage, logSubstance, removeSubstance, resistCraving, saveSleepEnergyEntry,
-      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData,
+      addExpense, deleteExpense, addGoal, deleteGoal, toggleGoal, completeOnboarding, resetAll, rehydrate, recoverLocalData, importUserData,
     },
   };
 }
