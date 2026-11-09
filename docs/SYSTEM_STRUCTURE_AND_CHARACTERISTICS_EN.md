@@ -201,14 +201,14 @@ When multiple tabs of PuffinLess are open simultaneously:
 The reliability of PuffinLess persistence is enforced through a dual verification pipeline:
 
 ### 1. Unit & In-Memory Engineering Verification (`npm run test:unit`)
-**60 Comprehensive Tests Across 7 Pillars (100% Pass Rate):**
+**62 Comprehensive Tests Across 7 Pillars (100% Pass Rate):**
 - **Pillar 1**: Non-extractable Web Crypto AES-GCM keys, unique 96-bit IVs per write, clean error distinction.
 - **Pillar 2**: PBKDF2 PIN hashing (100,000 iterations), cryptographic key erasure on reset.
 - **Pillar 3**: Period-scoped clinical statistics calculation and boundary validation.
 - **Pillar 4**: Cold restart vs standby session lock distinctions, transparent fallback recovery.
 - **Pillar 5**: Real IndexedDB lifecycle, legacy AES-CBC migration, zero raw keys in localStorage.
 - **Pillar 6**: Complete volatile memory wipe cold restart, corrupted record isolation.
-- **Pillar 7**: Zero data loss safeguards, `idbPersistAtomic` ACID rollback, cross-tab sequence coordination, anti-truncation empty-array protection, and UI/projection/journal 100% tri-directional agreement.
+- **Pillar 7**: Zero data loss safeguards, `idbPersistAtomic` ACID rollback, cross-tab Web Locks atomic sequence coordination, anti-truncation empty-array protection, unified `IndexedDBUnavailableError` hierarchy, and UI/projection/journal 100% tri-directional agreement.
 
 ### 2. Genuine Browser Verification Suite (`npm run test:browser`)
 Executed against **Microsoft Edge (`msedge.exe`)** via the Chrome DevTools Protocol (CDP) on the compiled, obfuscated `dist/standalone.html`:
@@ -217,6 +217,7 @@ Executed against **Microsoft Edge (`msedge.exe`)** via the Chrome DevTools Proto
 3. **Test 3: Tri-Directional Agreement Verification**: Reads the live UI store, queries `kv_store`, and traverses raw `events_store` via IndexedDB cursors. Verifies that `uiCount == projectionCount == journalEventsCount` with 100% agreement and strictly monotonic sequences.
 4. **Test 4: Real Application Backup Import**: Invokes `actions.importUserData` with real backup JSON. Verifies non-destructive union-merging of existing and imported entities, profile updating, and error-free rendering.
 5. **Test 5: Storage Failure, Atomic Rollback & Error Banner Verification**: Injects a transaction-level storage fault. Asserts that user actions fail visibly with thrown exceptions, optimistic in-memory changes roll back completely, the sticky error banner renders in the DOM (`[data-testid="persistence-error-banner"]`), and the banner dismisses cleanly upon user action.
+6. **Test 6: Real Application Disaster Recovery across Storage Sabotage & Cold Restart**: Sabotages primary `kv_store` by clearing all projections in real IndexedDB, executes `store.actions.recoverLocalData()`, verifies report success and restoration of `RestoredHero` with all substance logs and goals, forcibly terminates the Edge browser process (purging volatile RAM), launches a fresh browser process (`session3`), and asserts 100% clean disk rehydration with zero error banners.
 
 ---
 
@@ -252,8 +253,8 @@ PuffinLess/
 │       ├── clinicalMetrics.ts                      # Period-scoped calculations
 │       └── dates.ts                                # Robust date formatting & parsing
 ├── tests/
-│   ├── engineering-verification.test.js            # 60 comprehensive verification tests (100% green)
-│   └── real-browser-verification.js                # 5 real Edge CDP tests across OS processes (100% green)
+│   ├── engineering-verification.test.js            # 62 comprehensive verification tests (100% green)
+│   └── real-browser-verification.js                # 6 real Edge CDP tests across OS processes (100% green)
 └── scripts/
     └── make-standalone.js                          # Inliner & JavaScript obfuscation pipeline
 ```

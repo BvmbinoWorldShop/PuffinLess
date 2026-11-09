@@ -517,10 +517,88 @@ try {
   assert.equal(failureBannerResult.bannerDismissed, true, 'Error banner must dismiss cleanly');
   console.log(`  ✔ Storage failure simulation verified: action rejected, optimistic state rolled back, error banner rendered and dismissed cleanly`);
 
+  // --------------------------------------------------------------------------
+  // TEST 6: Real Application Disaster Recovery across Storage Sabotage & Cold Restart
+  // --------------------------------------------------------------------------
+  console.log(`▶ Test 6: Real Application Disaster Recovery across Storage Sabotage & Browser Restart`);
+  const disasterRecoveryResult = await session2.evaluate(`
+    (async () => {
+      const store = window.__PUFFINLESS_STORE__;
+
+      // 1. Sabotage primary kv_store by clearing all projections directly in IndexedDB
+      const dbReq = indexedDB.open('puffinless_indexeddb');
+      await new Promise((resolve, reject) => {
+        dbReq.onsuccess = resolve;
+        dbReq.onerror = reject;
+      });
+      const db = dbReq.result;
+      const tx = db.transaction('kv_store', 'readwrite');
+      const kv = tx.objectStore('kv_store');
+      await new Promise((resolve, reject) => {
+        const req = kv.clear();
+        req.onsuccess = resolve;
+        req.onerror = reject;
+      });
+      db.close();
+
+      // 2. Execute real application recovery action
+      const recoveryReport = await store.actions.recoverLocalData();
+      await new Promise((r) => setTimeout(r, 200));
+      const latestStore = window.__PUFFINLESS_STORE__;
+
+      return {
+        recoveryReport,
+        recoveredProfileName: latestStore.profile.name,
+        recoveredGoalsCount: latestStore.goals.length,
+        recoveredSubstancesCount: latestStore.substanceLogs.length,
+        recoveredCravingsCount: latestStore.cravings.length,
+        isHydrated: latestStore.isHydrated
+      };
+    })();
+  `);
+
+  assert.ok(disasterRecoveryResult.recoveryReport.recovered, 'Disaster recovery must report success');
+  assert.equal(disasterRecoveryResult.recoveredProfileName, 'RestoredHero', 'Profile must be restored from secondary tier');
+  assert.ok(disasterRecoveryResult.recoveredGoalsCount >= 1, 'Goals must be restored');
+  assert.ok(disasterRecoveryResult.recoveredSubstancesCount >= 1, 'Substance logs must be restored');
+  console.log(`  ✔ Disaster recovery verified: Successfully restored ${disasterRecoveryResult.recoveredProfileName} with ${disasterRecoveryResult.recoveredSubstancesCount} logs and ${disasterRecoveryResult.recoveredGoalsCount} goals`);
+
+  // Terminate session2 completely (wipes all RAM) and launch session3
   await session2.close();
+  await new Promise((r) => setTimeout(r, 1000));
+
+  console.log(`  ✔ Testing cold restart persistence of recovered data in fresh browser process...`);
+  const session3 = new BrowserSession(tempProfileDir, 9227);
+  await session3.launch();
+
+  const postRecoveryRebootCheck = await session3.evaluate(`
+    (async () => {
+      const store = window.__PUFFINLESS_STORE__;
+      return {
+        isHydrated: store.isHydrated,
+        profileName: store.profile.name,
+        isOnboarded: store.profile.isOnboarded,
+        substanceLogsCount: store.substanceLogs.length,
+        goalsCount: store.goals.length,
+        hasErrorBanner: Boolean(document.querySelector('[data-testid="persistence-error-banner"]')),
+        persistenceError: store.persistenceError?.message || null
+      };
+    })();
+  `);
+
+  assert.equal(postRecoveryRebootCheck.isHydrated, true, 'Store must rehydrate after recovery reboot');
+  assert.equal(postRecoveryRebootCheck.profileName, 'RestoredHero', 'Recovered profile must survive OS process reboot');
+  assert.equal(postRecoveryRebootCheck.isOnboarded, true);
+  assert.ok(postRecoveryRebootCheck.substanceLogsCount >= 1, 'Recovered substance logs must persist across cold restart');
+  assert.ok(postRecoveryRebootCheck.goalsCount >= 1, 'Recovered goals must persist across cold restart');
+  assert.equal(postRecoveryRebootCheck.hasErrorBanner, false);
+  assert.equal(postRecoveryRebootCheck.persistenceError, null);
+  console.log(`  ✔ Genuine cold restart after recovery verified: All recovered data loaded from disk with zero errors!`);
+
+  await session3.close();
 
   console.log(`\n========================================================`);
-  console.log(`  ALL 5 REAL BROWSER TESTS PASSED (100% REAL APPLICATION)`);
+  console.log(`  ALL 6 REAL BROWSER TESTS PASSED (100% REAL APPLICATION)`);
   console.log(`========================================================\n`);
 } catch (err) {
   allPassed = false;

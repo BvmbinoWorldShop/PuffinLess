@@ -197,14 +197,14 @@ En présence de plusieurs onglets ouverts simultanément :
 La robustesse du stockage est certifiée par un pipeline double d'assurance qualité :
 
 ### 1. Tests Unitaires & En Mémoire (`npm run test:unit`)
-**60 Tests Complets Répartis sur 7 Piliers (100% de Réussite) :**
+**62 Tests Complets Répartis sur 7 Piliers (100% de Réussite) :**
 - **Pilier 1** : Clés Web Crypto AES-GCM non-extractibles, IVs uniques de 96 bits par écriture, distinction d'erreurs.
 - **Pilier 2** : Hachage de code PIN par PBKDF2 (100 000 itérations), effacement cryptographique complet lors de la réinitialisation.
 - **Pilier 3** : Calcul des métriques cliniques par période d'observation sans contamination historique.
 - **Pilier 4** : Distinction redémarrage complet vs mise en veille, reprise transparente sur miroir local.
 - **Pilier 5** : Cycle de vie IndexedDB authentique, migration AES-CBC historique, absence totale de clés en clair dans localStorage.
 - **Pilier 6** : Redémarrage à froid avec purge mémoire vive complète, isolation des enregistrements corrompus.
-- **Pilier 7** : Sauvegardes contre la perte de données, annulation atomique `idbPersistAtomic`, coordination multi-onglets, protection anti-tronquage et 100% d'accord tri-directionnel UI / projections / journal.
+- **Pilier 7** : Sauvegardes contre la perte de données, annulation atomique `idbPersistAtomic`, coordination atomique par Web Locks API, protection anti-tronquage, hiérarchie explicite `IndexedDBUnavailableError` et 100% d'accord tri-directionnel UI / projections / journal.
 
 ### 2. Suite de Vérification sur Navigateur Réel (`npm run test:browser`)
 Exécutée directement sur **Microsoft Edge (`msedge.exe`)** via le protocole Chrome DevTools (CDP) sur l'exécutable compilé `dist/standalone.html` :
@@ -213,6 +213,7 @@ Exécutée directement sur **Microsoft Edge (`msedge.exe`)** via le protocole Ch
 3. **Test 3 : Concordance Tri-Directionnelle UI / kv_store / events_store** : Interroge le store en direct, le magasin `kv_store` et parcourt `events_store` via des curseurs IndexedDB. Valide que `compteurUI == compteurProjections == compteurÉvénements` avec une concordance de 100% et des séquences strictement monotones.
 4. **Test 4 : Restauration de Sauvegarde Authentique** : Invoque `actions.importUserData` avec un fichier JSON réel. Valide la fusion non-destructive des entités existantes et importées, la mise à jour du profil et le rendu visuel sans faille.
 5. **Test 5 : Simulation de Panne Disque, Rétractation Optimiste & Bannière DOM** : Provoque un refus d'écriture au niveau de la transaction. Valide le rejet visible de l'action, l'annulation de la modification optimiste en mémoire, l'affichage de la bannière rouge d'erreur dans le DOM (`[data-testid="persistence-error-banner"]`) et sa fermeture propre par l'utilisateur.
+6. **Test 6 : Restauration après Sinistre Réel et Redémarrage à Froid** : Sabote le magasin primaire `kv_store` en vidant les projections directement dans IndexedDB, exécute `store.actions.recoverLocalData()`, vérifie le rapport de succès et la restauration de `RestoredHero` avec ses consommations et objectifs, tue le processus Edge (purge RAM), lance un troisième processus (`session3`) et vérifie la réhydratation intégrale depuis le disque avec zéro bannière d'erreur.
 
 ---
 
@@ -248,8 +249,8 @@ PuffinLess/
 │       ├── clinicalMetrics.ts                      # Calculs de périodes cliniques
 │       └── dates.ts                                # Formatage et parsing temporel sécurisé
 ├── tests/
-│   ├── engineering-verification.test.js            # 60 tests de vérification logicielle (100% validé)
-│   └── real-browser-verification.js                # 5 tests Edge CDP authentiques inter-processus (100% validé)
+│   ├── engineering-verification.test.js            # 62 tests de vérification logicielle (100% validé)
+│   └── real-browser-verification.js                # 6 tests Edge CDP authentiques inter-processus (100% validé)
 └── scripts/
     └── make-standalone.js                          # Pipeline d'inlining et d'obfuscation JavaScript
 ```

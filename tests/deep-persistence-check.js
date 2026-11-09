@@ -100,8 +100,8 @@ for (let i = 0; i < 20; i++) {
 }
 await Promise.all(promises);
 const finalSubstances = await loadSubstanceLogsAsync();
-assert.equal(finalSubstances.length, 1, 'Final serialized save must win cleanly without corruption');
-console.log('  ✓ 20 concurrent saves resolved cleanly in serialized FIFO queue.');
+assert.equal(finalSubstances.length, 20, 'All 20 concurrent saves must be preserved in serialized FIFO queue without loss');
+console.log('  ✓ 20 concurrent saves resolved cleanly in serialized FIFO queue with zero data loss.');
 
 // ----------------------------------------------------
 // TEST 3: Anti-Truncation Guard
@@ -114,7 +114,7 @@ const richHistory = [
   { id: 'h4', substance: 'cigarette', count: 3, timestamp: '2026-02-04T08:00:00.000Z' },
   { id: 'h5', substance: 'cigarette', count: 1, timestamp: '2026-02-05T08:00:00.000Z' },
 ];
-await saveSubstanceLogs(richHistory);
+await saveSubstanceLogs(richHistory, { overwrite: true });
 let loadedRich = await loadSubstanceLogsAsync();
 assert.equal(loadedRich.length, 5, 'History must have 5 entries');
 

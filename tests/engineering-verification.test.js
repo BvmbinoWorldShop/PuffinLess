@@ -92,6 +92,8 @@ import {
 } from '../src/utils/security.ts';
 import {
   idbSet,
+  idbRemove,
+  idbClear,
   deletePuffinLessDB,
   idbGetWithStatus,
   idbGetRawWithStatus,
@@ -100,6 +102,7 @@ import {
   EVENTS_STORE_NAME,
   idbPersistAtomic,
   isIndexedDBAvailable,
+  IndexedDBUnavailableError,
 } from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 import {
@@ -1700,6 +1703,54 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(craveEvents[0].payload.intensity, 9);
 
       // Complete tri-directional agreement confirmed!
+    });
+
+    test('idbSet, idbRemove, and idbClear throw IndexedDBUnavailableError when IndexedDB is unavailable (no silent success)', async () => {
+      const origIDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = undefined;
+      try {
+        await assert.rejects(
+          async () => {
+            await idbSet('test_key', 'test_val');
+          },
+          IndexedDBUnavailableError,
+          'idbSet must throw IndexedDBUnavailableError rather than report silent success'
+        );
+
+        await assert.rejects(
+          async () => {
+            await idbRemove('test_key');
+          },
+          IndexedDBUnavailableError,
+          'idbRemove must throw IndexedDBUnavailableError rather than report silent success'
+        );
+
+        await assert.rejects(
+          async () => {
+            await idbClear();
+          },
+          IndexedDBUnavailableError,
+          'idbClear must throw IndexedDBUnavailableError rather than report silent success'
+        );
+      } finally {
+        globalThis.window.indexedDB = origIDB;
+      }
+    });
+
+    test('atomic sequence allocation serializes concurrent requests without allocating duplicate sequence numbers', async () => {
+      // Fire 10 concurrent sequence allocations simultaneously
+      const allocations = await Promise.all(
+        Array.from({ length: 10 }).map(() => getNextMonotonicSequence())
+      );
+
+      // Verify all 10 allocated sequences are unique (zero collisions)
+      const uniqueSeqs = new Set(allocations);
+      assert.equal(uniqueSeqs.size, 10, 'All 10 concurrently allocated sequences must be unique');
+
+      // Verify strictly increasing / sorted
+      for (let i = 1; i < allocations.length; i++) {
+        assert.ok(allocations[i] > allocations[i - 1], 'Sequences must be monotonically increasing');
+      }
     });
   });
 });

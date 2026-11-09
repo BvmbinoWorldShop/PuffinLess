@@ -314,11 +314,12 @@ export async function idbGet<T>(key: string, options?: { throwOnError?: boolean 
 
 /**
  * Encrypt arbitrary value with AES-GCM and store by key in IndexedDB.
- * Fails explicitly on error instead of masking write failures.
+ * Fails explicitly with IndexedDBUnavailableError or IndexedDBTransactionError
+ * instead of reporting silent success.
  */
 export async function idbSet<T>(key: string, value: T): Promise<void> {
   if (typeof window === 'undefined' || !window.indexedDB) {
-    return;
+    throw new IndexedDBUnavailableError('[IndexedDB] IndexedDB is not available in this environment');
   }
   const db = await openPuffinLessDB();
   // Enforce AES-GCM encryption with fresh unique IV before writing to disk
@@ -328,49 +329,70 @@ export async function idbSet<T>(key: string, value: T): Promise<void> {
       : await encryptData(value);
 
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.put(encryptedPayload, key);
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(encryptedPayload, key);
 
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Error saving key "${key}"`));
-    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error saving key "${key}"`));
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Error saving key "${key}"`, req.error));
+      tx.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction error saving key "${key}"`, tx.error));
+      tx.onabort = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction aborted saving key "${key}"`, tx.error));
+    } catch (txErr) {
+      reject(new IndexedDBTransactionError(`[IndexedDB] Failed to open transaction for key "${key}"`, txErr));
+    }
   });
 }
 
 /**
  * Remove a key from IndexedDB.
- * Fails explicitly on error instead of masking deletion failures.
+ * Fails explicitly with IndexedDBUnavailableError or IndexedDBTransactionError
+ * instead of masking deletion failures.
  */
 export async function idbRemove(key: string): Promise<void> {
-  if (typeof window === 'undefined' || !window.indexedDB) return;
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    throw new IndexedDBUnavailableError('[IndexedDB] IndexedDB is not available in this environment');
+  }
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.delete(key);
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(key);
 
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error || new Error(`[IndexedDB] Error deleting key "${key}"`));
-    tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Transaction error deleting key "${key}"`));
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Error deleting key "${key}"`, req.error));
+      tx.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction error deleting key "${key}"`, tx.error));
+      tx.onabort = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction aborted deleting key "${key}"`, tx.error));
+    } catch (txErr) {
+      reject(new IndexedDBTransactionError(`[IndexedDB] Failed to open transaction for deleting key "${key}"`, txErr));
+    }
   });
 }
 
 /**
  * Clear all records in the PuffinLess IndexedDB store.
- * Fails explicitly on error instead of masking clear failures.
+ * Fails explicitly with IndexedDBUnavailableError or IndexedDBTransactionError
+ * instead of masking clear failures.
  */
 export async function idbClear(): Promise<void> {
-  if (typeof window === 'undefined' || !window.indexedDB) return;
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    throw new IndexedDBUnavailableError('[IndexedDB] IndexedDB is not available in this environment');
+  }
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.clear();
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.clear();
 
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error || new Error('[IndexedDB] Error clearing store'));
-    tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing store'));
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(new IndexedDBTransactionError('[IndexedDB] Error clearing store', req.error));
+      tx.onerror = () => reject(new IndexedDBTransactionError('[IndexedDB] Transaction error clearing store', tx.error));
+      tx.onabort = () => reject(new IndexedDBTransactionError('[IndexedDB] Transaction aborted clearing store', tx.error));
+    } catch (txErr) {
+      reject(new IndexedDBTransactionError('[IndexedDB] Failed to open transaction for clearing store', txErr));
+    }
   });
 }
 
