@@ -34,6 +34,9 @@ import {
   RESCUE_BACKUP_KEY,
   LEGACY_RESCUE_KEY,
 } from './recovery.ts';
+import {
+  clearJournalEvents,
+} from './journal.ts';
 
 /**
  * Single-threaded FIFO persistence queue.
@@ -64,6 +67,47 @@ export const STORAGE_KEYS = {
   SLEEP_ENERGY: 'puffinless_sleep_energy_v2',
   STREAKS: 'puffinless_streaks_v2',
 };
+
+/**
+ * Verifies whether it is safe to persist an empty array for a given entity key.
+ * Strictly prevents overwriting records if:
+ * 1. An existing record is present in storage.
+ * 2. An existing record fails decryption (must never assume corrupted data is absent).
+ * 3. The storage read fails with an error (must never assume query error means absent data).
+ * 4. The rescue snapshot has historical records.
+ * Throws DecryptionError or Error on read failure; returns false if existing records are detected.
+ */
+async function verifySafeEmptyOverwrite(
+  storageKey: string,
+  legacyKey: string,
+  rescueFieldGetter: () => unknown[] | undefined
+): Promise<{ safe: boolean; reason?: string }> {
+  // 1. Inspect primary storage key
+  const primaryRes = await readWithStatus<unknown[]>(storageKey);
+  if (primaryRes.status === 'decryption_error') {
+    throw primaryRes.error || new DecryptionError(`[Storage] Cannot overwrite "${storageKey}" with empty array: record exists but failed decryption. Historical data must be preserved.`);
+  }
+  if (primaryRes.status === 'success' && Array.isArray(primaryRes.data) && primaryRes.data.length > 0) {
+    return { safe: false, reason: `Primary storage contains ${primaryRes.data.length} records` };
+  }
+
+  // 2. Inspect legacy storage key
+  const legacyRes = await readWithStatus<unknown[]>(legacyKey);
+  if (legacyRes.status === 'decryption_error') {
+    throw legacyRes.error || new DecryptionError(`[Storage] Cannot overwrite "${storageKey}" with empty array: legacy record exists but failed decryption.`);
+  }
+  if (legacyRes.status === 'success' && Array.isArray(legacyRes.data) && legacyRes.data.length > 0) {
+    return { safe: false, reason: `Legacy storage contains ${legacyRes.data.length} records` };
+  }
+
+  // 3. Inspect rescue snapshot
+  const snapshotData = rescueFieldGetter();
+  if (Array.isArray(snapshotData) && snapshotData.length > 0) {
+    return { safe: false, reason: `Rescue snapshot contains ${snapshotData.length} records` };
+  }
+
+  return { safe: true };
+}
 
 export function loadStreaks(): StreakRecord[] {
   try {
@@ -101,20 +145,32 @@ export async function loadStreaksAsync(): Promise<StreakRecord[]> {
   return [];
 }
 
-export async function saveStreaks(streaks: StreakRecord[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveStreaks(streaks: StreakRecord[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (streaks.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadStreaksAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} streaks with empty array.`);
-        createDeviceRescueSnapshot({ streaks: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.STREAKS,
+        'puffinless_streaks',
+        () => getDeviceRescueSnapshot()?.streaks
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of streaks with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(streaks);
+
+    let finalStreaks = streaks;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<StreakRecord[]>(STORAGE_KEYS.STREAKS);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalStreaks = mergeStreaks(existingRes.data, streaks);
+      }
+    }
+
+    const cipher = await encryptData(finalStreaks);
     localStorage.setItem(STORAGE_KEYS.STREAKS, cipher);
     await idbSet(STORAGE_KEYS.STREAKS, cipher);
-    createDeviceRescueSnapshot({ streaks });
+    createDeviceRescueSnapshot({ streaks: finalStreaks });
   });
 }
 
@@ -851,20 +907,32 @@ export async function loadExpensesAsync(): Promise<PurchaseExpense[]> {
   return [];
 }
 
-export async function saveExpenses(expenses: PurchaseExpense[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveExpenses(expenses: PurchaseExpense[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (expenses.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadExpensesAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} expenses with empty array.`);
-        createDeviceRescueSnapshot({ expenses: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.EXPENSES,
+        'puffinless_expenses',
+        () => getDeviceRescueSnapshot()?.expenses
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of expenses with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(expenses);
+
+    let finalExpenses = expenses;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<PurchaseExpense[]>(STORAGE_KEYS.EXPENSES);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalExpenses = mergeExpenses(existingRes.data, expenses);
+      }
+    }
+
+    const cipher = await encryptData(finalExpenses);
     localStorage.setItem(STORAGE_KEYS.EXPENSES, cipher);
     await idbSet(STORAGE_KEYS.EXPENSES, cipher);
-    createDeviceRescueSnapshot({ expenses });
+    createDeviceRescueSnapshot({ expenses: finalExpenses });
   });
 }
 
@@ -907,20 +975,32 @@ export async function loadSubstanceLogsAsync(): Promise<SubstanceLog[]> {
   return [];
 }
 
-export async function saveSubstanceLogs(logs: SubstanceLog[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveSubstanceLogs(logs: SubstanceLog[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (logs.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadSubstanceLogsAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} substance logs with empty array.`);
-        createDeviceRescueSnapshot({ substanceLogs: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.SUBSTANCE_LOG,
+        'puffinless_substance_log',
+        () => getDeviceRescueSnapshot()?.substanceLogs
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of substance logs with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(logs);
+
+    let finalLogs = logs;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<SubstanceLog[]>(STORAGE_KEYS.SUBSTANCE_LOG);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalLogs = mergeSubstances(existingRes.data, logs);
+      }
+    }
+
+    const cipher = await encryptData(finalLogs);
     localStorage.setItem(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
     await idbSet(STORAGE_KEYS.SUBSTANCE_LOG, cipher);
-    createDeviceRescueSnapshot({ substanceLogs: logs });
+    createDeviceRescueSnapshot({ substanceLogs: finalLogs });
   });
 }
 
@@ -963,20 +1043,32 @@ export async function loadSleepEnergyAsync(): Promise<SleepEnergyEntry[]> {
   return [];
 }
 
-export async function saveSleepEnergy(entries: SleepEnergyEntry[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveSleepEnergy(entries: SleepEnergyEntry[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (entries.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadSleepEnergyAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} sleep logs with empty array.`);
-        createDeviceRescueSnapshot({ sleepLogs: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.SLEEP_ENERGY,
+        'puffinless_sleep_energy',
+        () => getDeviceRescueSnapshot()?.sleepLogs
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of sleep logs with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(entries);
+
+    let finalSleep = entries;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<SleepEnergyEntry[]>(STORAGE_KEYS.SLEEP_ENERGY);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalSleep = mergeSleepLogs(existingRes.data, entries);
+      }
+    }
+
+    const cipher = await encryptData(finalSleep);
     localStorage.setItem(STORAGE_KEYS.SLEEP_ENERGY, cipher);
     await idbSet(STORAGE_KEYS.SLEEP_ENERGY, cipher);
-    createDeviceRescueSnapshot({ sleepLogs: entries });
+    createDeviceRescueSnapshot({ sleepLogs: finalSleep });
   });
 }
 
@@ -1018,20 +1110,32 @@ export async function loadSavingsGoalsAsync(): Promise<SavingsGoal[]> {
   return [];
 }
 
-export async function saveSavingsGoals(goals: SavingsGoal[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveSavingsGoals(goals: SavingsGoal[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (goals.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadSavingsGoalsAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} savings goals with empty array.`);
-        createDeviceRescueSnapshot({ goals: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.SAVINGS_GOALS,
+        'puffinless_savings_goals',
+        () => getDeviceRescueSnapshot()?.goals
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of savings goals with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(goals);
+
+    let finalGoals = goals;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalGoals = mergeGoals(existingRes.data, goals);
+      }
+    }
+
+    const cipher = await encryptData(finalGoals);
     localStorage.setItem(STORAGE_KEYS.SAVINGS_GOALS, cipher);
     await idbSet(STORAGE_KEYS.SAVINGS_GOALS, cipher);
-    createDeviceRescueSnapshot({ goals });
+    createDeviceRescueSnapshot({ goals: finalGoals });
   });
 }
 
@@ -1074,20 +1178,32 @@ export async function loadCravingsAsync(): Promise<CravingEntry[]> {
   return [];
 }
 
-export async function saveCravings(cravings: CravingEntry[], options?: { allowEmptyReset?: boolean }): Promise<void> {
+export async function saveCravings(cravings: CravingEntry[], options?: { allowEmptyReset?: boolean; overwrite?: boolean }): Promise<void> {
   return storageQueue.enqueue(async () => {
     if (cravings.length === 0 && !options?.allowEmptyReset) {
-      const existing = await loadCravingsAsync().catch(() => []);
-      if (existing.length > 0) {
-        console.warn(`[Storage] Blocked accidental overwrite of ${existing.length} cravings with empty array.`);
-        createDeviceRescueSnapshot({ cravings: existing });
+      const check = await verifySafeEmptyOverwrite(
+        STORAGE_KEYS.CRAVINGS,
+        'puffinless_cravings',
+        () => getDeviceRescueSnapshot()?.cravings
+      );
+      if (!check.safe) {
+        console.warn(`[Storage] Blocked accidental overwrite of cravings with empty array: ${check.reason}`);
         return;
       }
     }
-    const cipher = await encryptData(cravings);
+
+    let finalCravings = cravings;
+    if (!options?.overwrite) {
+      const existingRes = await readWithStatus<CravingEntry[]>(STORAGE_KEYS.CRAVINGS);
+      if (existingRes.status === 'success' && Array.isArray(existingRes.data)) {
+        finalCravings = mergeCravings(existingRes.data, cravings);
+      }
+    }
+
+    const cipher = await encryptData(finalCravings);
     localStorage.setItem(STORAGE_KEYS.CRAVINGS, cipher);
     await idbSet(STORAGE_KEYS.CRAVINGS, cipher);
-    createDeviceRescueSnapshot({ cravings });
+    createDeviceRescueSnapshot({ cravings: finalCravings });
   });
 }
 
@@ -1475,13 +1591,16 @@ export async function readWithStatus<T>(
  * - Purges all keys from localStorage and sessionStorage.
  */
 export async function resetAllUserData(): Promise<void> {
-  // 1. Delete IndexedDB physical database and await real confirmation
+  // 1. Clear immutable event journal
+  await clearJournalEvents().catch(() => {});
+
+  // 2. Delete IndexedDB physical database and await real confirmation
   await deletePuffinLessDB();
 
-  // 2. Cryptoshredding: purge device AES encryption keys from IndexedDB KeyVault
+  // 3. Cryptoshredding: purge device AES encryption keys from IndexedDB KeyVault
   await purgeVaultKeys();
 
-  // 3. Purge PIN credentials and lockout logs
+  // 4. Purge PIN credentials and lockout logs
   purgeSecurityState();
 
   // 4. Wipe all browser storage completely

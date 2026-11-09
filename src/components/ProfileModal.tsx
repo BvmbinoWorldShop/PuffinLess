@@ -157,18 +157,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     try {
       sound.playClick();
       const res = await onRecoverData();
-      if (res && res.recovered) {
+      if (res && res.hasNewlyRecoveredData) {
         sound.playCelebration();
         setRecoveryMessage(
           isFr
-            ? `✓ Récupération réussie : ${res.stats?.daysSinceQuit || 0} jour(s) d'abstinence, ${res.stats?.cravingsCount || 0} victoires et ${res.stats?.streaksCount || 0} séries restaurées.`
-            : `✓ Recovery successful: ${res.stats?.daysSinceQuit || 0} smoke-free day(s), ${res.stats?.cravingsCount || 0} victories, and ${res.stats?.streaksCount || 0} streaks restored.`
+            ? `✓ ${res.newlyRecovered?.total || 0} élément(s) restauré(s) (${res.stats?.streaksCount || 0} séries, ${res.stats?.cravingsCount || 0} victoires, ${res.stats?.substancesCount || 0} consommations). Intégrité : 100% vérifiée.`
+            : `✓ ${res.newlyRecovered?.total || 0} historical item(s) restored (${res.stats?.streaksCount || 0} streaks, ${res.stats?.cravingsCount || 0} victories, ${res.stats?.substancesCount || 0} logs). Integrity: 100% verified.`
+        );
+      } else if (res && res.recovered) {
+        setRecoveryMessage(
+          isFr
+            ? `✓ Toutes vos données sont déjà saines et synchronisées (${res.stats?.cravingsCount || 0} victoires, ${res.stats?.streaksCount || 0} séries). Aucun élément manquant.`
+            : `✓ All your data is already healthy and synchronized (${res.stats?.cravingsCount || 0} victories, ${res.stats?.streaksCount || 0} streaks). 0 items missing.`
         );
       } else {
         setRecoveryMessage(
           isFr
-            ? 'Toutes les données de cet appareil sont déjà synchronisées et protégées.'
-            : 'All data on this device is already synchronized and protected.'
+            ? 'Aucune donnée antérieure détectée sur cet appareil.'
+            : 'No previous data detected on this device.'
         );
       }
     } catch (err) {

@@ -31,7 +31,11 @@ import {
 } from './crypto.ts';
 import {
   idbSet,
+  idbGetAllEvents,
 } from './indexedDb.ts';
+import {
+  replayJournalEvents,
+} from './journal.ts';
 import { DEFAULT_PROFILE } from './storage.ts';
 
 export const RESCUE_BACKUP_KEY = 'puffinless_device_rescue_backup_v2';
@@ -64,6 +68,7 @@ export interface DeviceRescueSnapshot {
 
 export interface RecoveryScanResult {
   recovered: boolean;
+  hasNewlyRecoveredData: boolean;
   profile: UserProfile | null;
   streaks: StreakRecord[];
   cravings: CravingEntry[];
@@ -79,6 +84,22 @@ export interface RecoveryScanResult {
     substancesCount: number;
     expensesCount: number;
     sources: string[];
+  };
+  newlyRecovered: {
+    total: number;
+    streaks: number;
+    cravings: number;
+    substances: number;
+    expenses: number;
+    goals: number;
+    sleep: number;
+    profileRestored: boolean;
+  };
+  integrity: {
+    totalScanned: number;
+    validRecords: number;
+    corruptedRejected: number;
+    datesVerified: number;
   };
   message: string;
 }
@@ -336,6 +357,107 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   let candidateGoals: SavingsGoal[] = [];
   let candidateSmokeLogs: SmokeLogEntry[] = [];
 
+  // Integrity counters for full transparency
+  let totalScanned = 0;
+  let validRecords = 0;
+  let corruptedRejected = 0;
+  let datesVerified = 0;
+
+  // Capture baseline active keys before scan to compute exact newly recovered delta
+  const baselineStreaks = new Set<string>();
+  const baselineCravings = new Set<string>();
+  const baselineSubstances = new Set<string>();
+  const baselineExpenses = new Set<string>();
+  const baselineGoals = new Set<string>();
+  const baselineSleep = new Set<string>();
+  let baselineProfileOnboarded = false;
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const rawProf = localStorage.getItem('puffinless_profile_v2');
+      if (rawProf) {
+        const p = await decryptData<UserProfile | null>(rawProf, null);
+        if (p && (p.isOnboarded || isValidDateField(p.quitDate))) baselineProfileOnboarded = true;
+      }
+    } catch {}
+
+    try {
+      const rawStreaks = localStorage.getItem('puffinless_streaks_v2');
+      if (rawStreaks) {
+        const items = await decryptData<StreakRecord[]>(rawStreaks, []);
+        if (Array.isArray(items)) {
+          for (const s of items) {
+            const k = s?.id || s?.start;
+            if (k) baselineStreaks.add(k);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const rawCravings = localStorage.getItem('puffinless_cravings_v2');
+      if (rawCravings) {
+        const items = await decryptData<CravingEntry[]>(rawCravings, []);
+        if (Array.isArray(items)) {
+          for (const c of items) {
+            const k = c?.id || c?.timestamp;
+            if (k) baselineCravings.add(k);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const rawSubs = localStorage.getItem('puffinless_substance_log_v2');
+      if (rawSubs) {
+        const items = await decryptData<SubstanceLog[]>(rawSubs, []);
+        if (Array.isArray(items)) {
+          for (const sub of items) {
+            const k = sub?.id || sub?.timestamp;
+            if (k) baselineSubstances.add(k);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const rawExp = localStorage.getItem('puffinless_expenses_v2');
+      if (rawExp) {
+        const items = await decryptData<PurchaseExpense[]>(rawExp, []);
+        if (Array.isArray(items)) {
+          for (const exp of items) {
+            if (exp?.id) baselineExpenses.add(exp.id);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const rawGoals = localStorage.getItem('puffinless_savings_goals_v2');
+      if (rawGoals) {
+        const items = await decryptData<SavingsGoal[]>(rawGoals, []);
+        if (Array.isArray(items)) {
+          for (const g of items) {
+            if (g?.id) baselineGoals.add(g.id);
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const rawSleep = localStorage.getItem('puffinless_sleep_energy_v2');
+      if (rawSleep) {
+        const items = await decryptData<SleepEnergyEntry[]>(rawSleep, []);
+        if (Array.isArray(items)) {
+          for (const sl of items) {
+            const k = sl?.id || sl?.date;
+            if (k) baselineSleep.add(k);
+          }
+        }
+      }
+    } catch {}
+  }
+
   // Helper to extract known entities strictly from verified PuffinLess structures
   const classifyAndExtract = (val: unknown) => {
     if (!val) return;
@@ -348,10 +470,9 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           classifyAndExtract(parsed);
           return;
         } catch {
-          // ignore
+          corruptedRejected++;
         }
       }
-      // Never treat arbitrary string dates as quit dates - strictly restricted to verified PuffinLess data structures
       return;
     }
 
@@ -374,55 +495,144 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       'savingsGoals' in val
     ) {
       const s = val as any;
-      if (s.profile) candidateProfiles.push(s.profile);
-      if (Array.isArray(s.streaks)) candidateStreaks = mergeStreaks(candidateStreaks, s.streaks);
-      if (Array.isArray(s.cravings)) candidateCravings = mergeCravings(candidateCravings, s.cravings);
-      if (Array.isArray(s.substanceLogs)) candidateSubstances = mergeSubstances(candidateSubstances, s.substanceLogs);
-      if (Array.isArray(s.substances)) candidateSubstances = mergeSubstances(candidateSubstances, s.substances);
+      if (s.profile) {
+        totalScanned++;
+        if (isValidDateField(s.profile.quitDate) || s.profile.isOnboarded) {
+          validRecords++;
+          if (isValidDateField(s.profile.quitDate)) datesVerified++;
+          candidateProfiles.push(s.profile);
+        } else {
+          corruptedRejected++;
+        }
+      }
+      if (Array.isArray(s.streaks)) {
+        totalScanned += s.streaks.length;
+        const valid = s.streaks.filter((st: any) => st && isValidDateField(st.start));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.streaks.length - valid.length);
+        if (valid.length > 0) candidateStreaks = mergeStreaks(candidateStreaks, valid);
+      }
+      if (Array.isArray(s.cravings)) {
+        totalScanned += s.cravings.length;
+        const valid = s.cravings.filter((c: any) => c && isValidDateField(c.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.cravings.length - valid.length);
+        if (valid.length > 0) candidateCravings = mergeCravings(candidateCravings, valid);
+      }
+      if (Array.isArray(s.substanceLogs)) {
+        totalScanned += s.substanceLogs.length;
+        const valid = s.substanceLogs.filter((sub: any) => sub && isValidDateField(sub.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.substanceLogs.length - valid.length);
+        if (valid.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, valid);
+      }
+      if (Array.isArray(s.substances)) {
+        totalScanned += s.substances.length;
+        const valid = s.substances.filter((sub: any) => sub && isValidDateField(sub.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.substances.length - valid.length);
+        if (valid.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, valid);
+      }
       if (Array.isArray(s.smokeLogs)) {
-        candidateSmokeLogs = [...candidateSmokeLogs, ...s.smokeLogs];
-        const converted = s.smokeLogs
-          .filter((sl: any) => sl && isValidDateField(sl.timestamp))
-          .map((sl: any) => ({
+        totalScanned += s.smokeLogs.length;
+        const valid = s.smokeLogs.filter((sl: any) => sl && isValidDateField(sl.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.smokeLogs.length - valid.length);
+        if (valid.length > 0) {
+          candidateSmokeLogs = [...candidateSmokeLogs, ...valid];
+          const converted = valid.map((sl: any) => ({
             id: sl.id || `smoke-${Date.now()}-${Math.random()}`,
             substance: 'cigarette' as const,
             count: Number(sl.count) || 1,
             timestamp: sl.timestamp,
             note: sl.note,
           }));
-        if (converted.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, converted);
+          candidateSubstances = mergeSubstances(candidateSubstances, converted);
+        }
       }
       if (Array.isArray(s.smokeLog)) {
-        const converted = s.smokeLog
-          .filter((sl: any) => sl && isValidDateField(sl.timestamp))
-          .map((sl: any) => ({
+        totalScanned += s.smokeLog.length;
+        const valid = s.smokeLog.filter((sl: any) => sl && isValidDateField(sl.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.smokeLog.length - valid.length);
+        if (valid.length > 0) {
+          const converted = valid.map((sl: any) => ({
             id: sl.id || `smoke-${Date.now()}-${Math.random()}`,
             substance: 'cigarette' as const,
             count: Number(sl.count) || 1,
             timestamp: sl.timestamp,
             note: sl.note,
           }));
-        if (converted.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, converted);
+          candidateSubstances = mergeSubstances(candidateSubstances, converted);
+        }
       }
-      if (Array.isArray(s.expenses)) candidateExpenses = mergeExpenses(candidateExpenses, s.expenses);
-      if (Array.isArray(s.sleepLogs)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleepLogs);
-      if (Array.isArray(s.sleepEnergy)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleepEnergy);
-      if (Array.isArray(s.sleep)) candidateSleep = mergeSleepLogs(candidateSleep, s.sleep);
-      if (Array.isArray(s.goals)) candidateGoals = mergeGoals(candidateGoals, s.goals);
-      if (Array.isArray(s.savingsGoals)) candidateGoals = mergeGoals(candidateGoals, s.savingsGoals);
+      if (Array.isArray(s.expenses)) {
+        totalScanned += s.expenses.length;
+        const valid = s.expenses.filter((e: any) => e && isValidDateField(e.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (s.expenses.length - valid.length);
+        if (valid.length > 0) candidateExpenses = mergeExpenses(candidateExpenses, valid);
+      }
+      if (Array.isArray(s.sleepLogs)) {
+        totalScanned += s.sleepLogs.length;
+        const valid = s.sleepLogs.filter((sl: any) => sl && typeof sl.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sl.date));
+        validRecords += valid.length;
+        corruptedRejected += (s.sleepLogs.length - valid.length);
+        if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
+      }
+      if (Array.isArray(s.sleepEnergy)) {
+        totalScanned += s.sleepEnergy.length;
+        const valid = s.sleepEnergy.filter((sl: any) => sl && typeof sl.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sl.date));
+        validRecords += valid.length;
+        corruptedRejected += (s.sleepEnergy.length - valid.length);
+        if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
+      }
+      if (Array.isArray(s.sleep)) {
+        totalScanned += s.sleep.length;
+        const valid = s.sleep.filter((sl: any) => sl && typeof sl.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sl.date));
+        validRecords += valid.length;
+        corruptedRejected += (s.sleep.length - valid.length);
+        if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
+      }
+      if (Array.isArray(s.goals)) {
+        totalScanned += s.goals.length;
+        const valid = s.goals.filter((g: any) => g && (g.id || g.title));
+        validRecords += valid.length;
+        corruptedRejected += (s.goals.length - valid.length);
+        if (valid.length > 0) candidateGoals = mergeGoals(candidateGoals, valid);
+      }
+      if (Array.isArray(s.savingsGoals)) {
+        totalScanned += s.savingsGoals.length;
+        const valid = s.savingsGoals.filter((g: any) => g && (g.id || g.title));
+        validRecords += valid.length;
+        corruptedRejected += (s.savingsGoals.length - valid.length);
+        if (valid.length > 0) candidateGoals = mergeGoals(candidateGoals, valid);
+      }
       return;
     }
 
     // UserProfile strictly verified
     if (('quitDate' in val || 'cigarettesPerDay' in val || 'quitMode' in val || 'primarySubstance' in val) && typeof val === 'object') {
+      totalScanned++;
       const p = { ...(val as UserProfile) };
       if (p.quitDate && !isValidDateField(p.quitDate)) {
         p.quitDate = '';
+        corruptedRejected++;
+      } else if (p.quitDate) {
+        datesVerified++;
       }
       if (p.createdAt && !isValidDateField(p.createdAt)) {
         p.createdAt = '';
       }
       if (p.isOnboarded || isValidDateField(p.quitDate) || p.name) {
+        validRecords++;
         candidateProfiles.push(p);
       }
       return;
@@ -430,11 +640,18 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
 
     // Array of items strictly verified by date fields
     if (Array.isArray(val) && val.length > 0) {
+      totalScanned += val.length;
       const first = val[0];
-      if (!first || typeof first !== 'object') return;
+      if (!first || typeof first !== 'object') {
+        corruptedRejected += val.length;
+        return;
+      }
 
       if ('intensity' in first || 'resisted' in first || ('timestamp' in first && ('trigger' in first || 'substance' in first) && !('count' in first))) {
         const valid = (val as CravingEntry[]).filter((c) => c && isValidDateField(c.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) candidateCravings = mergeCravings(candidateCravings, valid);
       } else if ('start' in first || 'startDate' in first || 'streakStart' in first) {
         const normalized = (val as any[]).map((s) => ({
@@ -444,6 +661,9 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           brokenBy: s.brokenBy,
         }));
         const valid = normalized.filter((s) => s && isValidDateField(s.start));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) candidateStreaks = mergeStreaks(candidateStreaks, valid);
       } else if ('count' in first && ('substance' in first || 'substanceType' in first)) {
         const normalized = (val as any[]).map((s) => ({
@@ -451,10 +671,15 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           substance: s.substance || s.substanceType,
         }));
         const valid = (normalized as SubstanceLog[]).filter((s) => s && isValidDateField(s.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) candidateSubstances = mergeSubstances(candidateSubstances, valid);
       } else if ('count' in first && !('substance' in first) && 'timestamp' in first) {
-        // Legacy smoke log array -> restore as both smokeLog and substanceLog (cigarette)
         const valid = (val as SmokeLogEntry[]).filter((s) => s && isValidDateField(s.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) {
           candidateSmokeLogs = [...candidateSmokeLogs, ...valid];
           const converted: SubstanceLog[] = valid.map((vl) => ({
@@ -468,31 +693,54 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
         }
       } else if ('itemType' in first || ('price' in first && 'quantity' in first)) {
         const valid = (val as PurchaseExpense[]).filter((e) => e && isValidDateField(e.timestamp));
+        validRecords += valid.length;
+        datesVerified += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) candidateExpenses = mergeExpenses(candidateExpenses, valid);
       } else if ('sleepRating' in first || 'energyRating' in first) {
         const valid = (val as SleepEnergyEntry[]).filter((s) => s && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s.date));
+        validRecords += valid.length;
+        corruptedRejected += (val.length - valid.length);
         if (valid.length > 0) candidateSleep = mergeSleepLogs(candidateSleep, valid);
       } else if ('targetAmount' in first || ('title' in first && 'price' in first)) {
-        candidateGoals = mergeGoals(candidateGoals, val as SavingsGoal[]);
+        const valid = (val as SavingsGoal[]).filter((g) => g && (g.id || g.title));
+        validRecords += valid.length;
+        corruptedRejected += (val.length - valid.length);
+        candidateGoals = mergeGoals(candidateGoals, valid);
       }
       return;
     }
 
     // Single item handling (if stored individually in kv_store)
     if ('substance' in val && 'count' in val && 'timestamp' in val) {
+      totalScanned++;
       const s = val as SubstanceLog;
       if (isValidDateField(s.timestamp)) {
+        validRecords++;
+        datesVerified++;
         candidateSubstances = mergeSubstances(candidateSubstances, [s]);
+      } else {
+        corruptedRejected++;
       }
     } else if (('intensity' in val || 'resisted' in val) && 'timestamp' in val) {
+      totalScanned++;
       const c = val as CravingEntry;
       if (isValidDateField(c.timestamp)) {
+        validRecords++;
+        datesVerified++;
         candidateCravings = mergeCravings(candidateCravings, [c]);
+      } else {
+        corruptedRejected++;
       }
     } else if ('start' in val) {
+      totalScanned++;
       const st = val as StreakRecord;
       if (isValidDateField(st.start)) {
+        validRecords++;
+        datesVerified++;
         candidateStreaks = mergeStreaks(candidateStreaks, [st]);
+      } else {
+        corruptedRejected++;
       }
     }
   };
@@ -507,11 +755,11 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   }
 
   // =========================================================================
-  // 2. SCAN INDEXEDDB
+  // 2. SCAN INDEXEDDB KV STORE
   // =========================================================================
   const idbRecords = await dumpIndexedDBRecords();
   if (idbRecords.size > 0) {
-    sources.push(`IndexedDB (${idbRecords.size} keys)`);
+    sources.push(`IndexedDB (${idbRecords.size} clés)`);
     for (const [, rawValue] of idbRecords.entries()) {
       try {
         if (typeof rawValue === 'object') {
@@ -521,16 +769,59 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
             try { classifyAndExtract(JSON.parse(rawValue)); } catch {}
           }
           const decrypted = await decryptData<any>(rawValue, null);
-          if (decrypted) classifyAndExtract(decrypted);
+          if (decrypted) {
+            classifyAndExtract(decrypted);
+          } else if (rawValue.startsWith('aes-gcm:') || rawValue.startsWith('aes256:')) {
+            corruptedRejected++;
+          }
         }
       } catch {
-        // try next
+        corruptedRejected++;
       }
     }
   }
 
   // =========================================================================
-  // 3. SCAN LOCALSTORAGE & SESSIONSTORAGE (ALL KEYS)
+  // 3. SCAN INDEXEDDB EVENT JOURNAL (events_store)
+  // =========================================================================
+  try {
+    const journalEvents = await idbGetAllEvents();
+    if (journalEvents && journalEvents.length > 0) {
+      sources.push(`Journal d'événements (${journalEvents.length} événements)`);
+      totalScanned += journalEvents.length;
+      validRecords += journalEvents.length;
+      const projections = replayJournalEvents(journalEvents);
+      if (projections.substanceLogs.length > 0) {
+        candidateSubstances = mergeSubstances(candidateSubstances, projections.substanceLogs);
+      }
+      if (projections.cravings.length > 0) {
+        candidateCravings = mergeCravings(candidateCravings, projections.cravings);
+      }
+      if (projections.streaks.length > 0) {
+        candidateStreaks = mergeStreaks(candidateStreaks, projections.streaks);
+      }
+      if (projections.expenses.length > 0) {
+        candidateExpenses = mergeExpenses(candidateExpenses, projections.expenses);
+      }
+      if (projections.sleepLogs.length > 0) {
+        candidateSleep = mergeSleepLogs(candidateSleep, projections.sleepLogs);
+      }
+      if (projections.goals.length > 0) {
+        candidateGoals = mergeGoals(candidateGoals, projections.goals);
+      }
+      if (projections.profilePatch && Object.keys(projections.profilePatch).length > 0) {
+        candidateProfiles.push({
+          ...DEFAULT_PROFILE,
+          ...projections.profilePatch,
+        } as UserProfile);
+      }
+    }
+  } catch (jErr) {
+    console.warn('[Recovery] Warning reading events_store:', jErr);
+  }
+
+  // =========================================================================
+  // 4. SCAN LOCALSTORAGE & SESSIONSTORAGE (ALL KEYS)
   // =========================================================================
   if (typeof localStorage !== 'undefined') {
     const candidateKeys = [
@@ -575,9 +866,13 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           try { classifyAndExtract(JSON.parse(raw)); } catch {}
         }
         const decrypted = await decryptData<any>(raw, null);
-        if (decrypted) classifyAndExtract(decrypted);
+        if (decrypted) {
+          classifyAndExtract(decrypted);
+        } else if (raw.startsWith('aes-gcm:') || raw.startsWith('aes256:')) {
+          corruptedRejected++;
+        }
       } catch {
-        // try next
+        corruptedRejected++;
       }
     }
   }
@@ -595,15 +890,19 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
           try { classifyAndExtract(JSON.parse(raw)); } catch {}
         }
         const decrypted = await decryptData<any>(raw, null);
-        if (decrypted) classifyAndExtract(decrypted);
+        if (decrypted) {
+          classifyAndExtract(decrypted);
+        } else if (raw.startsWith('aes-gcm:') || raw.startsWith('aes256:')) {
+          corruptedRejected++;
+        }
       } catch {
-        // try next
+        corruptedRejected++;
       }
     }
   }
 
   // =========================================================================
-  // 4. CHOOSE THE BEST PROFILE CANDIDATE
+  // 5. CHOOSE THE BEST PROFILE CANDIDATE
   // =========================================================================
   let bestProfile: UserProfile | null = null;
   if (candidateProfiles.length > 0) {
@@ -673,8 +972,54 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     candidateGoals.length > 0
   );
 
+  // Compute newly recovered delta by comparing against baseline before scan
+  const newStreaksCount = candidateStreaks.filter((s) => {
+    const k = s.id || s.start;
+    return k ? !baselineStreaks.has(k) : true;
+  }).length;
+
+  const newCravingsCount = candidateCravings.filter((c) => {
+    const k = c.id || c.timestamp;
+    return k ? !baselineCravings.has(k) : true;
+  }).length;
+
+  const newSubstancesCount = candidateSubstances.filter((sub) => {
+    const k = sub.id || sub.timestamp;
+    return k ? !baselineSubstances.has(k) : true;
+  }).length;
+
+  const newExpensesCount = candidateExpenses.filter((e) => {
+    return e.id ? !baselineExpenses.has(e.id) : true;
+  }).length;
+
+  const newGoalsCount = candidateGoals.filter((g) => {
+    return g.id ? !baselineGoals.has(g.id) : true;
+  }).length;
+
+  const newSleepCount = candidateSleep.filter((sl) => {
+    const k = sl.id || sl.date;
+    return k ? !baselineSleep.has(k) : true;
+  }).length;
+
+  const profileRestored = Boolean(
+    !baselineProfileOnboarded &&
+    bestProfile &&
+    (bestProfile.isOnboarded || isValidDateField(bestProfile.quitDate))
+  );
+
+  const totalNewlyRecovered =
+    newStreaksCount +
+    newCravingsCount +
+    newSubstancesCount +
+    newExpensesCount +
+    newGoalsCount +
+    newSleepCount +
+    (profileRestored ? 1 : 0);
+
+  const hasNewlyRecoveredData = totalNewlyRecovered > 0;
+
   // =========================================================================
-  // 5. IF DATA RECOVERED: RE-PERSIST TO PREVENT FUTURE LOSS (NON-DESTRUCTIVE)
+  // 6. IF DATA RECOVERED: RE-PERSIST TO PREVENT FUTURE LOSS (NON-DESTRUCTIVE)
   // =========================================================================
   if (isDataRecovered && bestProfile) {
     try {
@@ -760,8 +1105,18 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
     }
   }
 
+  let message = '';
+  if (hasNewlyRecoveredData) {
+    message = `Récupération réussie : ${totalNewlyRecovered} élément(s) historique(s) restauré(s) (${candidateStreaks.length} séries, ${candidateCravings.length} victoires, ${candidateSubstances.length} consommations) depuis ${sources.length} source(s). Intégrité vérifiée : ${validRecords} valide(s), ${corruptedRejected} corrompu(s) écarté(s).`;
+  } else if (isDataRecovered) {
+    message = `Toutes vos données sont déjà saines et synchronisées (0 élément manquant). Intégrité : ${validRecords} enregistrement(s) vérifié(s) sur ${sources.join(', ') || 'appareil'}.`;
+  } else {
+    message = 'Aucune donnée antérieure détectée sur cet appareil.';
+  }
+
   return {
     recovered: isDataRecovered,
+    hasNewlyRecoveredData,
     profile: bestProfile,
     streaks: candidateStreaks,
     cravings: candidateCravings,
@@ -778,8 +1133,22 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
       expensesCount: candidateExpenses.length,
       sources,
     },
-    message: isDataRecovered
-      ? `Récupération réussie : ${daysSinceQuit} jour(s) d'abstinence, ${candidateCravings.length} victoires et ${candidateStreaks.length} séries restaurées.`
-      : 'Aucune donnée antérieure détectée sur cet appareil.',
+    newlyRecovered: {
+      total: totalNewlyRecovered,
+      streaks: newStreaksCount,
+      cravings: newCravingsCount,
+      substances: newSubstancesCount,
+      expenses: newExpensesCount,
+      goals: newGoalsCount,
+      sleep: newSleepCount,
+      profileRestored,
+    },
+    integrity: {
+      totalScanned,
+      validRecords,
+      corruptedRejected,
+      datesVerified,
+    },
+    message,
   };
 }

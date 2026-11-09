@@ -23,6 +23,7 @@ import {
   DEFAULT_PROFILE,
 } from '../utils/storage';
 import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery';
+import { recordJournalEvent } from '../utils/journal';
 import { calculateStats } from '../utils/calculations';
 import { buildCoreReport, sumIntake } from '../core/obsidianCore';
 import { localDateStr } from '../utils/dates';
@@ -104,6 +105,7 @@ export function useAppStore() {
   const updateProfile = async (p: UserProfile): Promise<void> => {
     setProfile(p);
     await saveProfile(p);
+    recordJournalEvent('PROFILE_UPDATED', p);
   };
 
   const toggleTheme = () => updateProfile({ ...profile, theme: profile.theme === 'light' ? 'dark' : 'light' });
@@ -130,6 +132,7 @@ export function useAppStore() {
     const logs = [entry, ...substanceLogs];
     setSubstanceLogs(logs);
     saveSubstanceLogs(logs);
+    recordJournalEvent('SUBSTANCE_LOGGED', entry, entry.id);
 
     // Record an unresisted craving entry (slip event) to ensure complete behavioral correlation
     const craveEntry: CravingEntry = {
@@ -144,6 +147,7 @@ export function useAppStore() {
     const nextCravings = [craveEntry, ...cravings];
     setCravings(nextCravings);
     saveCravings(nextCravings);
+    recordJournalEvent('CRAVING_LOGGED', craveEntry, craveEntry.id);
 
     // Close the streak (ignore accidental double taps under a minute)
     const streakLength = now.getTime() - new Date(profile.quitDate).getTime();
@@ -157,6 +161,7 @@ export function useAppStore() {
       const next = [record, ...streaks];
       setStreaks(next);
       saveStreaks(next);
+      recordJournalEvent('STREAK_RECORDED', record, record.id);
     }
     updateProfile({ ...profile, quitDate: now.toISOString() });
 
@@ -197,7 +202,8 @@ export function useAppStore() {
 
     if (modified) {
       setSubstanceLogs(newLogs);
-      saveSubstanceLogs(newLogs);
+      saveSubstanceLogs(newLogs, { overwrite: true });
+      recordJournalEvent('SUBSTANCE_REMOVED', { substance, count });
 
       // Clean up corresponding unresisted craving entries from the same time
       if (removedLogTimes.length > 0) {
@@ -207,7 +213,7 @@ export function useAppStore() {
           return !removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
         });
         setCravings(cleanedCravings);
-        saveCravings(cleanedCravings);
+        saveCravings(cleanedCravings, { overwrite: true });
       }
 
       // If today is now clean and a streak was broken TODAY, safely restore previous streak start
@@ -220,7 +226,7 @@ export function useAppStore() {
           if (lastStreakEndDay === today && lastStreak.brokenBy === substance) {
             const remainingStreaks = streaks.slice(1);
             setStreaks(remainingStreaks);
-            saveStreaks(remainingStreaks);
+            saveStreaks(remainingStreaks, { overwrite: true });
             updateProfile({ ...profile, quitDate: lastStreak.start });
           }
         }
@@ -244,6 +250,7 @@ export function useAppStore() {
     const next = [entry, ...cravings];
     setCravings(next);
     saveCravings(next);
+    recordJournalEvent('CRAVING_LOGGED', entry, entry.id);
   };
 
   const saveSleepEnergyEntry = (entry: SleepEnergyEntry) => {
@@ -251,33 +258,40 @@ export function useAppStore() {
     const next = idx >= 0 ? sleepLogs.map((e, i) => (i === idx ? entry : e)) : [entry, ...sleepLogs];
     setSleepLogs(next);
     saveSleepEnergy(next);
+    recordJournalEvent('SLEEP_ENERGY_LOGGED', entry, entry.id || entry.date);
   };
 
   const addExpense = (e: PurchaseExpense) => {
     const next = [e, ...expenses];
     setExpenses(next);
     saveExpenses(next);
+    recordJournalEvent('PURCHASE_EXPENSE_LOGGED', e, e.id);
   };
   const deleteExpense = (id: string) => {
     const next = expenses.filter((e) => e.id !== id);
     setExpenses(next);
-    saveExpenses(next);
+    saveExpenses(next, { overwrite: true });
+    recordJournalEvent('PURCHASE_EXPENSE_DELETED', { expenseId: id }, id);
   };
 
   const addGoal = (g: SavingsGoal) => {
     const next = [g, ...goals];
     setGoals(next);
     saveSavingsGoals(next);
+    recordJournalEvent('SAVINGS_GOAL_ADDED', g, g.id);
   };
   const deleteGoal = (id: string) => {
     const next = goals.filter((g) => g.id !== id);
     setGoals(next);
-    saveSavingsGoals(next);
+    saveSavingsGoals(next, { overwrite: true });
+    recordJournalEvent('SAVINGS_GOAL_DELETED', { goalId: id }, id);
   };
   const toggleGoal = (id: string) => {
+    const current = goals.find((g) => g.id === id);
     const next = goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g));
     setGoals(next);
-    saveSavingsGoals(next);
+    saveSavingsGoals(next, { overwrite: true });
+    recordJournalEvent('SAVINGS_GOAL_TOGGLED', { goalId: id, completed: !current?.completed }, id);
   };
 
   const completeOnboarding = (p: UserProfile) => {

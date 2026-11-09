@@ -177,3 +177,27 @@ export interface Quote {
   category: string;
   book?: string;
 }
+
+export type JournalEventType =
+  | 'SUBSTANCE_LOGGED'
+  | 'SUBSTANCE_REMOVED'
+  | 'CRAVING_LOGGED'
+  | 'STREAK_RECORDED'
+  | 'PURCHASE_EXPENSE_LOGGED'
+  | 'PURCHASE_EXPENSE_DELETED'
+  | 'SLEEP_ENERGY_LOGGED'
+  | 'SAVINGS_GOAL_ADDED'
+  | 'SAVINGS_GOAL_TOGGLED'
+  | 'SAVINGS_GOAL_DELETED'
+  | 'PROFILE_UPDATED'
+  | 'USER_DATA_RESET';
+
+export interface JournalEvent {
+  id: string;               // Unique event ID
+  seq: number;              // Monotonic sequence number
+  type: JournalEventType;   // Event discriminator
+  timestamp: string;        // ISO 8601
+  schemaVersion: number;    // 1
+  payload: any;             // Event specific payload
+  entityId?: string;        // Target entity ID if applicable
+}

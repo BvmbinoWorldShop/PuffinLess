@@ -69,7 +69,6 @@ import {
   saveSubstanceLogs,
   loadSubstanceLogsAsync,
   importUserDataJSON,
-  exportAllUserDataJSON,
   storageQueue,
   initIndexedDBStorage,
   readWithStatus,
@@ -93,6 +92,11 @@ import {
 } from '../src/utils/security.ts';
 import { idbSet, deletePuffinLessDB, idbGetWithStatus, idbGetRawWithStatus, closePuffinLessDB } from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
+import {
+  recordJournalEvent,
+  getHistoricalJournalEvents,
+  replayJournalEvents,
+} from '../src/utils/journal.ts';
 
 describe('PuffinLess Production Code Verification', () => {
 
@@ -1097,6 +1101,143 @@ describe('PuffinLess Production Code Verification', () => {
       const reloadedSubs = await loadSubstanceLogsAsync();
       assert.equal(reloadedSubs.length, 1);
       assert.equal(reloadedSubs[0].id, 'sub-imported-1');
+    });
+
+    test('concurrency and event preservation: 20 independently logged events all survive rapid concurrent persistence without loss', async () => {
+      // Dispatch 20 independent substance logs concurrently without waiting sequentially
+      const concurrentLogs = Array.from({ length: 20 }).map((_, i) => ({
+        id: `concurrent-sub-${i + 1}`,
+        substance: 'cigarette',
+        count: 1,
+        timestamp: new Date(1771000000000 + i * 60000).toISOString(),
+        note: `Concurrent log ${i + 1}`,
+      }));
+
+      // Fire all 20 calls concurrently
+      await Promise.all(
+        concurrentLogs.map((log) => saveSubstanceLogs([log]))
+      );
+
+      // Verify all 20 events are preserved in primary storage
+      const loaded = await loadSubstanceLogsAsync();
+      assert.equal(loaded.length, 20, 'All 20 independently logged events MUST survive concurrent activity');
+      for (let i = 0; i < 20; i++) {
+        assert.ok(
+          loaded.some((item) => item.id === `concurrent-sub-${i + 1}`),
+          `Event concurrent-sub-${i + 1} must be present in final history`
+        );
+      }
+    });
+
+    test('empty-array overwrite protection throws and refuses to overwrite data when read fails or decryption fails', async () => {
+      // Set corrupted ciphertext in primary storage
+      globalThis.localStorage.setItem('puffinless_substance_log_v2', 'aes-gcm:corruptediv12:corruptedpayloadxyz');
+
+      // Attempting to save an empty array must THROW DecryptionError and NEVER treat read failure as empty data
+      await assert.rejects(
+        async () => {
+          await saveSubstanceLogs([]);
+        },
+        DecryptionError,
+        'saveSubstanceLogs([]) must throw DecryptionError when stored data fails decryption'
+      );
+
+      // Verify corrupted record was NOT overwritten or wiped
+      assert.equal(
+        globalThis.localStorage.getItem('puffinless_substance_log_v2'),
+        'aes-gcm:corruptediv12:corruptedpayloadxyz',
+        'Corrupted storage record must remain untouched on disk'
+      );
+    });
+
+    test('immutable event journal in events_store records discrete events and reconstructs projections with replay', async () => {
+      // 1. Record discrete events
+      await recordJournalEvent('SUBSTANCE_LOGGED', {
+        id: 'ev-sub-1',
+        substance: 'cigarette',
+        count: 2,
+        timestamp: '2026-02-10T10:00:00.000Z',
+      }, 'ev-sub-1');
+
+      await recordJournalEvent('CRAVING_LOGGED', {
+        id: 'ev-crav-1',
+        intensity: 8,
+        trigger: 'stress',
+        resisted: true,
+        timestamp: '2026-02-10T11:00:00.000Z',
+      }, 'ev-crav-1');
+
+      await recordJournalEvent('PURCHASE_EXPENSE_LOGGED', {
+        id: 'ev-exp-1',
+        title: 'Vape Pod',
+        price: 15,
+        quantity: 1,
+        itemType: 'puff_vape',
+        timestamp: '2026-02-10T12:00:00.000Z',
+      }, 'ev-exp-1');
+
+      // 2. Add compensating event (SUBSTANCE_REMOVED decrement)
+      await recordJournalEvent('SUBSTANCE_REMOVED', {
+        logId: 'ev-sub-1',
+        removeCount: 1,
+      }, 'ev-sub-1');
+
+      // 3. Fetch all events from journal
+      const allEvents = await getHistoricalJournalEvents();
+      assert.equal(allEvents.length, 4, 'Journal must contain all 4 discrete immutable events');
+
+      // 4. Replay projections
+      const projections = replayJournalEvents(allEvents);
+      assert.equal(projections.substanceLogs.length, 1);
+      assert.equal(projections.substanceLogs[0].count, 1, 'Compensating event must decrement count to 1');
+      assert.equal(projections.cravings.length, 1);
+      assert.equal(projections.cravings[0].id, 'ev-crav-1');
+      assert.equal(projections.expenses.length, 1);
+    });
+
+    test('recovery truthfully reports actual counts, sources, and integrity without overstating success', async () => {
+      // 1. When storage is already fully synced and healthy:
+      const initialProfile = {
+        name: 'HonestHero',
+        isOnboarded: true,
+        quitDate: '2026-02-01T00:00:00.000Z',
+      };
+      const initialCravings = [
+        { id: 'crav-sync-1', timestamp: '2026-02-02T10:00:00.000Z', intensity: 5, trigger: 'habit', resisted: true },
+      ];
+      await saveProfile(initialProfile);
+      await saveCravings(initialCravings);
+
+      // Run recovery on healthy device
+      const healthyScan = await recoverAllDeviceData();
+      assert.equal(healthyScan.recovered, true);
+      assert.equal(healthyScan.hasNewlyRecoveredData, false, 'Must NOT claim newly recovered data when already in sync');
+      assert.equal(healthyScan.newlyRecovered.total, 0, 'Newly recovered total must be 0 on healthy storage');
+      assert.ok(healthyScan.message.includes('0 élément manquant') || healthyScan.message.includes('déjà saines'), 'Must indicate all data is already intact');
+
+      // 2. Now simulate data loss in primary storage but preserved in rescue backup snapshot
+      const lostStreak = { id: 'streak-lost-1', start: '2026-02-01T00:00:00.000Z' };
+      const lostExpense = { id: 'exp-lost-1', title: 'Patches', price: 20, quantity: 1, itemType: 'nicotine_pouches', timestamp: '2026-02-03T10:00:00.000Z' };
+      createDeviceRescueSnapshot({
+        profile: initialProfile,
+        streaks: [lostStreak],
+        expenses: [lostExpense],
+      });
+
+      // Clear primary storage keys
+      globalThis.localStorage.removeItem('puffinless_streaks_v2');
+      globalThis.localStorage.removeItem('puffinless_expenses_v2');
+
+      // Deep recovery must find the missing items and accurately report new counts and sources
+      const recoveredScan = await recoverAllDeviceData();
+      assert.equal(recoveredScan.recovered, true);
+      assert.equal(recoveredScan.hasNewlyRecoveredData, true, 'Must report hasNewlyRecoveredData === true');
+      assert.equal(recoveredScan.newlyRecovered.streaks, 1, 'Must report 1 newly recovered streak');
+      assert.equal(recoveredScan.newlyRecovered.expenses, 1, 'Must report 1 newly recovered expense');
+      assert.equal(recoveredScan.newlyRecovered.total, 2, 'Total newly recovered must equal 2');
+      assert.ok(recoveredScan.stats.sources.includes('Rescue Snapshot'));
+      assert.ok(recoveredScan.integrity.validRecords >= 2);
+      assert.equal(recoveredScan.integrity.datesVerified >= 2, true);
     });
   });
 });

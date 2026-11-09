@@ -6,10 +6,12 @@
  * All data stored at rest in IndexedDB is encrypted with AES-256 via the device's local vault key.
  */
 import { encryptData, decryptData, decryptWithStatus } from './crypto.ts';
+import type { JournalEvent } from '../types/index.ts';
 
 const DB_NAME = 'puffinless_indexeddb';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'kv_store';
+export const EVENTS_STORE_NAME = 'events_store';
 
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -33,7 +35,11 @@ export function closePuffinLessDB(): void {
  * Open (or reuse) the IndexedDB database instance with automatic connection recovery.
  */
 export function openPuffinLessDB(): Promise<IDBDatabase> {
-  if (dbInstance && dbInstance.objectStoreNames.contains(STORE_NAME)) {
+  if (
+    dbInstance &&
+    dbInstance.objectStoreNames.contains(STORE_NAME) &&
+    dbInstance.objectStoreNames.contains(EVENTS_STORE_NAME)
+  ) {
     return Promise.resolve(dbInstance);
   }
   if (dbPromise) {
@@ -53,11 +59,17 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
+      if (!db.objectStoreNames.contains(EVENTS_STORE_NAME)) {
+        const evStore = db.createObjectStore(EVENTS_STORE_NAME, { keyPath: 'id' });
+        evStore.createIndex('seq', 'seq', { unique: false });
+        evStore.createIndex('type', 'type', { unique: false });
+        evStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
     };
 
     request.onsuccess = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
+      if (!db.objectStoreNames.contains(STORE_NAME) || !db.objectStoreNames.contains(EVENTS_STORE_NAME)) {
         const nextVersion = db.version + 1;
         db.close();
         dbInstance = null;
@@ -66,6 +78,12 @@ export function openPuffinLessDB(): Promise<IDBDatabase> {
           const uDb = (ue.target as IDBOpenDBRequest).result;
           if (!uDb.objectStoreNames.contains(STORE_NAME)) {
             uDb.createObjectStore(STORE_NAME);
+          }
+          if (!uDb.objectStoreNames.contains(EVENTS_STORE_NAME)) {
+            const evStore = uDb.createObjectStore(EVENTS_STORE_NAME, { keyPath: 'id' });
+            evStore.createIndex('seq', 'seq', { unique: false });
+            evStore.createIndex('type', 'type', { unique: false });
+            evStore.createIndex('timestamp', 'timestamp', { unique: false });
           }
         };
         upgradeReq.onsuccess = () => {
@@ -376,5 +394,77 @@ export async function idbGetAllEntries(): Promise<Record<string, unknown>> {
   } catch (err) {
     console.warn('[IndexedDB] Error exporting all entries:', err);
     return {};
+  }
+}
+
+/**
+ * Append an immutable event to the IndexedDB events_store journal.
+ * Throws explicitly on failure.
+ */
+export async function idbAppendEvent(event: JournalEvent): Promise<void> {
+  const db = await openPuffinLessDB();
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(EVENTS_STORE_NAME);
+      store.put(event);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error(`[IndexedDB] Error appending event "${event.id}"`));
+      tx.onabort = () => reject(tx.error || new Error(`[IndexedDB] Transaction aborted appending event "${event.id}"`));
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+}
+
+/**
+ * Retrieve all historical events from the immutable IndexedDB events_store journal,
+ * sorted chronologically by monotonic sequence / timestamp.
+ */
+export async function idbGetAllEvents(): Promise<JournalEvent[]> {
+  try {
+    const db = await openPuffinLessDB();
+    return await new Promise<JournalEvent[]>((resolve, reject) => {
+      try {
+        const tx = db.transaction(EVENTS_STORE_NAME, 'readonly');
+        const store = tx.objectStore(EVENTS_STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const events = (req.result || []) as JournalEvent[];
+          events.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          resolve(events);
+        };
+        req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to query events_store'));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  } catch (err) {
+    console.warn('[IndexedDB] Could not retrieve events from events_store:', err);
+    return [];
+  }
+}
+
+/**
+ * Clear the events_store journal (called strictly during confirmed user data reset).
+ */
+export async function idbClearEvents(): Promise<void> {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
+  try {
+    const db = await openPuffinLessDB();
+    await new Promise<void>((resolve, reject) => {
+      try {
+        const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(EVENTS_STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  } catch {
+    // ignore
   }
 }
