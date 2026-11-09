@@ -1,6 +1,6 @@
-import type { PsychologyLesson, Language } from '../types';
-import { MORE_LESSONS } from '../content/moreLessons';
-import { LESSONS_FR } from '../content/frenchTranslations';
+import type { PsychologyLesson, Language } from '../types/index.ts';
+import { MORE_LESSONS } from '../content/moreLessons.ts';
+import { LESSONS_FR } from '../content/frenchTranslations.ts';
 
 export const PSYCHOLOGY_LESSONS: PsychologyLesson[] = [
   {

@@ -21,6 +21,7 @@ import {
   idbAppendEvent,
   idbGetAllEvents,
   idbGetAllEventsWithStatus,
+  idbGetMaxEventSeq,
   idbClearEvents,
   type JournalReadResult,
 } from './indexedDb.ts';
@@ -39,29 +40,26 @@ function generateEventId(prefix: string = 'ev'): string {
 /**
  * Restores the monotonic sequence counter from persistent storage after a cold restart.
  * Queries highest seq in events_store to prevent collisions or numbering restarts.
+ * Fails SAFELY: if querying disk fails, throws an explicit error,
+ * leaves sequenceInitialized = false, and NEVER resets sequence to 0.
  */
 export async function restoreJournalSequence(): Promise<number> {
   try {
-    const events = await idbGetAllEvents();
-    let maxSeq = 0;
-    for (const ev of events) {
-      if (typeof ev.seq === 'number' && ev.seq > maxSeq) {
-        maxSeq = ev.seq;
-      }
-    }
-    monotonicSequence = maxSeq;
-  } catch {
-    if (monotonicSequence === 0) {
-      monotonicSequence = 0;
-    }
+    const maxSeq = await idbGetMaxEventSeq();
+    monotonicSequence = Math.max(monotonicSequence, maxSeq);
+    sequenceInitialized = true;
+    return monotonicSequence;
+  } catch (err) {
+    sequenceInitialized = false;
+    throw err instanceof Error ? err : new Error(`Failed to restore journal sequence: ${String(err)}`);
+  } finally {
+    initSequencePromise = null;
   }
-  sequenceInitialized = true;
-  initSequencePromise = null;
-  return monotonicSequence;
 }
 
 /**
  * Ensures that the journal sequence counter is initialized from disk before writing.
+ * Throws explicitly if sequence restoration failed, preventing sequence reset to 1.
  */
 export async function ensureSequenceInitialized(): Promise<void> {
   if (sequenceInitialized) return;
@@ -69,6 +67,13 @@ export async function ensureSequenceInitialized(): Promise<void> {
     initSequencePromise = restoreJournalSequence();
   }
   await initSequencePromise;
+}
+
+/**
+ * Diagnostic helper to inspect journal sequence state.
+ */
+export function getJournalSequenceState(): { seq: number; initialized: boolean } {
+  return { seq: monotonicSequence, initialized: sequenceInitialized };
 }
 
 /**
@@ -115,12 +120,13 @@ export async function getHistoricalJournalEventsWithStatus(): Promise<JournalRea
 
 /**
  * Clear all journal events (strictly called during confirmed user data reset).
+ * Awaits disk clearing first. If disk clearing fails, sequence state is NOT mutated.
  */
 export async function clearJournalEvents(): Promise<void> {
+  await idbClearEvents();
   monotonicSequence = 0;
   sequenceInitialized = true;
   initSequencePromise = null;
-  await idbClearEvents();
 }
 
 export interface ReplayedProjections {

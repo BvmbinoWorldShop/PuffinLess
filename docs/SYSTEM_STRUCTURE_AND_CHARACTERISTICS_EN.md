@@ -1,6 +1,6 @@
 # PuffinLess — System Structure & Characteristics Manual
 
-**Version:** 2.1 (Hardened Journal Encryption, Fail-Visibly Resilience & Financial Center Legibility Release)  
+**Version:** 2.2 (Connected Store Resilience, Safe Sequence Restoration & Genuine Browser Verification Release)  
 **Classification:** Core System Architecture Specification  
 **Architecture Paradigm:** 100% On-Device, Offline-First, Zero-Telemetry, Encrypted Event Sourcing & Multi-Tier Persistence  
 **Author:** DeepMind Advanced Agentic Coding Pair Programming Team
@@ -14,13 +14,14 @@ PuffinLess is an autonomous, clinical-grade substance-recovery and sobriety-trac
 ### Foundational Characteristics
 1. **Zero External Network Dependencies (100% Offline)**: All computation, data persistence, cryptographic encryption, and statistical analytics execute locally on the user's host browser. Zero network requests leave the device.
 2. **Encrypted Append-Only Event Sourcing**: User interactions are recorded as discrete, monotonic, immutable journal events in an IndexedDB event store (`events_store`), encrypted at rest with Web Crypto AES-GCM 256-bit. Guarantees replayability, crash resilience, sequence monotonicity, and confidential auditability.
-3. **Fail-Visibly Storage Policy**: All journal and vault operations fail visibly. Critical write failures are never silently swallowed; if persistence or encryption fails, an explicit exception propagates immediately to alert callers and prevent corrupted optimistic state.
-4. **Multi-Tier Defense-in-Depth Storage**: Data is protected and persisted simultaneously across four physical and logical tiers: IndexedDB Key-Value Store, Encrypted IndexedDB Event Journal, Modern LocalStorage v2, and Unalterable Local Device Rescue Snapshots.
-5. **Hardware-Accelerated Web Crypto AES-GCM**: Military-grade authenticated encryption using non-extractable 256-bit Web Crypto keys (`crypto.subtle`), unique 96-bit initialization vectors (IVs) per operation, and PBKDF2 (100,000 iterations) key/PIN protection.
-6. **Strict Anti-Truncation & Error Distinction**: Empty arrays are rejected whenever existing data or decryption failures exist. Corrupted records or disk I/O errors throw explicit exceptions (`DecryptionError`, `Error`) and are never misconstrued as missing data.
-7. **Honest, Transparent Disaster Recovery**: Recovery scanning evaluates baseline data, reports genuine newly restored records versus already-healthy state, itemizes scanned storage engines, and verifies date field authenticity.
-8. **High-Contrast Clinical Ergonomics**: Critical quantitative views, including the Financial Center (`MoneyView.tsx`), employ crisp high-contrast white typography (`text-white`, `text-white/95`, `text-white/90`) guaranteeing 100% legibility in all lighting conditions and theme modes.
-9. **Single-File Portable Distribution**: Compiles to an obfuscated, fully standalone single `.html` file (`dist/standalone.html`) with embedded WOFF2 fonts and assets, deployable on any desktop or mobile browser without installation.
+3. **Fail-Visibly Storage & Rollback Policy**: All journal and vault operations fail visibly. Critical write failures are never silently swallowed; if persistence or encryption fails, the in-memory state automatically rolls back to prevent desynchronization, an explicit exception propagates immediately, and a visible alert banner is rendered in the UI.
+4. **Safe Sequence Restoration**: Sequence numbering is restored safely from disk via `idbGetMaxEventSeq()`. If disk queries fail, sequence restoration throws explicitly, preserves `sequenceInitialized = false`, and prevents sequence resets or numbering collisions with past records.
+5. **Multi-Tier Defense-in-Depth Storage**: Data is protected and persisted simultaneously across four physical and logical tiers: IndexedDB Key-Value Store, Encrypted IndexedDB Event Journal, Modern LocalStorage v2, and Unalterable Local Device Rescue Snapshots.
+6. **Hardware-Accelerated Web Crypto AES-GCM**: Military-grade authenticated encryption using non-extractable 256-bit Web Crypto keys (`crypto.subtle`), unique 96-bit initialization vectors (IVs) per operation, and PBKDF2 (100,000 iterations) key/PIN protection.
+7. **Strict Anti-Truncation & Error Distinction**: Empty arrays are rejected whenever existing data or decryption failures exist. Corrupted records or disk I/O errors throw explicit exceptions (`DecryptionError`, `Error`) and are never misconstrued as missing data.
+8. **Honest, Transparent Disaster Recovery**: Recovery scanning evaluates baseline data, reports genuine newly restored records versus already-healthy state, itemizes scanned storage engines, and verifies date field authenticity.
+9. **High-Contrast Clinical Ergonomics**: Critical quantitative views, including the Financial Center (`MoneyView.tsx`) and persistence error banners, employ crisp high-contrast white and alert typography guaranteeing 100% legibility in all lighting conditions and theme modes.
+10. **Single-File Portable Distribution**: Compiles to an obfuscated, fully standalone single `.html` file (`dist/standalone.html`) with embedded WOFF2 fonts and assets, deployable on any desktop or mobile browser without installation.
 
 ---
 
@@ -32,6 +33,7 @@ flowchart TD
         UI_Dash["Dashboard & Daily Sobriety Dial"]
         UI_Log["Intake Logger (Cigarettes, Puffs, Cannabis)"]
         UI_Money["Financial Center & High-Contrast Metrics (MoneyView)"]
+        UI_ErrorBanner["Sticky Persistence Error Banner (Fail-Visibly)"]
         UI_SOS["SOS Emergency 180s Craving Breaker"]
         UI_Cert["Clinical Certificate & Period Metrics"]
         UI_Modals["Profile, Security PIN, & Recovery Modal"]
@@ -41,7 +43,8 @@ flowchart TD
         AppStore["useAppStore Hook"]
         SyncHydrate["Boot Phase 1: Sync Hydration (Zero-Flash)"]
         AsyncHydrate["Boot Phase 2: Async IDB Hydration"]
-        SeqRestore["Cold Restart: restoreJournalSequence()"]
+        SeqRestore["Cold Restart: restoreJournalSequence() (Fails Safely)"]
+        RollbackMgr["Optimistic State Rollback Manager"]
         CalcEngine["Clinical Calculation Engine (obsidianCore)"]
     end
 
@@ -50,6 +53,7 @@ flowchart TD
         ReplayEngine["replayJournalEvents() (Multi-Entity Undo)"]
         SeqCounter["Monotonic Sequence Counter (Restored from Disk)"]
         ReadStatus["getHistoricalJournalEventsWithStatus() ('empty'|'success'|'error')"]
+        ClearJournal["clearJournalEvents() (Unswallowed Errors)"]
     end
 
     subgraph Storage_Queue ["Serialization & Concurrency Barrier (storage.ts)"]
@@ -80,12 +84,14 @@ flowchart TD
     UI_SOS --> AppStore
     UI_Cert --> CalcEngine
     UI_Modals --> AppStore
+    AppStore --> UI_ErrorBanner
 
     AppStore --> SyncHydrate
     AppStore --> AsyncHydrate
     AppStore --> SeqRestore
     AppStore --> RecEvent
     AppStore --> FIFO
+    AppStore --> RollbackMgr
 
     SeqRestore --> SeqCounter
     RecEvent --> SeqCounter
@@ -93,6 +99,7 @@ flowchart TD
     WebCrypto --> IDB_Events
     ReadStatus <-- IDB_Events
     ReplayEngine <-- ReadStatus
+    ClearJournal --> IDB_Events
 
     FIFO --> Guard
     Guard --> UnionMerge
@@ -165,11 +172,11 @@ PuffinLess implements event sourcing to solve data overwriting and race conditio
 #### Journal Hardening Principles
 1. **Encrypted at Rest**: All journal events persisted to IndexedDB `events_store` are encrypted with Web Crypto AES-GCM 256-bit. Raw sensitive notes or intake payloads are never stored in plaintext.
 2. **Fail-Visibly Persistence**: `recordJournalEvent()` awaits `idbAppendEvent()` and never swallows storage or encryption errors. If persistence fails, the call throws immediately, preventing silent corruption.
-3. **Explicit Read Status**: `idbGetAllEventsWithStatus()` explicitly distinguishes:
-   - `'empty'`: Store exists but contains zero records.
-   - `'success'`: Events were read and successfully decrypted.
-   - `'error'`: Store inaccessible or decryption failed (contains underlying error; never misreported as empty).
-4. **Cold-Restart Sequence Continuity**: `restoreJournalSequence()` scans the highest `seq` in IndexedDB `events_store` during app boot. New events post-restart continue strictly monotonically (`n+1`, `n+2`) without resetting to 1 or causing ID collisions.
+3. **Safe Sequence Restoration (`restoreJournalSequence`)**:
+   - Queries `idbGetMaxEventSeq()`, which checks the `seq` index directly in $O(1)$.
+   - If disk reading fails, the exception is rethrown, `sequenceInitialized` remains `false`, and `monotonicSequence` is **never** reset to 0.
+   - Any attempt to write while sequence restoration failed throws immediately, preventing numbering collisions with past records.
+4. **Unswallowed Clearing Errors**: `idbClearEvents()` and `clearJournalEvents()` rethrow errors immediately if disk clearing fails. `monotonicSequence` is reset only after disk confirmation.
 5. **Multi-Entity Removal Replay**: `replayJournalEvents()` accurately replays removals and deletions:
    - `SUBSTANCE_REMOVED`: Decrements matching intake counts up to event timestamp.
    - `STREAK_REMOVED`: Evicts deleted streaks by ID.
@@ -179,25 +186,27 @@ PuffinLess implements event sourcing to solve data overwriting and race conditio
 
 ---
 
-### 3.3. Concurrency, Serialization & Anti-Truncation (`src/utils/storage.ts`)
+### 3.3. Store Actions, Concurrency & Rollback Mechanics (`src/state/useAppStore.ts` & `src/App.tsx`)
 
-#### 1. The FIFO Promise Pipeline (`storageQueue`)
+#### 1. Connected Store Actions
+All state mutation actions (`logSubstance`, `removeSubstance`, `resistCraving`, `addExpense`, `deleteExpense`, `addGoal`, `deleteGoal`, `toggleGoal`, `saveSleepEnergyEntry`, `updateProfile`) are connected directly to journal persistence and storage snapshot promises:
+- They are asynchronous (`Promise<void>`).
+- If IndexedDB or journal recording throws, the action catches the error, rolls back in-memory state to the pre-action snapshot, sets `persistenceError`, and rethrows.
+
+#### 2. Visual Persistence Alert Banner
+`App.tsx` subscribes to `persistenceError`:
+- When persistence fails, a sticky top banner appears with high contrast (`bg-rose-950/95`, `text-rose-100`) detailing the exact failure and providing an immediate dismiss button.
+- The user is never misled into believing that an unpersisted action succeeded.
+
+#### 3. The FIFO Promise Pipeline (`storageQueue`)
 To eliminate write races when multiple components or rapid taps fire simultaneously, all read-modify-write storage operations are funnelled through `storageQueue.enqueue()`. Calls execute in strict FIFO order, preventing out-of-order completions.
 
-#### 2. Union Merging by Default
-When saving arrays (e.g., substance logs, cravings, streaks, expenses), the storage layer merges incoming items with existing on-disk records using deduplicated primary keys (`id`, `timestamp`, `start`).
-- **Concurrent Burst Preservation**: 20 rapid, independent logs fired in the same millisecond all survive.
-- **Explicit Overwrites**: Deliberate deletions pass `{ overwrite: true }`, ensuring user decisions are strictly respected.
-
-#### 3. Strict Empty-Array Protection (`verifySafeEmptyOverwrite`)
+#### 4. Strict Empty-Array Protection (`verifySafeEmptyOverwrite`)
 Empty arrays (`[]`) are prohibited from overwriting stored data unless:
 - The user explicitly calls reset (`{ allowEmptyReset: true }`), **AND**
 - Primary storage is genuinely absent or empty, **AND**
 - Legacy storage is genuinely absent or empty, **AND**
 - The rescue snapshot contains zero records.
-
-> [!CAUTION]
-> If a read operation returns `status: 'decryption_error'` or database I/O fails, `verifySafeEmptyOverwrite` immediately throws `DecryptionError` or `Error`. It **never** falls back to treating read failures as proof that data does not exist.
 
 ---
 
@@ -273,23 +282,35 @@ src/ (TypeScript, React 19, CSS)
 
 ---
 
-## 5. Automated Verification Harness (52 Tests Across 8 Pillars)
+## 5. Automated Verification Harnesses (Unit, Integration & Genuine Browser)
 
-The test suite in [`tests/engineering-verification.test.js`](file:///c:/Users/tiegb/Documents/WEB%20WORK/PuffinLess/tests/engineering-verification.test.js) connects directly to production source code without mocks for cryptographic operations, storage queue logic, or journal encryption:
+PuffinLess maintains two independent automated test suites:
 
+### 1. Codebase Engineering Test Suite (57 Tests Across 8 Pillars)
+Executed via `npm run test:unit` (`tests/engineering-verification.test.js`):
 1. **Pillar 1: AES-GCM via Non-Extractable CryptoKey & IndexedDB Vault** (6 tests)
 2. **Pillar 2: PIN Hashing with PBKDF2 (100k iter) & Complete Data Erasure** (2 tests)
 3. **Pillar 3: Period-Scoped Statistics (Direct Production Execution)** (4 tests)
 4. **Pillar 4: Session Security, PBKDF2 Vault Integration & Restart Recovery** (4 tests)
 5. **Pillar 5: Real IndexedDB Persistence, Migration & Zero-Loss Recovery** (10 tests)
 6. **Pillar 6: Genuine Browser Cold-Restart & Storage Lifecycle Verification** (4 tests)
-7. **Pillar 7: Zero Data Loss Safeguards, Event Journaling & Concurrency** (22 tests)
+7. **Pillar 7: Zero Data Loss Safeguards, Event Journaling & Concurrency** (27 tests)
    - Encrypted events at rest with AES-GCM in `events_store`.
    - Fail-visibly error propagation on journal write failures.
-   - Explicit `'empty' | 'success' | 'error'` read result differentiation.
-   - Removal-event replay (`SUBSTANCE_REMOVED`, `STREAK_REMOVED`, `CRAVING_REMOVED`).
-   - Monotonic sequence restoration after simulated cold restart.
+   - Safe sequence restoration (`idbGetMaxEventSeq()`) without reset to 0 on storage error.
+   - Unswallowed journal clear errors.
+   - Real application actions (`logSubstance`, `resistCraving`, `addExpense`) connected to journal.
+   - Real application actions rollback optimistic state and surface `persistenceError`.
+   - Real application removal actions (`removeSubstance`).
    - 20-event rapid concurrent persistence without loss.
+
+### 2. Genuine Browser Verification Suite (Real Chromium / Edge Engine)
+Executed via `npm run test:browser` (`tests/real-browser-verification.js`):
+1. **Real Browser Boot & Journaling**: Loads `dist/standalone.html`, performs Web Crypto key generation, and appends encrypted events to real IndexedDB on disk.
+2. **Genuine Cold Restart**: Terminates the browser process completely (wipes all RAM), launches a new browser process with the exact same user data directory, and verifies 0-flash hydration, data preservation, and sequence continuity (`maxSeq=2`).
+3. **Storage Failure & DOM Banner**: Simulates IndexedDB failure, verifies action rejection, state rollback, and DOM rendering of the persistence error banner.
+4. **Disaster Recovery**: Simulates corrupted primary store and recovers data from rescue snapshots.
+5. **Roundtrip Backup Restoration**: Full JSON backup export, complete database wipe, and JSON restoration in the live browser.
 
 ---
 
@@ -312,20 +333,21 @@ PuffinLess/
 │   ├── core/
 │   │   └── obsidianCore.ts                         # Addiction metrics, clinical indicators, quotes
 │   ├── state/
-│   │   └── useAppStore.ts                          # Central store with sequence restoration & events
+│   │   └── useAppStore.ts                          # Central store with sequence restoration & connected actions
 │   ├── types/
 │   │   └── index.ts                                # TypeScript types, journal event schema
 │   └── utils/
 │       ├── crypto.ts                               # Web Crypto AES-GCM, key vault, cryptoshredding
-│       ├── indexedDb.ts                            # Encrypted events_store & kv_store driver
-│       ├── journal.ts                              # Append-only journal & projection replay engine
+│       ├── indexedDb.ts                            # Encrypted events_store, idbGetMaxEventSeq, kv_store driver
+│       ├── journal.ts                              # Safe sequence restore & projection replay engine
 │       ├── recovery.ts                             # Deep multi-tier recovery engine
 │       ├── storage.ts                              # FIFO queue, union merge, empty-array protection
 │       ├── security.ts                             # PBKDF2 PIN hashing & exponential lockout
 │       ├── clinicalMetrics.ts                      # Period-scoped calculations
 │       └── dates.ts                                # Robust date formatting & parsing
 ├── tests/
-│   └── engineering-verification.test.js            # 52 comprehensive verification tests (100% green)
+│   ├── engineering-verification.test.js            # 57 comprehensive verification tests (100% green)
+│   └── real-browser-verification.js                # Genuine Chromium/Edge cold restart & recovery suite (100% green)
 └── scripts/
     └── make-standalone.js                          # Inliner & JavaScript obfuscation pipeline
 ```

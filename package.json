@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/make-standalone.js",
     "lint": "oxlint",
-    "test": "node --test tests/engineering-verification.test.js",
+    "test": "node --test tests/engineering-verification.test.js && node tests/real-browser-verification.js",
+    "test:unit": "node --test tests/engineering-verification.test.js",
+    "test:browser": "node tests/real-browser-verification.js",
     "audit": "npm audit --audit-level=high",
     "preview": "vite preview --open"
   },

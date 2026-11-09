@@ -497,25 +497,71 @@ export async function idbGetAllEventsWithStatus(): Promise<JournalReadResult> {
 }
 
 /**
+ * Queries the highest sequence number in the events_store journal.
+ * Throws explicitly on failure so callers know sequence initialization failed.
+ * Returns 0 if the journal is genuinely empty.
+ */
+export async function idbGetMaxEventSeq(): Promise<number> {
+  const db = await openPuffinLessDB();
+  return new Promise<number>((resolve, reject) => {
+    try {
+      const tx = db.transaction(EVENTS_STORE_NAME, 'readonly');
+      const store = tx.objectStore(EVENTS_STORE_NAME);
+      let maxSeq = 0;
+
+      if (store.indexNames.contains('seq')) {
+        const index = store.index('seq');
+        const cursorReq = index.openCursor(null, 'prev');
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (cursor && typeof cursor.key === 'number') {
+            resolve(cursor.key);
+          } else {
+            resolve(0);
+          }
+        };
+        cursorReq.onerror = () => reject(cursorReq.error || new Error('[IndexedDB] Error querying max seq cursor'));
+      } else {
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const records = (req.result || []) as Array<{ seq?: number }>;
+          for (const r of records) {
+            if (typeof r.seq === 'number' && r.seq > maxSeq) {
+              maxSeq = r.seq;
+            }
+          }
+          resolve(maxSeq);
+        };
+        req.onerror = () => reject(req.error || new Error('[IndexedDB] Error reading events store records'));
+      }
+      tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error querying max seq'));
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+}
+
+/**
  * Clear the events_store journal (called strictly during confirmed user data reset).
+ * Fails visibly and never swallows errors.
  */
 export async function idbClearEvents(): Promise<void> {
-  if (typeof window === 'undefined' || !window.indexedDB) return;
-  try {
-    const db = await openPuffinLessDB();
-    await new Promise<void>((resolve, reject) => {
-      try {
-        const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
-        const store = tx.objectStore(EVENTS_STORE_NAME);
-        const req = store.clear();
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-        tx.oncomplete = () => resolve();
-      } catch (err) {
-        reject(err);
-      }
-    });
-  } catch {
-    // ignore
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    throw new Error('IndexedDB is not available');
   }
+  const db = await openPuffinLessDB();
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(EVENTS_STORE_NAME);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to clear events_store'));
+      tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing events_store'));
+      tx.onabort = () => reject(tx.error || new Error('[IndexedDB] Transaction aborted clearing events_store'));
+      tx.oncomplete = () => resolve();
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
 }

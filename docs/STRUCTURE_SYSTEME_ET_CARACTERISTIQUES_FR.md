@@ -1,6 +1,6 @@
 # PuffinLess — Manuel d'Architecture Système & Spécifications des Caractéristiques
 
-**Version :** 2.1 (Édition Durcie : Chiffrement du Journal, Résilience Fail-Visibly & Lisibilité du Centre Financier)  
+**Version :** 2.2 (Résilience du Store Connecté, Restauration Sécurisée des Séquences & Banc d'Épreuve Navigateur Réel)  
 **Classification :** Spécification d'Architecture Système Fondamentale  
 **Paradigme Architectural :** 100% Embarqué (On-Device), Hors-Ligne (Offline-First), Zéro Télémétrie, Event Sourcing Chiffré & Persistance Multi-Niveaux  
 **Auteurs :** Équipe DeepMind Advanced Agentic Coding en Binôme de Programmation
@@ -14,13 +14,14 @@ PuffinLess est une application web clinique autonome de sevrage tabagique, nicot
 ### Caractéristiques Fondamentales
 1. **Zéro Dépendance Réseau Externe (100% Hors-Ligne)** : Tous les calculs, l'indexation, le stockage, les chiffrements et les indicateurs cliniques sont exécutés exclusivement dans le navigateur de l'utilisateur. Aucune requête ne quitte l'appareil.
 2. **Journal d'Événements Immuable et Chiffré au Repos (Encrypted Event Sourcing)** : Chaque action utilisateur est enregistrée sous forme d'événement discret et monotone dans un journal IndexedDB dédié (`events_store`), intégralement chiffré au repos avec Web Crypto AES-GCM 256 bits. Garantit la rejouabilité totale, la résilience aux pannes, la stricte monotonie des séquences et la confidentialité absolue des données de santé.
-3. **Politique d'Échec Visible (Fail-Visibly)** : Toutes les opérations du journal et du coffre échouent de manière visible. Les échecs d'écriture critiques ne sont jamais masqués en silence ; si la persistance ou le chiffrement échoue, une exception explicite se propage immédiatement pour avertir l'application et prévenir tout état optimiste corrompu.
-4. **Persistance Multi-Niveaux en Défense Approfondie** : Les données sont protégées simultanément sur quatre niveaux logiques et physiques : magasin Clé-Valeur IndexedDB, Journal d'Événements Chiffré IndexedDB, LocalStorage v2 chiffré, et Snapshot de Sauvetage Local non modifiable.
-5. **Chiffrement Authentifié Matériel AES-GCM (Web Crypto API)** : Chiffrement militaire matériel utilisant des clés non extractibles de 256 bits (`crypto.subtle`), un vecteur d'initialisation (IV) dynamique unique de 96 bits par opération et un hachage de sécurité PBKDF2 (100 000 itérations).
-6. **Protection Anti-Troncature Stricte & Gestion Réelle des Erreurs** : L'enregistrement d'un tableau vide est bloqué si des données ou des erreurs de déchiffrement existent. Les corruptions et erreurs disque lèvent des exceptions explicites (`DecryptionError`, `Error`) et ne sont jamais confondues avec des données absentes.
-7. **Rapports de Récupération Honnêtes et Détaillés** : Le moteur de récupération compare l'état antérieur et les nouvelles découvertes, indique si les données étaient déjà intactes, détaille les sources analysées et valide l'authenticité temporelle des dates.
-8. **Ergonomie Visuelle & Typographie Blanche Haute Lisibilité** : Les vues analytiques et financières critiques, notamment le Centre Financier (`MoneyView.tsx`), adoptent une typographie blanche contrastée (`text-white`, `text-white/95`, `text-white/90`) assurant une lisibilité absolue en toutes conditions d'éclairage.
-9. **Distribution Monofichier Autonome** : Compilation en un unique fichier `.html` obfusqué et autonome (`dist/standalone.html`) intégrant polices et styles WOFF2 locaux, exécutable sans installation sur tout navigateur.
+3. **Politique d'Échec Visible & Annulation Optimiste (Rollback)** : Toutes les opérations du journal et du magasin échouent de manière visible. Les échecs d'écriture critiques ne sont jamais masqués en silence ; si la persistance ou le chiffrement échoue, l'état en mémoire vive est automatiquement restauré à son état antérieur, une exception est immédiatement propagée, et un bandeau d'alerte rouge à haut contraste s'affiche dans l'interface.
+4. **Restauration de Séquence Sécurisée (Fail-Safely)** : Les numéros de séquence sont restaurés depuis le disque via `idbGetMaxEventSeq()`. Si la lecture échoue, une exception explicite est levée, `sequenceInitialized` demeure à `false`, et la séquence n'est **jamais** réinitialisée à 0, empêchant tout écrasement ou collision d'identifiants historiques.
+5. **Persistance Multi-Niveaux en Défense Approfondie** : Les données sont protégées simultanément sur quatre niveaux logiques et physiques : magasin Clé-Valeur IndexedDB, Journal d'Événements Chiffré IndexedDB, LocalStorage v2 chiffré, et Snapshot de Sauvetage Local non modifiable.
+6. **Chiffrement Authentifié Matériel AES-GCM (Web Crypto API)** : Chiffrement militaire matériel utilisant des clés non extractibles de 256 bits (`crypto.subtle`), un vecteur d'initialisation (IV) dynamique unique de 96 bits par opération et un hachage de sécurité PBKDF2 (100 000 itérations).
+7. **Protection Anti-Troncature Stricte & Gestion Réelle des Erreurs** : L'enregistrement d'un tableau vide est bloqué si des données ou des erreurs de déchiffrement existent. Les corruptions et erreurs disque lèvent des exceptions explicites (`DecryptionError`, `Error`) et ne sont jamais confondues avec des données absentes.
+8. **Rapports de Récupération Honnêtes et Détaillés** : Le moteur de récupération compare l'état antérieur et les nouvelles découvertes, indique si les données étaient déjà intactes, détaille les sources analysées et valide l'authenticité temporelle des dates.
+9. **Ergonomie Visuelle & Typographie Blanche Haute Lisibilité** : Les vues analytiques et financières critiques, notamment le Centre Financier (`MoneyView.tsx`) et les bandeaux d'alerte, adoptent une typographie contrastée garantissant une lisibilité absolue en toutes conditions d'éclairage.
+10. **Distribution Monofichier Autonome** : Compilation en un unique fichier `.html` obfusqué et autonome (`dist/standalone.html`) intégrant polices et styles WOFF2 locaux, exécutable sans installation sur tout navigateur.
 
 ---
 
@@ -32,6 +33,7 @@ flowchart TD
         UI_Dash["Tableau de bord & Cadran de sobriété"]
         UI_Log["Enregistreur de prises (Cigarettes, Vapes, Cannabis)"]
         UI_Money["Centre Financier & Typographie Haute Lisibilité (MoneyView)"]
+        UI_ErrorBanner["Bandeau d'Alerte Persistance Échouée (Fail-Visibly)"]
         UI_SOS["Protocole SOS Urgence Pulsion (180 secondes)"]
         UI_Cert["Certificat Clinique & Métriques Périodiques"]
         UI_Modals["Modales Profil, Code PIN & Mode Récupération"]
@@ -41,7 +43,8 @@ flowchart TD
         AppStore["Hook Central useAppStore"]
         SyncHydrate["Phase 1 : Hydratation Synchrone (Anti-Flash)"]
         AsyncHydrate["Phase 2 : Hydratation Asynchrone IndexedDB"]
-        SeqRestore["Redémarrage : restoreJournalSequence()"]
+        SeqRestore["Redémarrage : restoreJournalSequence() (Fail-Safely)"]
+        RollbackMgr["Gestionnaire d'Annulation Optimiste (Rollback)"]
         CalcEngine["Moteur d'Analyse Clinique (obsidianCore)"]
     end
 
@@ -50,6 +53,7 @@ flowchart TD
         ReplayEngine["replayJournalEvents() (Annulation Multi-Entités)"]
         SeqCounter["Compteur Monotone (Restauré depuis le disque)"]
         ReadStatus["getHistoricalJournalEventsWithStatus() ('empty'|'success'|'error')"]
+        ClearJournal["clearJournalEvents() (Erreurs Non Masquées)"]
     end
 
     subgraph Storage_Queue ["Sérialisation & Barrière de Concurrence (storage.ts)"]
@@ -80,12 +84,14 @@ flowchart TD
     UI_SOS --> AppStore
     UI_Cert --> CalcEngine
     UI_Modals --> AppStore
+    AppStore --> UI_ErrorBanner
 
     AppStore --> SyncHydrate
     AppStore --> AsyncHydrate
     AppStore --> SeqRestore
     AppStore --> RecEvent
     AppStore --> FIFO
+    AppStore --> RollbackMgr
 
     SeqRestore --> SeqCounter
     RecEvent --> SeqCounter
@@ -93,6 +99,7 @@ flowchart TD
     WebCrypto --> IDB_Events
     ReadStatus <-- IDB_Events
     ReplayEngine <-- ReadStatus
+    ClearJournal --> IDB_Events
 
     FIFO --> Guard
     Guard --> UnionMerge
@@ -165,39 +172,32 @@ PuffinLess implémente l'architecture d'Event Sourcing pour neutraliser les écr
 #### Principes Fondamentaux de Durcissement du Journal
 1. **Chiffrement au Repos Systématique** : Tous les événements persistés dans `events_store` d'IndexedDB sont chiffrés avec Web Crypto AES-GCM 256 bits. Aucune note sensible ni donnée de prise n'est stockée en texte clair.
 2. **Échec Visible (Fail-Visibly)** : `recordJournalEvent()` attend la confirmation de `idbAppendEvent()` et ne masque jamais les erreurs d'écriture ou de chiffrement. Si la persistance échoue, une exception est immédiatement levée.
-3. **Statut de Lecture Explicite** : `idbGetAllEventsWithStatus()` distingue sans ambiguïté :
-   - `'empty'` : Magasin existant contenant zéro enregistrement.
-   - `'success'` : Événements lus et déchiffrés avec succès.
-   - `'error'` : Magasin inaccessible ou déchiffrement échoué (fournit l'erreur d'origine ; n'est jamais confondu avec un journal vide).
-4. **Continuité de Séquence après Redémarrage** : `restoreJournalSequence()` scanne la séquence `seq` maximale dans `events_store` au démarrage de l'application. Les nouveaux événements continuent de manière strictement monotone (`n+1`, `n+2`) sans jamais régresser à 1 ni provoquer de collisions d'identifiants.
-5. **Rejeu Précis des Suppressions Multi-Entités** : `replayJournalEvents()` prend en charge fidèlement les événements d'annulation :
-   - `SUBSTANCE_REMOVED` : Décrémente le total des prises correspondantes jusqu'à l'horodatage de l'événement.
-   - `STREAK_REMOVED` : Supprime la série annulée par son identifiant.
-   - `CRAVING_REMOVED` : Supprime la pulsion annulée par son identifiant.
-   - `PURCHASE_EXPENSE_DELETED` : Supprime la dépense par son identifiant.
-   - `SAVINGS_GOAL_DELETED` : Supprime l'objectif par son identifiant.
+3. **Restauration de Séquence Sécurisée (`restoreJournalSequence`)** :
+   - Interroge `idbGetMaxEventSeq()`, qui inspecte directement l'index `seq` en $O(1)$.
+   - Si la lecture échoue, l'exception est levée, `sequenceInitialized` demeure à `false`, et la séquence n'est **jamais** réinitialisée à 0.
+   - Toute tentative d'écriture ultérieure échoue immédiatement, prévenant toute collision avec les séquences historiques.
+4. **Erreurs de Nettoyage Non Masquées** : `idbClearEvents()` et `clearJournalEvents()` relèvent immédiatement les erreurs en cas d'échec disque. La séquence en mémoire n'est remise à 0 qu'après confirmation physique.
+5. **Rejeu Précis des Suppressions Multi-Entités** : `replayJournalEvents()` prend en charge fidèlement les événements d'annulation (`SUBSTANCE_REMOVED`, `STREAK_REMOVED`, `CRAVING_REMOVED`, `PURCHASE_EXPENSE_DELETED`, `SAVINGS_GOAL_DELETED`).
 
 ---
 
-### 3.3. Concurrence, Sérialisation & Anti-Troncature (`src/utils/storage.ts`)
+### 3.3. Actions du Store, Concurrence & Mécanisme de Rollback (`src/state/useAppStore.ts` & `src/App.tsx`)
 
-#### 1. Le Pipeline FIFO de Promises (`storageQueue`)
-Pour éliminer les courses d'écriture lors de clics rapides ou d'appels simultanés, toutes les opérations de lecture-modification-écriture passent par `storageQueue.enqueue()`. Elles s'exécutent dans un ordre FIFO rigoureux.
+#### 1. Actions du Store Connectées à la Persistance
+Toutes les actions modifiant l'état (`logSubstance`, `removeSubstance`, `resistCraving`, `addExpense`, `deleteExpense`, `addGoal`, `deleteGoal`, `toggleGoal`, `saveSleepEnergyEntry`, `updateProfile`) sont reliées directement aux Promises de persistance du journal et des snapshots :
+- Elles sont asynchrones (`Promise<void>`).
+- Si une erreur d'écriture ou de journal survient, l'action intercepte l'erreur, annule immédiatement la mise à jour optimiste pour revenir à l'état antérieur exact, définit `persistenceError` et propage l'erreur.
 
-#### 2. Fusion par Union par Défaut
-Lors de l'enregistrement de collections (prises, pulsions, séries, dépenses), la couche de stockage fusionne les éléments entrants avec les enregistrements disque existants à partir de clés primaires dédupliquées (`id`, `timestamp`, `start`).
-- **Préservation des Événements Concurrents** : 20 événements indépendants enregistrés dans la même milliseconde survivent tous sans perte.
-- **Écrasement Explicite** : Les suppressions intentionnelles transmettent `{ overwrite: true }`, garantissant le respect absolu des choix de l'utilisateur.
+#### 2. Bandeau Visuel d'Alerte de Persistance
+Le composant racine `App.tsx` surveille `persistenceError` :
+- En cas d'échec de stockage, un bandeau supérieur contrasté (`bg-rose-950/95`, `text-rose-100`) apparaît instantanément, indiquant le message d'erreur précis et proposant un bouton de fermeture.
+- L'utilisateur n'est jamais trompé par un état visuel qui n'aurait pas été sauvé sur le disque.
 
-#### 3. Protection Stricte Contre les Tableaux Vides (`verifySafeEmptyOverwrite`)
-L'écrasement de données par un tableau vide (`[]`) est interdit sauf si :
-- L'utilisateur a explicitement demandé une réinitialisation (`{ allowEmptyReset: true }`), **ET**
-- Le stockage primaire est réellement absent ou vide, **ET**
-- Le stockage historique est réellement absent ou vide, **ET**
-- Le snapshot de sauvetage ne contient aucun enregistrement.
+#### 3. Pipeline FIFO de Promises (`storageQueue`)
+Toutes les écritures passent par `storageQueue.enqueue()` pour garantir un ordre d'exécution strict et éliminer les courses d'écriture concurrentes.
 
-> [!CAUTION]
-> Si une opération de lecture retourne `status: 'decryption_error'` ou si une erreur d'E/S survient, `verifySafeEmptyOverwrite` lève immédiatement `DecryptionError` ou `Error`. Elle ne traite **jamais** un échec de lecture comme une preuve que les données sont inexistantes.
+#### 4. Protection Anti-Tableau Vide (`verifySafeEmptyOverwrite`)
+L'écrasement de données par un tableau vide (`[]`) est bloqué si des données ou des erreurs de déchiffrement existent sur le support primaire, historique ou de sauvetage.
 
 ---
 
@@ -220,7 +220,6 @@ PuffinLess intègre un scanner de récupération local qui reconstruit l'histori
    - `hasNewlyRecoveredData` : Passe à `true` **uniquement** si des enregistrements étaient absents de la référence initiale.
    - `newlyRecovered` : Dénombrement exact (`streaks`, `cravings`, `substances`, `expenses`, `goals`, `sleep`, `profileRestored`).
    - `integrity` : Rapporte `totalScanned`, `validRecords`, `corruptedRejected` et `datesVerified`.
-   - Si les données étaient déjà intactes, l'interface affiche : *"Toutes vos données sont déjà saines et synchronisées (0 élément manquant)."*
 
 ---
 
@@ -249,7 +248,7 @@ Pour éviter les graphiques faussés et les interprétations cliniques erronées
 
 Les métriques financières et cliniques exigent une lisibilité immédiate, à haut contraste, sans fatigue oculaire ni délavage sombre :
 - **Typographie Blanche Haute Lisibilité** : Tous les indicateurs analytiques majeurs, titres de cartes, descriptions, analyses en 4 quadrants et projections composées emploient des polices blanches précises (`text-white`, `text-white/95`, `text-white/90`, `text-white/85 font-medium`).
-- **Élimination Totale des Textes à Faible Contraste** : Les teintes grises assombries et les textes peu contrastés des 4 quadrants de référence (Perte sur 10 ans, Espérance de vie, Sommeil paradoxal, Charge pulmonaire) ont été remplacés par des tons blancs équilibrés.
+- **Élimination Totale des Textes à Faible Contraste** : Les teintes grises assombries et les textes peu contrastés des 4 quadrants de référence ont été remplacés par des tons blancs équilibrés.
 - **Clarté des Modales & Formulaires** : Les fenêtres de saisie d'achats et de création d'objectifs appliquent des libellés blancs en gras (`text-white font-semibold`) et des indications limpides.
 
 ---
@@ -273,23 +272,35 @@ src/ (TypeScript, React 19, CSS)
 
 ---
 
-## 5. Banc d'Épreuve & Tests d'Ingénierie Automatisés (52 Tests sur 8 Piliers)
+## 5. Bancs d'Épreuve & Tests d'Ingénierie Automatisés (57 Tests Unitaires & Banc Navigateur Réel)
 
-La suite de tests dans [`tests/engineering-verification.test.js`](file:///c:/Users/tiegb/Documents/WEB%20WORK/PuffinLess/tests/engineering-verification.test.js) s'exécute directement sur le code source de production sans simulation artificielle de la cryptographie ou de la file d'attente de stockage :
+PuffinLess s'appuie sur deux suites de tests automatisées indépendantes :
 
+### 1. Suite de Tests d'Ingénierie (57 Tests sur 8 Piliers)
+Exécutée via `npm run test:unit` (`tests/engineering-verification.test.js`) :
 1. **Pilier 1 : AES-GCM via CryptoKey Non Extractible & Coffre IndexedDB** (6 tests)
 2. **Pilier 2 : Hachage de PIN PBKDF2 (100k iter) & Effacement Total** (2 tests)
 3. **Pilier 3 : Métriques Périodiques (Exécution Réelle des Fonctions de Production)** (4 tests)
 4. **Pilier 4 : Sécurité de Session, Intégration PBKDF2 & Redémarrage** (4 tests)
 5. **Pilier 5 : Persistance Réelle IndexedDB, Migration & Zéro Perte** (10 tests)
 6. **Pilier 6 : Redémarrages Navigateur Réels & Cycle de Vie du Stockage** (4 tests)
-7. **Pilier 7 : Garanties Anti-Perte, Journal d'Événements & Concurrence** (22 tests)
-   - Chiffrement systématique au repos des événements avec AES-GCM dans `events_store`.
-   - Propagation d'erreur Fail-Visibly lors des échecs d'écriture au journal.
-   - Distinction explicite des statuts de lecture `'empty' | 'success' | 'error'`.
-   - Rejeu fidèle des suppressions (`SUBSTANCE_REMOVED`, `STREAK_REMOVED`, `CRAVING_REMOVED`).
-   - Restauration des séquences monotones après redémarrage à froid simulé.
+7. **Pilier 7 : Garanties Anti-Perte, Journal d'Événements & Concurrence** (27 tests)
+   - Chiffrement au repos des événements avec AES-GCM dans `events_store`.
+   - Échec visible et propagation d'erreurs d'écriture.
+   - Restauration de séquence sécurisée sans réinitialisation à 0.
+   - Non-masquage des erreurs de vidage du journal.
+   - Actions réelles du store (`logSubstance`, `resistCraving`, `addExpense`) connectées au journal.
+   - Rollback de l'état optimiste et affichage de `persistenceError` en cas de panne de stockage.
+   - Actions de suppression d'ingestion réelles (`removeSubstance`).
    - Survie sans perte de 20 enregistrements concurrents simultanés.
+
+### 2. Banc d'Épreuve Navigateur Réel (Moteur Chromium / Edge Natif)
+Exécuté via `npm run test:browser` (`tests/real-browser-verification.js`) :
+1. **Démarrage et Journalisation Navigateur Réel** : Chargement de `dist/standalone.html`, génération de clé Web Crypto et persistance d'événements chiffrés sur disque.
+2. **Redémarrage à Froid Véritable** : Arrêt forcé du processus navigateur (purge de la RAM), démarrage d'un second processus avec le même dossier utilisateur, vérification de l'hydratation sans flash et continuité des séquences (`maxSeq=2`).
+3. **Simulation d'Échec de Stockage & Bandeau DOM** : Simulation d'une panne disque, rejet visible de l'action, rollback de l'état optimiste et apparition du bandeau d'alerte rouge dans le DOM.
+4. **Récupération Sinistre Navigateur Réel** : Corruption simulée du stockage primaire et restauration complète depuis le snapshot de secours.
+5. **Sauvegarde et Restauration Complète** : Exportation JSON, effacement total, réimportation et validation de la restauration à 100%.
 
 ---
 
@@ -312,20 +323,21 @@ PuffinLess/
 │   ├── core/
 │   │   └── obsidianCore.ts                         # Indicateurs cliniques, calculs et citations
 │   ├── state/
-│   │   └── useAppStore.ts                          # Store central avec restauration de séquence et journal
+│   │   └── useAppStore.ts                          # Store central avec restauration sécurisée et actions reliées
 │   ├── types/
 │   │   └── index.ts                                # Types TypeScript, schéma des événements du journal
 │   └── utils/
 │       ├── crypto.ts                               # Web Crypto AES-GCM, coffre de clés, déchiquetage
-│       ├── indexedDb.ts                            # Pilote events_store chiffré et kv_store
-│       ├── journal.ts                              # Journal en ajout seul & moteur de rejeu des projections
+│       ├── indexedDb.ts                            # Pilote events_store chiffré, idbGetMaxEventSeq et kv_store
+│       ├── journal.ts                              # Restauration sécurisée de séquence & rejeu des projections
 │       ├── recovery.ts                             # Moteur de récupération multi-niveaux
 │       ├── storage.ts                              # File FIFO, fusion par union, protection anti-vide
 │       ├── security.ts                             # Hachage de PIN PBKDF2 & temporisation exponentielle
 │       ├── clinicalMetrics.ts                      # Calculs périodiques étanches
 │       └── dates.ts                                # Formatage et parsing de dates sécurisés
 ├── tests/
-│   └── engineering-verification.test.js            # 52 tests d'ingénierie rigoureux (100% au vert)
+│   ├── engineering-verification.test.js            # 57 tests d'ingénierie rigoureux (100% au vert)
+│   └── real-browser-verification.js                # Banc navigateur réel Chromium/Edge (100% au vert)
 └── scripts/
     └── make-standalone.js                          # Pipeline d'assemblage et d'obfuscation JavaScript
 ```

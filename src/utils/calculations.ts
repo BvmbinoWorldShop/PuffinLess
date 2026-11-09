@@ -1,7 +1,7 @@
-import type { UserProfile, SubstanceLog, CravingEntry, Badge, StreakRecord } from '../types';
-import { HEALTH_MILESTONES, ALL_BADGES } from './healthMilestones';
-import { computeLevelProgress } from '../core/levels';
-import type { LevelProgress } from '../core/levels';
+import type { UserProfile, SubstanceLog, CravingEntry, Badge, StreakRecord } from '../types/index.ts';
+import { HEALTH_MILESTONES, ALL_BADGES } from './healthMilestones.ts';
+import { computeLevelProgress } from '../core/levels.ts';
+import type { LevelProgress } from '../core/levels.ts';
 
 export interface CalculatedStats {
   /** Seconds of the CURRENT smoke-free streak (resets on every logged cigarette, puff or joint). */

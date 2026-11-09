@@ -8,7 +8,7 @@
  * The Core derives from them: habit profile, weekly trends, daily reality and
  * personalised coaching insights.
  */
-import type { UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, StreakRecord, SubstanceType } from '../types';
+import type { UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, StreakRecord, SubstanceType } from '../types/index.ts';
 import type { CalculatedStats } from '../utils/calculations.ts';
 import { computeSleepEnergyCorrelation } from '../utils/sleepTracker.ts';
 import { formatDuration, formatHour, lastNDates, dayLabel, localDateStr } from '../utils/dates.ts';

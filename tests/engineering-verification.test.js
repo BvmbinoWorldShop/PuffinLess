@@ -90,7 +90,18 @@ import {
   isAppSessionUnlocked,
   setAppSessionUnlocked,
 } from '../src/utils/security.ts';
-import { idbSet, deletePuffinLessDB, idbGetWithStatus, idbGetRawWithStatus, closePuffinLessDB, idbGetAllEventsWithStatus, openPuffinLessDB, EVENTS_STORE_NAME } from '../src/utils/indexedDb.ts';
+import {
+  idbSet,
+  deletePuffinLessDB,
+  idbGetWithStatus,
+  idbGetRawWithStatus,
+  closePuffinLessDB,
+  idbGetAllEventsWithStatus,
+  openPuffinLessDB,
+  EVENTS_STORE_NAME,
+  idbGetMaxEventSeq,
+  idbClearEvents,
+} from '../src/utils/indexedDb.ts';
 import { calculateClinicalPeriodMetrics } from '../src/utils/clinicalMetrics.ts';
 import {
   recordJournalEvent,
@@ -99,7 +110,11 @@ import {
   replayJournalEvents,
   restoreJournalSequence,
   clearJournalEvents,
+  ensureSequenceInitialized,
+  getJournalSequenceState,
 } from '../src/utils/journal.ts';
+import React from 'react';
+import { useAppStore } from '../src/state/useAppStore.ts';
 
 describe('PuffinLess Production Code Verification', () => {
 
@@ -1412,5 +1427,216 @@ describe('PuffinLess Production Code Verification', () => {
       const sequences = allEvents.map((e) => e.seq);
       assert.deepEqual(sequences, [1, 2, 3, 4], 'Sequence numbers must be strictly monotonic without collision');
     });
+
+    test('sequence restoration fails safely and never resets sequence to 0 on storage error', async () => {
+      await clearJournalEvents();
+      // Record 2 events (seq 1, seq 2)
+      await recordJournalEvent('CRAVING_LOGGED', { id: 'safe-seq-1' });
+      const ev2 = await recordJournalEvent('CRAVING_LOGGED', { id: 'safe-seq-2' });
+      assert.equal(ev2.seq, 2);
+
+      // Sabotage IndexedDB open to simulate storage failure during startup sequence restoration
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated database failure during sequence restore') };
+          setTimeout(() => { if (req.onerror) req.onerror({ target: req }); }, 0);
+          return req;
+        }
+      };
+
+      try {
+        await assert.rejects(
+          async () => {
+            await restoreJournalSequence();
+          },
+          /Failed to restore journal sequence|Simulated database failure/i,
+          'restoreJournalSequence MUST throw error and fail safely'
+        );
+
+        const state = getJournalSequenceState();
+        assert.equal(state.initialized, false, 'sequenceInitialized MUST remain false on failure');
+
+        // ensureSequenceInitialized must also rethrow and not claim sequence is 0
+        await assert.rejects(
+          async () => {
+            await ensureSequenceInitialized();
+          },
+          /Failed to restore journal sequence|Simulated database failure/i,
+          'ensureSequenceInitialized must fail safely when disk query fails'
+        );
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+
+      // After storage is restored, sequence restoration succeeds and preserves monotonic numbering
+      const restoredSeq = await restoreJournalSequence();
+      assert.equal(restoredSeq, 2);
+      const ev3 = await recordJournalEvent('CRAVING_LOGGED', { id: 'safe-seq-3' });
+      assert.equal(ev3.seq, 3, 'Post-recovery event must receive seq 3 (never reset to 1)');
+    });
+
+    test('journal clearing does not swallow errors when storage clear fails', async () => {
+      await clearJournalEvents();
+      await recordJournalEvent('CRAVING_LOGGED', { id: 'clear-err-test' });
+
+      // Sabotage IndexedDB open to simulate clear failure
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated clear journal error') };
+          setTimeout(() => { if (req.onerror) req.onerror({ target: req }); }, 0);
+          return req;
+        }
+      };
+
+      try {
+        await assert.rejects(
+          async () => {
+            await clearJournalEvents();
+          },
+          /Simulated clear journal error/i,
+          'clearJournalEvents MUST NOT swallow errors and must fail visibly'
+        );
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+
+      // Normal clear succeeds
+      await clearJournalEvents();
+      const check = await getHistoricalJournalEventsWithStatus();
+      assert.equal(check.status, 'empty');
+    });
+
+    test('real application actions: logSubstance, resistCraving, addExpense connect to journal and persist events', async () => {
+      await clearJournalEvents();
+      const testStore = createTestStore();
+
+      // 1. logSubstance action
+      await testStore.current.actions.logSubstance('cigarette', 2, 'Morning Routine', 6);
+      assert.equal(testStore.current.substanceLogs.length, 1);
+      assert.equal(testStore.current.substanceLogs[0].count, 2);
+      assert.equal(testStore.current.cravings.length, 1, 'Slip craving must be created');
+
+      // 2. resistCraving action
+      await testStore.current.actions.resistCraving('Stress peak', 8, 'puff_vape');
+      assert.equal(testStore.current.cravings.length, 2);
+      assert.equal(testStore.current.cravings[0].resisted, true);
+
+      // 3. addExpense action
+      await testStore.current.actions.addExpense({
+        id: 'real-store-exp-1',
+        amount: 15.5,
+        category: 'vape_pod',
+        date: '2026-02-10',
+        note: 'Pod purchase',
+      });
+      assert.equal(testStore.current.expenses.length, 1);
+
+      // Verify that journal events were faithfully recorded for all three real actions
+      const events = await getHistoricalJournalEvents();
+      const types = events.map((e) => e.type);
+      assert.ok(types.includes('SUBSTANCE_LOGGED'), 'Journal must contain SUBSTANCE_LOGGED from real action');
+      assert.ok(types.includes('CRAVING_LOGGED'), 'Journal must contain CRAVING_LOGGED from real action');
+      assert.ok(types.includes('PURCHASE_EXPENSE_LOGGED'), 'Journal must contain PURCHASE_EXPENSE_LOGGED from real action');
+    });
+
+    test('real application actions rollback optimistic state and surface persistenceError when storage fails', async () => {
+      await clearJournalEvents();
+      const testStore = createTestStore();
+
+      // Add one baseline craving that succeeds
+      await testStore.current.actions.resistCraving('Baseline urge', 5, 'cigarette');
+      assert.equal(testStore.current.cravings.length, 1);
+      assert.equal(testStore.current.persistenceError, null);
+
+      // Sabotage storage to simulate database failure during user action
+      closePuffinLessDB();
+      const originalIndexedDB = globalThis.window.indexedDB;
+      globalThis.window.indexedDB = {
+        open: () => {
+          const req = { error: new Error('Simulated write failure on user store action') };
+          setTimeout(() => { if (req.onerror) req.onerror({ target: req }); }, 0);
+          return req;
+        }
+      };
+
+      try {
+        await assert.rejects(
+          async () => {
+            await testStore.current.actions.resistCraving('Failing urge', 9, 'cigarette');
+          },
+          /(Simulated write failure|Encryption failed)/i,
+          'Store action MUST reject visibly when persistence fails'
+        );
+
+        // Optimistic state MUST rollback to baseline (length 1, not 2)
+        assert.equal(testStore.current.cravings.length, 1, 'Optimistic state must rollback on storage failure');
+        assert.ok(testStore.current.persistenceError, 'persistenceError must be set in store');
+      } finally {
+        globalThis.window.indexedDB = originalIndexedDB;
+        closePuffinLessDB();
+      }
+
+      // Next successful action clears persistenceError
+      await testStore.current.actions.resistCraving('Recovered urge', 4, 'cigarette');
+      assert.equal(testStore.current.cravings.length, 2);
+      assert.equal(testStore.current.persistenceError, null, 'Successful action clears persistenceError');
+    });
+
+    test('real application actions: removeSubstance correctly decrements intake, cleans slip cravings, and records removal events', async () => {
+      await clearJournalEvents();
+      const testStore = createTestStore();
+
+      // Log 2 cigarettes
+      await testStore.current.actions.logSubstance('cigarette', 2, 'Work stress');
+      assert.equal(testStore.current.substanceLogs[0].count, 2);
+
+      // Remove 1 cigarette
+      await testStore.current.actions.removeSubstance('cigarette', 1);
+      assert.equal(testStore.current.substanceLogs[0].count, 1, 'removeSubstance must decrement count from 2 to 1');
+
+      const events = await getHistoricalJournalEvents();
+      const removalEvent = events.find((e) => e.type === 'SUBSTANCE_REMOVED');
+      assert.ok(removalEvent, 'Journal must record SUBSTANCE_REMOVED event');
+      assert.equal(removalEvent.payload.count, 1);
+    });
   });
 });
+
+function createTestStore() {
+  const slots = [];
+  let currentStore = null;
+
+  function runHook() {
+    let cursor = 0;
+    React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE.H = {
+      useState(init) {
+        const idx = cursor++;
+        if (slots.length <= idx) {
+          slots[idx] = typeof init === 'function' ? init() : init;
+        }
+        const setState = (val) => {
+          slots[idx] = typeof val === 'function' ? val(slots[idx]) : val;
+          runHook();
+        };
+        return [slots[idx], setState];
+      },
+      useEffect(fn) {},
+      useMemo(fn) { return fn(); },
+    };
+    currentStore = useAppStore();
+    return currentStore;
+  }
+
+  return {
+    get current() {
+      if (!currentStore) runHook();
+      return currentStore;
+    },
+  };
+}

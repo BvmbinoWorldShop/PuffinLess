@@ -1,5 +1,5 @@
-import type { HealthMilestone, Badge, Language } from '../types';
-import { HEALTH_MILESTONES_FR, BADGES_FR } from '../content/frenchTranslations';
+import type { HealthMilestone, Badge, Language } from '../types/index.ts';
+import { HEALTH_MILESTONES_FR, BADGES_FR } from '../content/frenchTranslations.ts';
 
 export const HEALTH_MILESTONES: HealthMilestone[] = [
   {

@@ -1,4 +1,4 @@
-import type { SleepEnergyEntry } from '../types';
+import type { SleepEnergyEntry } from '../types/index.ts';
 import { localDateStr } from './dates.ts';
 
 /** Demo history for the last 6 days (relative to today) so trends are visible from day one. */

@@ -1,5 +1,5 @@
-import type { PsychologyLesson, HealthMilestone, Badge } from '../types';
-import type { StudyItem, ResourceItem, MythFact, WithdrawalStage, QuoteItem } from './library';
+import type { PsychologyLesson, HealthMilestone, Badge } from '../types/index.ts';
+import type { StudyItem, ResourceItem, MythFact, WithdrawalStage, QuoteItem } from './library.ts';
 
 export const QUOTE_LIBRARY_FR: QuoteItem[] = [
   { id: 'ql1', quote: "Vous ne vous élevez pas au niveau de vos objectifs. Vous retombez au niveau de vos systèmes.", author: "James Clear", category: "Habits" },

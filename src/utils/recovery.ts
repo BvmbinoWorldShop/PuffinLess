@@ -24,7 +24,7 @@ import type {
   SleepEnergyEntry,
   StreakRecord,
   SmokeLogEntry,
-} from '../types';
+} from '../types/index.ts';
 import {
   decryptData,
   encryptData,

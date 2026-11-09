@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/index.ts';
 import {
   STUDIES_FR,
   RESOURCES_FR,
@@ -6,7 +6,7 @@ import {
   NICOTINE_TIMELINE_FR,
   CANNABIS_TIMELINE_FR,
   QUOTE_LIBRARY_FR,
-} from './frenchTranslations';
+} from './frenchTranslations.ts';
 
 export type StudyTopic = 'Quitting' | 'Nicotine' | 'Cannabis' | 'Vaping' | 'Sleep' | 'Mindset' | 'Habits';
 

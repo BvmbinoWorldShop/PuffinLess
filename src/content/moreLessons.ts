@@ -1,4 +1,4 @@
-import type { PsychologyLesson } from '../types';
+import type { PsychologyLesson } from '../types/index.ts';
 
 export const MORE_LESSONS: PsychologyLesson[] = [
   {

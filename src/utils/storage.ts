@@ -11,7 +11,7 @@ import type {
   StreakRecord,
   Language,
   AppTheme,
-} from '../types';
+} from '../types/index.ts';
 import {
   encryptData,
   decryptData,
@@ -1591,8 +1591,8 @@ export async function readWithStatus<T>(
  * - Purges all keys from localStorage and sessionStorage.
  */
 export async function resetAllUserData(): Promise<void> {
-  // 1. Clear immutable event journal
-  await clearJournalEvents().catch(() => {});
+  // 1. Clear immutable event journal (fails visibly, never swallows errors)
+  await clearJournalEvents();
 
   // 2. Delete IndexedDB physical database and await real confirmation
   await deletePuffinLessDB();

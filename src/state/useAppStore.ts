@@ -9,7 +9,7 @@ import type {
   SubstanceType,
   SleepEnergyEntry,
   StreakRecord,
-} from '../types';
+} from '../types/index.ts';
 import {
   loadProfile, saveProfile,
   loadSavingsGoals, saveSavingsGoals,
@@ -21,25 +21,29 @@ import {
   initIndexedDBStorage, resetAllUserData,
   importUserDataJSON,
   DEFAULT_PROFILE,
-} from '../utils/storage';
-import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery';
-import { recordJournalEvent, restoreJournalSequence } from '../utils/journal';
-import { calculateStats } from '../utils/calculations';
-import { buildCoreReport, sumIntake } from '../core/obsidianCore';
-import { localDateStr } from '../utils/dates';
-import { sound } from '../utils/audio';
+} from '../utils/storage.ts';
+import { recoverAllDeviceData, createDeviceRescueSnapshot } from '../utils/recovery.ts';
+import { recordJournalEvent, restoreJournalSequence } from '../utils/journal.ts';
+import { calculateStats } from '../utils/calculations.ts';
+import { buildCoreReport, sumIntake } from '../core/obsidianCore.ts';
+import { localDateStr } from '../utils/dates.ts';
+import { sound } from '../utils/audio.ts';
 
-function generateSecureId(prefix: string = ''): string {
+function generateSecureId(prefix: string): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return prefix ? `${prefix}-${crypto.randomUUID()}` : crypto.randomUUID();
+    return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 /**
- * Central app store. Owns all persisted state and every action, so screens stay thin and the
- * Obsidian Core always reads one consistent source of truth.
- * Powered by high-capacity IndexedDB with instantaneous in-memory bootstrap.
+ * Single source of truth for PuffinLess application state.
+ *
+ * Boot sequence:
+ * 1. Synchronous boot from local storage / defaults (zero UI flash).
+ * 2. Asynchronous boot from IndexedDB + journal sequence restoration from disk.
+ * 3. Connected journal persistence: all mutations await journal events and storage.
+ *    If persistence or journal recording fails, changes rollback and trigger persistenceError.
  */
 export function useAppStore() {
   const [profile, setProfile] = useState<UserProfile>(loadProfile);
@@ -50,15 +54,18 @@ export function useAppStore() {
   const [sleepLogs, setSleepLogs] = useState<SleepEnergyEntry[]>(loadSleepEnergy);
   const [streaks, setStreaks] = useState<StreakRecord[]>(loadStreaks);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [persistenceError, setPersistenceError] = useState<Error | null>(null);
 
   const [tick, setTick] = useState(0);
+
+  const clearPersistenceError = () => setPersistenceError(null);
 
   // Hydrate from IndexedDB on startup (with automatic migration of localStorage on first run)
   useEffect(() => {
     let isMounted = true;
     Promise.all([
       initIndexedDBStorage(),
-      restoreJournalSequence().catch(() => 0),
+      restoreJournalSequence(),
     ])
       .then(([data]) => {
         if (!isMounted || !data) return;
@@ -69,6 +76,12 @@ export function useAppStore() {
         if (data.substanceLogs) setSubstanceLogs(data.substanceLogs);
         if (data.sleepLogs) setSleepLogs(data.sleepLogs);
         if (data.streaks) setStreaks(data.streaks);
+      })
+      .catch((err) => {
+        console.error('[Store] Initialization / sequence restoration error:', err);
+        if (isMounted) {
+          setPersistenceError(err instanceof Error ? err : new Error(String(err)));
+        }
       })
       .finally(() => {
         if (isMounted) {
@@ -82,7 +95,9 @@ export function useAppStore() {
 
   // Theme + audio side-effects
   useEffect(() => {
-    document.body.className = profile.theme === 'light' ? 'theme-light' : 'theme-dark';
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.className = profile.theme === 'light' ? 'theme-light' : 'theme-dark';
+    }
   }, [profile.theme]);
   useEffect(() => {
     sound.setEnabled(profile.soundEnabled);
@@ -104,11 +119,21 @@ export function useAppStore() {
     [profile, substanceLogs, cravings, sleepLogs, streaks, minuteTick]
   );
 
-  // ---------- Actions ----------
+  // ---------- Actions with Fail-Visibly Journal Persistence ----------
+
   const updateProfile = async (p: UserProfile): Promise<void> => {
+    const prevProfile = profile;
     setProfile(p);
-    await saveProfile(p);
-    recordJournalEvent('PROFILE_UPDATED', p);
+    try {
+      await saveProfile(p);
+      await recordJournalEvent('PROFILE_UPDATED', p);
+      setPersistenceError(null);
+    } catch (err) {
+      setProfile(prevProfile);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
 
   const toggleTheme = () => updateProfile({ ...profile, theme: profile.theme === 'light' ? 'dark' : 'light' });
@@ -120,7 +145,18 @@ export function useAppStore() {
   const setLanguage = (lang: Language) => updateProfile({ ...profile, language: lang });
 
   /** Log a cigarette / puffs / joint. This ends the current streak and restarts the Clean Breath Counter. */
-  const logSubstance = (substance: SubstanceType, count: number, trigger?: string, intensity?: number) => {
+  const logSubstance = async (
+    substance: SubstanceType,
+    count: number,
+    trigger?: string,
+    intensity?: number
+  ): Promise<void> => {
+    const prevLogs = substanceLogs;
+    const prevCravings = cravings;
+    const prevStreaks = streaks;
+    const prevProfile = profile;
+    const prevSleep = sleepLogs;
+
     const now = new Date();
     const cleanTrigger = trigger && trigger.trim().length > 0 ? trigger.trim() : 'Habitude / Routine';
     const cleanIntensity = Math.min(10, Math.max(1, intensity ?? 5));
@@ -134,8 +170,6 @@ export function useAppStore() {
     };
     const logs = [entry, ...substanceLogs];
     setSubstanceLogs(logs);
-    saveSubstanceLogs(logs);
-    recordJournalEvent('SUBSTANCE_LOGGED', entry, entry.id);
 
     // Record an unresisted craving entry (slip event) to ensure complete behavioral correlation
     const craveEntry: CravingEntry = {
@@ -149,36 +183,73 @@ export function useAppStore() {
     };
     const nextCravings = [craveEntry, ...cravings];
     setCravings(nextCravings);
-    saveCravings(nextCravings);
-    recordJournalEvent('CRAVING_LOGGED', craveEntry, craveEntry.id);
 
     // Close the streak (ignore accidental double taps under a minute)
     const streakLength = now.getTime() - new Date(profile.quitDate).getTime();
+    let nextStreaks = streaks;
+    let streakRecord: StreakRecord | null = null;
     if (streakLength >= 60000) {
-      const record: StreakRecord = {
+      streakRecord = {
         id: generateSecureId('st'),
         start: profile.quitDate,
         end: now.toISOString(),
         brokenBy: substance,
       };
-      const next = [record, ...streaks];
-      setStreaks(next);
-      saveStreaks(next);
-      recordJournalEvent('STREAK_RECORDED', record, record.id);
+      nextStreaks = [streakRecord, ...streaks];
+      setStreaks(nextStreaks);
     }
-    updateProfile({ ...profile, quitDate: now.toISOString() });
+
+    const updatedProfile: UserProfile = { ...profile, quitDate: now.toISOString() };
+    setProfile(updatedProfile);
 
     // Keep today's sleep/energy record in sync with what was actually consumed
     const today = localDateStr();
+    let syncedSleep = sleepLogs;
     if (sleepLogs.some((e) => e.date === today)) {
-      const synced = sleepLogs.map((e) => (e.date === today ? { ...e, substancesLogged: sumIntake(logs, today) } : e));
-      setSleepLogs(synced);
-      saveSleepEnergy(synced);
+      syncedSleep = sleepLogs.map((e) => (e.date === today ? { ...e, substancesLogged: sumIntake(logs, today) } : e));
+      setSleepLogs(syncedSleep);
+    }
+
+    try {
+      await saveSubstanceLogs(logs);
+      await recordJournalEvent('SUBSTANCE_LOGGED', entry, entry.id);
+
+      await saveCravings(nextCravings);
+      await recordJournalEvent('CRAVING_LOGGED', craveEntry, craveEntry.id);
+
+      if (streakRecord) {
+        await saveStreaks(nextStreaks);
+        await recordJournalEvent('STREAK_RECORDED', streakRecord, streakRecord.id);
+      }
+
+      await saveProfile(updatedProfile);
+      await recordJournalEvent('PROFILE_UPDATED', updatedProfile);
+
+      if (syncedSleep !== sleepLogs) {
+        await saveSleepEnergy(syncedSleep);
+      }
+      setPersistenceError(null);
+    } catch (err) {
+      // Rollback optimistic state on persistence or journal failure
+      setSubstanceLogs(prevLogs);
+      setCravings(prevCravings);
+      setStreaks(prevStreaks);
+      setProfile(prevProfile);
+      setSleepLogs(prevSleep);
+
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
     }
   };
 
   /** Undo or remove a mistakenly logged intake for today */
-  const removeSubstance = (substance: SubstanceType, count: number = 1) => {
+  const removeSubstance = async (substance: SubstanceType, count: number = 1): Promise<void> => {
+    const prevLogs = substanceLogs;
+    const prevCravings = cravings;
+    const prevStreaks = streaks;
+    const prevProfile = profile;
+
     const today = localDateStr();
     let remainingToRemove = count;
     const newLogs: SubstanceLog[] = [];
@@ -203,47 +274,75 @@ export function useAppStore() {
       }
     }
 
-    if (modified) {
-      setSubstanceLogs(newLogs);
-      saveSubstanceLogs(newLogs, { overwrite: true });
-      recordJournalEvent('SUBSTANCE_REMOVED', { substance, count, date: today });
+    if (!modified) return;
 
-      // Clean up corresponding unresisted craving entries from the same time
-      if (removedLogTimes.length > 0) {
-        const removedCravings = cravings.filter((c) => {
-          if (c.resisted) return false;
-          const cTime = new Date(c.timestamp).getTime();
-          return removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
-        });
-        const cleanedCravings = cravings.filter((c) => !removedCravings.includes(c));
-        setCravings(cleanedCravings);
-        saveCravings(cleanedCravings, { overwrite: true });
+    setSubstanceLogs(newLogs);
+
+    let cleanedCravings = cravings;
+    let removedCravings: CravingEntry[] = [];
+    if (removedLogTimes.length > 0) {
+      removedCravings = cravings.filter((c) => {
+        if (c.resisted) return false;
+        const cTime = new Date(c.timestamp).getTime();
+        return removedLogTimes.some((rt) => Math.abs(rt - cTime) < 60000);
+      });
+      cleanedCravings = cravings.filter((c) => !removedCravings.includes(c));
+      setCravings(cleanedCravings);
+    }
+
+    let remainingStreaks = streaks;
+    let restoredStreak: StreakRecord | null = null;
+    let restoredQuitDate: string | null = null;
+    const todayTotal = sumIntake(newLogs, today);
+    if (todayTotal.cigarette === 0 && todayTotal.puff_vape === 0 && todayTotal.cannabis === 0) {
+      if (streaks.length > 0) {
+        const lastStreak = streaks[0];
+        const lastStreakEndDay = localDateStr(lastStreak.end);
+        if (lastStreakEndDay === today && lastStreak.brokenBy === substance) {
+          restoredStreak = lastStreak;
+          remainingStreaks = streaks.slice(1);
+          setStreaks(remainingStreaks);
+          restoredQuitDate = lastStreak.start;
+          setProfile({ ...profile, quitDate: lastStreak.start });
+        }
+      }
+    }
+
+    try {
+      await saveSubstanceLogs(newLogs, { overwrite: true });
+      await recordJournalEvent('SUBSTANCE_REMOVED', { substance, count, date: today });
+
+      if (removedCravings.length > 0) {
+        await saveCravings(cleanedCravings, { overwrite: true });
         for (const rc of removedCravings) {
-          recordJournalEvent('CRAVING_REMOVED', { cravingId: rc.id }, rc.id);
+          await recordJournalEvent('CRAVING_REMOVED', { cravingId: rc.id }, rc.id);
         }
       }
 
-      // If today is now clean and a streak was broken TODAY, safely restore previous streak start
-      const todayTotal = sumIntake(newLogs, today);
-      if (todayTotal.cigarette === 0 && todayTotal.puff_vape === 0 && todayTotal.cannabis === 0) {
-        if (streaks.length > 0) {
-          const lastStreak = streaks[0];
-          const lastStreakEndDay = localDateStr(lastStreak.end);
-          // Only restore if the most recent streak actually ended today and was broken by this substance
-          if (lastStreakEndDay === today && lastStreak.brokenBy === substance) {
-            const remainingStreaks = streaks.slice(1);
-            setStreaks(remainingStreaks);
-            saveStreaks(remainingStreaks, { overwrite: true });
-            recordJournalEvent('STREAK_REMOVED', { streakId: lastStreak.id }, lastStreak.id);
-            updateProfile({ ...profile, quitDate: lastStreak.start });
-          }
-        }
+      if (restoredStreak && restoredQuitDate) {
+        await saveStreaks(remainingStreaks, { overwrite: true });
+        await recordJournalEvent('STREAK_REMOVED', { streakId: restoredStreak.id }, restoredStreak.id);
+        const updated = { ...profile, quitDate: restoredQuitDate };
+        await saveProfile(updated);
+        await recordJournalEvent('PROFILE_UPDATED', updated);
       }
+      setPersistenceError(null);
+    } catch (err) {
+      // Rollback on persistence failure
+      setSubstanceLogs(prevLogs);
+      setCravings(prevCravings);
+      setStreaks(prevStreaks);
+      setProfile(prevProfile);
+
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
     }
   };
 
   /** Mark a craving as resisted (from the Craving button). Remembered by the Core. */
-  const resistCraving = (trigger: string, intensity: number, substance?: SubstanceType) => {
+  const resistCraving = async (trigger: string, intensity: number, substance?: SubstanceType): Promise<void> => {
+    const prevCravings = cravings;
     const cleanTrigger = trigger && trigger.trim().length > 0 ? trigger.trim() : 'Pulsion spontanée';
     const cleanIntensity = Math.min(10, Math.max(1, Math.round(intensity || 5)));
     const entry: CravingEntry = {
@@ -257,54 +356,126 @@ export function useAppStore() {
     };
     const next = [entry, ...cravings];
     setCravings(next);
-    saveCravings(next);
-    recordJournalEvent('CRAVING_LOGGED', entry, entry.id);
+
+    try {
+      await saveCravings(next);
+      await recordJournalEvent('CRAVING_LOGGED', entry, entry.id);
+      setPersistenceError(null);
+    } catch (err) {
+      setCravings(prevCravings);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
 
-  const saveSleepEnergyEntry = (entry: SleepEnergyEntry) => {
+  const saveSleepEnergyEntry = async (entry: SleepEnergyEntry): Promise<void> => {
+    const prevSleep = sleepLogs;
     const idx = sleepLogs.findIndex((e) => e.date === entry.date);
     const next = idx >= 0 ? sleepLogs.map((e, i) => (i === idx ? entry : e)) : [entry, ...sleepLogs];
     setSleepLogs(next);
-    saveSleepEnergy(next);
-    recordJournalEvent('SLEEP_ENERGY_LOGGED', entry, entry.id || entry.date);
+
+    try {
+      await saveSleepEnergy(next);
+      await recordJournalEvent('SLEEP_ENERGY_LOGGED', entry, entry.id || entry.date);
+      setPersistenceError(null);
+    } catch (err) {
+      setSleepLogs(prevSleep);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
 
-  const addExpense = (e: PurchaseExpense) => {
+  const addExpense = async (e: PurchaseExpense): Promise<void> => {
+    const prevExpenses = expenses;
     const next = [e, ...expenses];
     setExpenses(next);
-    saveExpenses(next);
-    recordJournalEvent('PURCHASE_EXPENSE_LOGGED', e, e.id);
-  };
-  const deleteExpense = (id: string) => {
-    const next = expenses.filter((e) => e.id !== id);
-    setExpenses(next);
-    saveExpenses(next, { overwrite: true });
-    recordJournalEvent('PURCHASE_EXPENSE_DELETED', { expenseId: id }, id);
+
+    try {
+      await saveExpenses(next);
+      await recordJournalEvent('PURCHASE_EXPENSE_LOGGED', e, e.id);
+      setPersistenceError(null);
+    } catch (err) {
+      setExpenses(prevExpenses);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
 
-  const addGoal = (g: SavingsGoal) => {
+  const deleteExpense = async (id: string): Promise<void> => {
+    const prevExpenses = expenses;
+    const next = expenses.filter((e) => e.id !== id);
+    setExpenses(next);
+
+    try {
+      await saveExpenses(next, { overwrite: true });
+      await recordJournalEvent('PURCHASE_EXPENSE_DELETED', { expenseId: id }, id);
+      setPersistenceError(null);
+    } catch (err) {
+      setExpenses(prevExpenses);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
+  };
+
+  const addGoal = async (g: SavingsGoal): Promise<void> => {
+    const prevGoals = goals;
     const next = [g, ...goals];
     setGoals(next);
-    saveSavingsGoals(next);
-    recordJournalEvent('SAVINGS_GOAL_ADDED', g, g.id);
+
+    try {
+      await saveSavingsGoals(next);
+      await recordJournalEvent('SAVINGS_GOAL_ADDED', g, g.id);
+      setPersistenceError(null);
+    } catch (err) {
+      setGoals(prevGoals);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
-  const deleteGoal = (id: string) => {
+
+  const deleteGoal = async (id: string): Promise<void> => {
+    const prevGoals = goals;
     const next = goals.filter((g) => g.id !== id);
     setGoals(next);
-    saveSavingsGoals(next, { overwrite: true });
-    recordJournalEvent('SAVINGS_GOAL_DELETED', { goalId: id }, id);
+
+    try {
+      await saveSavingsGoals(next, { overwrite: true });
+      await recordJournalEvent('SAVINGS_GOAL_DELETED', { goalId: id }, id);
+      setPersistenceError(null);
+    } catch (err) {
+      setGoals(prevGoals);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
-  const toggleGoal = (id: string) => {
+
+  const toggleGoal = async (id: string): Promise<void> => {
+    const prevGoals = goals;
     const current = goals.find((g) => g.id === id);
     const next = goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g));
     setGoals(next);
-    saveSavingsGoals(next, { overwrite: true });
-    recordJournalEvent('SAVINGS_GOAL_TOGGLED', { goalId: id, completed: !current?.completed }, id);
+
+    try {
+      await saveSavingsGoals(next, { overwrite: true });
+      await recordJournalEvent('SAVINGS_GOAL_TOGGLED', { goalId: id, completed: !current?.completed }, id);
+      setPersistenceError(null);
+    } catch (err) {
+      setGoals(prevGoals);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
+    }
   };
 
-  const completeOnboarding = (p: UserProfile) => {
+  const completeOnboarding = async (p: UserProfile): Promise<void> => {
     const finalized: UserProfile = { ...p, isOnboarded: true };
-    updateProfile(finalized);
+    await updateProfile(finalized);
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('puffinless_is_onboarded', 'true');
       if (p.quitDate) localStorage.setItem('puffinless_quit_date', p.quitDate);
@@ -321,7 +492,7 @@ export function useAppStore() {
     createDeviceRescueSnapshot({ profile: finalized });
   };
 
-  const resetAll = async () => {
+  const resetAll = async (): Promise<void> => {
     await resetAllUserData();
     setProfile({ ...DEFAULT_PROFILE, isOnboarded: false, quitDate: '', createdAt: '' });
     setGoals([]);
@@ -330,6 +501,7 @@ export function useAppStore() {
     setSubstanceLogs([]);
     setCravings([]);
     setStreaks([]);
+    setPersistenceError(null);
   };
 
   const rehydrate = async (): Promise<void> => {
@@ -345,6 +517,11 @@ export function useAppStore() {
         if (data.sleepLogs) setSleepLogs(data.sleepLogs);
         if (data.streaks) setStreaks(data.streaks);
       }
+      setPersistenceError(null);
+    } catch (err) {
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setPersistenceError(errorObj);
+      throw errorObj;
     } finally {
       setIsHydrated(true);
     }
@@ -380,6 +557,8 @@ export function useAppStore() {
 
   return {
     isHydrated,
+    persistenceError,
+    clearPersistenceError,
     profile, goals, cravings, expenses, substanceLogs, sleepLogs, streaks,
     stats, report,
     actions: {

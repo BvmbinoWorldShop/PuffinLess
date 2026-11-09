@@ -17,7 +17,7 @@ import { t } from './utils/i18n';
 
 export function App() {
   const store = useAppStore();
-  const { profile, stats, report, actions, isHydrated } = store;
+  const { profile, stats, report, actions, isHydrated, persistenceError, clearPersistenceError } = store;
   const lang = profile.language || 'en';
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
@@ -104,6 +104,23 @@ export function App() {
       <div className="w-full max-w-[480px] min-h-screen flex flex-col relative selection:bg-emerald-500/30 sm:border-x sm:border-white/10 sm:shadow-[0_0_80px_rgba(0,0,0,0.7)] transition-all">
         {/* Fixed / Sticky Top Bar (Contains centered PuffinLess pill + Header) */}
         <div className="sticky top-0 z-40 w-full bg-slate-950/90 backdrop-blur-xl border-b border-white/5 transition-colors">
+          {persistenceError && (
+            <div className="w-full bg-rose-950/95 border-b border-rose-500/50 px-4 py-2 flex items-center justify-between text-xs text-rose-100 z-50 shadow-lg">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="w-2 h-2 shrink-0 rounded-full bg-rose-500 animate-ping" />
+                <span className="font-bold text-rose-300 shrink-0">
+                  {lang === 'fr' ? 'Erreur de stockage :' : 'Persistence Error:'}
+                </span>
+                <span className="truncate text-[11px] text-rose-200">{persistenceError.message}</span>
+              </div>
+              <button
+                onClick={clearPersistenceError}
+                className="ml-2 shrink-0 text-rose-200 hover:text-white px-2 py-0.5 rounded bg-rose-800/60 hover:bg-rose-700/80 text-[10px] font-bold tracking-wide transition-colors"
+              >
+                {lang === 'fr' ? 'Fermer' : 'Dismiss'}
+              </button>
+            </div>
+          )}
           {/* Centered PuffinLess pill only - no time, battery or service icons */}
           <div className="w-full px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-1 flex items-center justify-center select-none">
             <div className="h-5 px-3 rounded-full bg-slate-900/90 border border-emerald-500/30 flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20">

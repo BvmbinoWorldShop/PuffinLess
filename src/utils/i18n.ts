@@ -1,4 +1,4 @@
-import type { Language, SubstanceType, ExpenseItemType } from '../types';
+import type { Language, SubstanceType, ExpenseItemType } from '../types/index.ts';
 
 export const TRANSLATIONS = {
   en: {

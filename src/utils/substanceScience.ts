@@ -1,4 +1,4 @@
-import type { SubstanceType, Language } from '../types';
+import type { SubstanceType, Language } from '../types/index.ts';
 
 export interface SubstanceDetails {
   name: string;
