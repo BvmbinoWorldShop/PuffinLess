@@ -201,14 +201,14 @@ When multiple tabs of PuffinLess are open simultaneously:
 The reliability of PuffinLess persistence is enforced through a dual verification pipeline:
 
 ### 1. Unit & In-Memory Engineering Verification (`npm run test:unit`)
-**62 Comprehensive Tests Across 7 Pillars (100% Pass Rate):**
+**67 Comprehensive Tests Across 7 Pillars (100% Pass Rate):**
 - **Pillar 1**: Non-extractable Web Crypto AES-GCM keys, unique 96-bit IVs per write, clean error distinction.
 - **Pillar 2**: PBKDF2 PIN hashing (100,000 iterations), cryptographic key erasure on reset.
 - **Pillar 3**: Period-scoped clinical statistics calculation and boundary validation.
 - **Pillar 4**: Cold restart vs standby session lock distinctions, transparent fallback recovery.
 - **Pillar 5**: Real IndexedDB lifecycle, legacy AES-CBC migration, zero raw keys in localStorage.
 - **Pillar 6**: Complete volatile memory wipe cold restart, corrupted record isolation.
-- **Pillar 7**: Zero data loss safeguards, `idbPersistAtomic` ACID rollback, cross-tab Web Locks atomic sequence coordination, anti-truncation empty-array protection, unified `IndexedDBUnavailableError` hierarchy, and UI/projection/journal 100% tri-directional agreement.
+- **Pillar 7**: Zero data loss safeguards, `idbPersistAtomic` ACID rollback, transaction completion resolution (`tx.oncomplete`), AES-GCM encrypted rescue snapshot, cross-tab distributed fallback lease locking without Web Locks, recovery with corrupted records, missing keys, and interrupted write journal replay.
 
 ### 2. Genuine Browser Verification Suite (`npm run test:browser`)
 Executed against **Microsoft Edge (`msedge.exe`)** via the Chrome DevTools Protocol (CDP) on the compiled, obfuscated `dist/standalone.html`:
@@ -253,7 +253,7 @@ PuffinLess/
 │       ├── clinicalMetrics.ts                      # Period-scoped calculations
 │       └── dates.ts                                # Robust date formatting & parsing
 ├── tests/
-│   ├── engineering-verification.test.js            # 62 comprehensive verification tests (100% green)
+│   ├── engineering-verification.test.js            # 67 comprehensive verification tests (100% green)
 │   └── real-browser-verification.js                # 6 real Edge CDP tests across OS processes (100% green)
 └── scripts/
     └── make-standalone.js                          # Inliner & JavaScript obfuscation pipeline

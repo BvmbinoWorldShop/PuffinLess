@@ -334,7 +334,7 @@ export async function idbSet<T>(key: string, value: T): Promise<void> {
       const store = tx.objectStore(STORE_NAME);
       const req = store.put(encryptedPayload, key);
 
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
       req.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Error saving key "${key}"`, req.error));
       tx.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction error saving key "${key}"`, tx.error));
       tx.onabort = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction aborted saving key "${key}"`, tx.error));
@@ -346,6 +346,7 @@ export async function idbSet<T>(key: string, value: T): Promise<void> {
 
 /**
  * Remove a key from IndexedDB.
+ * Resolves on tx.oncomplete to guarantee transaction persistence.
  * Fails explicitly with IndexedDBUnavailableError or IndexedDBTransactionError
  * instead of masking deletion failures.
  */
@@ -360,7 +361,7 @@ export async function idbRemove(key: string): Promise<void> {
       const store = tx.objectStore(STORE_NAME);
       const req = store.delete(key);
 
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
       req.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Error deleting key "${key}"`, req.error));
       tx.onerror = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction error deleting key "${key}"`, tx.error));
       tx.onabort = () => reject(new IndexedDBTransactionError(`[IndexedDB] Transaction aborted deleting key "${key}"`, tx.error));
@@ -372,6 +373,7 @@ export async function idbRemove(key: string): Promise<void> {
 
 /**
  * Clear all records in the PuffinLess IndexedDB store.
+ * Resolves on tx.oncomplete to guarantee transaction persistence.
  * Fails explicitly with IndexedDBUnavailableError or IndexedDBTransactionError
  * instead of masking clear failures.
  */
@@ -386,7 +388,7 @@ export async function idbClear(): Promise<void> {
       const store = tx.objectStore(STORE_NAME);
       const req = store.clear();
 
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
       req.onerror = () => reject(new IndexedDBTransactionError('[IndexedDB] Error clearing store', req.error));
       tx.onerror = () => reject(new IndexedDBTransactionError('[IndexedDB] Transaction error clearing store', tx.error));
       tx.onabort = () => reject(new IndexedDBTransactionError('[IndexedDB] Transaction aborted clearing store', tx.error));
@@ -640,11 +642,10 @@ export async function idbClearEvents(): Promise<void> {
       const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
       const store = tx.objectStore(EVENTS_STORE_NAME);
       const req = store.clear();
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
       req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to clear events_store'));
       tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing events_store'));
       tx.onabort = () => reject(tx.error || new Error('[IndexedDB] Transaction aborted clearing events_store'));
-      tx.oncomplete = () => resolve();
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));
     }

@@ -104,14 +104,27 @@ export interface RecoveryScanResult {
   message: string;
 }
 
+let cachedRescueSnapshot: DeviceRescueSnapshot | null = null;
+let rescueSnapshotGeneration = 0;
+
+export function resetDeviceRescueSnapshotCache(): void {
+  cachedRescueSnapshot = null;
+  rescueSnapshotGeneration++;
+}
+
 /**
  * Creates or updates an unalterable local rescue snapshot on device.
- * Called whenever user data is safely saved or modified.
+ * Encrypts the snapshot with AES-GCM before writing to localStorage.
+ * Updates in-memory cache synchronously so immediate synchronous queries succeed.
  */
-export function createDeviceRescueSnapshot(snapshot: Partial<DeviceRescueSnapshot>): void {
+export async function createDeviceRescueSnapshot(snapshot: Partial<DeviceRescueSnapshot>): Promise<void> {
   try {
-    if (typeof localStorage === 'undefined') return;
-    const existing = getDeviceRescueSnapshot();
+    const currentGen = ++rescueSnapshotGeneration;
+    const isStorageWiped = typeof localStorage !== 'undefined' && !localStorage.getItem(RESCUE_BACKUP_KEY) && !localStorage.getItem(LEGACY_RESCUE_KEY);
+    if (isStorageWiped) {
+      cachedRescueSnapshot = null;
+    }
+    const existing = cachedRescueSnapshot || getDeviceRescueSnapshot();
     const merged: DeviceRescueSnapshot = {
       version: 2,
       timestamp: new Date().toISOString(),
@@ -136,22 +149,87 @@ export function createDeviceRescueSnapshot(snapshot: Partial<DeviceRescueSnapsho
         : existing?.streaks,
       smokeLogs: (snapshot.smokeLogs && snapshot.smokeLogs.length > 0) ? snapshot.smokeLogs : existing?.smokeLogs,
     };
-    localStorage.setItem(RESCUE_BACKUP_KEY, JSON.stringify(merged));
+
+    // Update in-memory cache synchronously
+    cachedRescueSnapshot = merged;
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        // Synchronously mark key present so storage.clear() invalidation remains accurate
+        if (!localStorage.getItem(RESCUE_BACKUP_KEY)) {
+          localStorage.setItem(RESCUE_BACKUP_KEY, 'aes-gcm:pending');
+        }
+        const cipher = await encryptData(merged);
+        if (currentGen === rescueSnapshotGeneration) {
+          localStorage.setItem(RESCUE_BACKUP_KEY, cipher);
+        }
+      } catch (encryptErr) {
+        console.warn('[Recovery] Failed to encrypt rescue snapshot, retaining in memory only:', encryptErr);
+      }
+    }
   } catch (err) {
     console.warn('[Recovery] Failed to create rescue snapshot:', err);
   }
 }
 
 /**
- * Retrieves the device rescue snapshot from localStorage if present.
+ * Retrieves the device rescue snapshot synchronously from memory cache or legacy plaintext.
  */
 export function getDeviceRescueSnapshot(): DeviceRescueSnapshot | null {
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESCUE_BACKUP_KEY) && !localStorage.getItem(LEGACY_RESCUE_KEY)) {
+    cachedRescueSnapshot = null;
+    return null;
+  }
+  if (cachedRescueSnapshot) {
+    return cachedRescueSnapshot;
+  }
   try {
     if (typeof localStorage === 'undefined') return null;
     const raw = localStorage.getItem(RESCUE_BACKUP_KEY) || localStorage.getItem(LEGACY_RESCUE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as DeviceRescueSnapshot;
+    if (raw.startsWith('{')) {
+      cachedRescueSnapshot = JSON.parse(raw) as DeviceRescueSnapshot;
+      return cachedRescueSnapshot;
+    }
+    return null;
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieves the device rescue snapshot asynchronously, decrypting AES-GCM ciphertext from localStorage.
+ */
+export async function getDeviceRescueSnapshotAsync(): Promise<DeviceRescueSnapshot | null> {
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem(RESCUE_BACKUP_KEY) && !localStorage.getItem(LEGACY_RESCUE_KEY)) {
+    cachedRescueSnapshot = null;
+    return null;
+  }
+  if (cachedRescueSnapshot) {
+    return cachedRescueSnapshot;
+  }
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(RESCUE_BACKUP_KEY) || localStorage.getItem(LEGACY_RESCUE_KEY);
+    if (!raw) return null;
+    if (raw.startsWith('{')) {
+      try {
+        cachedRescueSnapshot = JSON.parse(raw) as DeviceRescueSnapshot;
+        return cachedRescueSnapshot;
+      } catch {
+        return null;
+      }
+    }
+    if (raw.startsWith('aes-gcm:') || raw.startsWith('aes256:')) {
+      const decrypted = await decryptData<DeviceRescueSnapshot | null>(raw, null);
+      if (decrypted && typeof decrypted === 'object') {
+        cachedRescueSnapshot = decrypted;
+        return decrypted;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Recovery] Failed to decrypt rescue snapshot:', err);
     return null;
   }
 }
@@ -748,10 +826,15 @@ export async function recoverAllDeviceData(): Promise<RecoveryScanResult> {
   // =========================================================================
   // 1. SCAN RESCUE SNAPSHOT
   // =========================================================================
-  const snapshot = getDeviceRescueSnapshot();
+  const rawRescue = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem(RESCUE_BACKUP_KEY) || localStorage.getItem(LEGACY_RESCUE_KEY))
+    : null;
+  const snapshot = await getDeviceRescueSnapshotAsync();
   if (snapshot) {
     sources.push('Rescue Snapshot');
     classifyAndExtract(snapshot);
+  } else if (rawRescue && (rawRescue.startsWith('aes-gcm:') || rawRescue.startsWith('aes256:'))) {
+    corruptedRejected++;
   }
 
   // =========================================================================

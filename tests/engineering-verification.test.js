@@ -78,6 +78,8 @@ import {
   isValidDateField,
   createDeviceRescueSnapshot,
   getDeviceRescueSnapshot,
+  getDeviceRescueSnapshotAsync,
+  resetDeviceRescueSnapshotCache,
 } from '../src/utils/recovery.ts';
 import { localDateStr, dayLabel } from '../src/utils/dates.ts';
 import { buildCoreReport, sumIntake } from '../src/core/obsidianCore.ts';
@@ -125,6 +127,7 @@ describe('PuffinLess Production Code Verification', () => {
   beforeEach(async () => {
     globalThis.localStorage.clear();
     globalThis.sessionStorage.clear();
+    resetDeviceRescueSnapshotCache();
     await purgeVaultKeys();
     await deletePuffinLessDB();
   });
@@ -796,7 +799,7 @@ describe('PuffinLess Production Code Verification', () => {
   });
 
   describe('Pillar 7: Zero Data Loss Safeguards & Crash Resilience', () => {
-    test('createDeviceRescueSnapshot never overwrites populated arrays with empty arrays', () => {
+    test('createDeviceRescueSnapshot never overwrites populated arrays with empty arrays', async () => {
       const sampleCravings = [
         { id: 'c1', timestamp: '2026-02-10T10:00:00.000Z', intensity: 5, trigger: 'stress', resisted: true },
         { id: 'c2', timestamp: '2026-02-11T14:00:00.000Z', intensity: 7, trigger: 'habit', resisted: false },
@@ -806,7 +809,7 @@ describe('PuffinLess Production Code Verification', () => {
       ];
 
       // 1. Initial save with populated data
-      createDeviceRescueSnapshot({
+      await createDeviceRescueSnapshot({
         cravings: sampleCravings,
         streaks: sampleStreaks,
       });
@@ -816,7 +819,7 @@ describe('PuffinLess Production Code Verification', () => {
       assert.equal(snap?.streaks?.length, 1, 'Initial snapshot must have 1 streak');
 
       // 2. Mistaken call with empty arrays (must NOT overwrite existing data)
-      createDeviceRescueSnapshot({
+      await createDeviceRescueSnapshot({
         cravings: [],
         streaks: [],
       });
@@ -1751,6 +1754,141 @@ describe('PuffinLess Production Code Verification', () => {
       for (let i = 1; i < allocations.length; i++) {
         assert.ok(allocations[i] > allocations[i - 1], 'Sequences must be monotonically increasing');
       }
+    });
+
+    test('rescue snapshot is encrypted with AES-GCM at rest and contains zero plaintext in localStorage', async () => {
+      const sampleCraving = {
+        id: 'c-secret-123',
+        timestamp: '2026-02-10T10:00:00.000Z',
+        intensity: 8,
+        trigger: 'anxiety',
+        resisted: true,
+      };
+
+      // 1. Create rescue snapshot
+      await createDeviceRescueSnapshot({ cravings: [sampleCraving] });
+
+      // 2. Inspect raw localStorage
+      const rawInStorage = globalThis.localStorage.getItem('puffinless_device_rescue_backup_v2');
+      assert.ok(rawInStorage, 'Rescue backup key must exist in localStorage');
+      assert.ok(rawInStorage.startsWith('aes-gcm:'), 'Rescue snapshot must be encrypted with aes-gcm:');
+      assert.equal(rawInStorage.includes('c-secret-123'), false, 'Plaintext craving ID must never leak in raw localStorage');
+
+      // 3. Clear in-memory cache to simulate fresh reboot, then load via getDeviceRescueSnapshotAsync
+      resetDeviceRescueSnapshotCache();
+      const loaded = await getDeviceRescueSnapshotAsync();
+      assert.ok(loaded, 'Rescue snapshot must be successfully loaded and decrypted');
+      assert.equal(loaded?.cravings?.length, 1, 'Decrypted snapshot must have 1 craving');
+      assert.equal(loaded?.cravings?.[0].id, 'c-secret-123', 'Decrypted craving ID must match original');
+    });
+
+    test('safe sequence allocation when Web Locks API is unavailable (fallback distributed lease lock)', async () => {
+      // Temporarily simulate environment without Web Locks API
+      const nav = globalThis.navigator;
+      const proto = nav ? Object.getPrototypeOf(nav) : null;
+      const origDescriptor = proto ? Object.getOwnPropertyDescriptor(proto, 'locks') : null;
+
+      if (nav) {
+        Object.defineProperty(nav, 'locks', {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+      }
+
+      try {
+        // Fire 10 concurrent sequence allocations without Web Locks
+        const allocations = await Promise.all(
+          Array.from({ length: 10 }).map(() => getNextMonotonicSequence())
+        );
+
+        // Verify all 10 allocated sequences are unique and monotonically increasing
+        const uniqueSeqs = new Set(allocations);
+        assert.equal(uniqueSeqs.size, 10, 'All 10 allocations without Web Locks must be unique');
+        for (let i = 1; i < allocations.length; i++) {
+          assert.ok(allocations[i] > allocations[i - 1], 'Sequences without Web Locks must be monotonically increasing');
+        }
+      } finally {
+        if (nav) {
+          try { delete nav.locks; } catch {}
+          if (proto && origDescriptor) {
+            try {
+              Object.defineProperty(proto, 'locks', origDescriptor);
+            } catch {}
+          }
+        }
+      }
+    });
+
+    test('recovery with corrupted records rejects corrupted ciphertexts and recovers all valid entities', async () => {
+      // 1. Store valid records
+      const validProfile = {
+        name: 'ResilientUser',
+        quitDate: '2026-02-01T08:00:00.000Z',
+        isOnboarded: true,
+      };
+      const validCipher = await encryptData(validProfile);
+      globalThis.localStorage.setItem('puffinless_profile_v2', validCipher);
+
+      const validLogs = [{ id: 'sub-valid-1', substance: 'cigarette', count: 1, timestamp: '2026-02-02T10:00:00.000Z' }];
+      await idbSet('substance_logs', validLogs);
+
+      // 2. Inject corrupted ciphertext records into localStorage and IndexedDB
+      globalThis.localStorage.setItem('puffinless_cravings_v2', 'aes-gcm:invalidhex:badbase64ciphertext==');
+      globalThis.localStorage.setItem('puffinless_expenses_v2', 'aes-gcm:corrupted:notvalid');
+
+      // 3. Run full device recovery
+      const report = await recoverAllDeviceData();
+
+      // 4. Assert corrupted records were rejected, not crashed, and valid entities restored
+      assert.ok(report.integrity.corruptedRejected >= 2, 'Must track corrupted records in corruptedRejected');
+      assert.ok(report.recovered, 'Recovery must report success for valid entities');
+      assert.equal(report.profile?.name, 'ResilientUser', 'Valid profile must be recovered');
+      assert.ok(report.substanceLogs.length >= 1, 'Valid substance log must be recovered');
+    });
+
+    test('recovery with missing master key recovers uncorrupted secondary records without throwing', async () => {
+      // 1. Purge master key from vault
+      await purgeVaultKeys();
+
+      // 2. Put legacy unencrypted streak in localStorage
+      const legacyStreak = [{ id: 'st-unenc-1', start: '2026-02-01T00:00:00.000Z' }];
+      globalThis.localStorage.setItem('puffinless_streaks', JSON.stringify(legacyStreak));
+
+      // 3. Put an encrypted record whose key is now missing
+      globalThis.localStorage.setItem('puffinless_cravings_v2', 'aes-gcm:0102030405060708090a0b0c:somemissingkeyciphertext');
+
+      // 4. Run recovery - must not crash with uncaught DOMException
+      const report = await recoverAllDeviceData();
+
+      assert.ok(report.integrity.corruptedRejected >= 1, 'Inaccessible encrypted record must be classified as rejected');
+      assert.equal(report.streaks.length, 1, 'Unencrypted legacy streak must be safely recovered');
+      assert.equal(report.streaks[0].id, 'st-unenc-1');
+    });
+
+    test('recovery with interrupted writes reconstructs projections from discrete event journal', async () => {
+      // Simulate an interrupted write:
+      // The journal event was persisted to events_store, but kv_store projection was never written.
+      const interruptedCraving = {
+        id: 'c-interrupted-99',
+        timestamp: '2026-02-05T12:00:00.000Z',
+        intensity: 9,
+        trigger: 'stress',
+        resisted: true,
+      };
+
+      await recordJournalEvent('CRAVING_LOGGED', interruptedCraving, 'c-interrupted-99');
+
+      // Verify kv_store DOES NOT contain cravings (write was interrupted before kv_store put)
+      const kvCheck = await idbGetWithStatus('cravings');
+      assert.equal(kvCheck.status, 'absent', 'kv_store must not contain cravings projection');
+
+      // Run full device recovery
+      const report = await recoverAllDeviceData();
+
+      // Replay must reconstruct the craving from events_store
+      assert.ok(report.cravings.length >= 1, 'Recovery must reconstruct craving projection from journal');
+      assert.equal(report.cravings.some((c) => c.id === 'c-interrupted-99'), true, 'Interrupted craving must be restored');
     });
   });
 });

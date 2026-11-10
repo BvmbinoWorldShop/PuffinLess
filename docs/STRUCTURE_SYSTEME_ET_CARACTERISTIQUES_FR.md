@@ -197,14 +197,14 @@ En présence de plusieurs onglets ouverts simultanément :
 La robustesse du stockage est certifiée par un pipeline double d'assurance qualité :
 
 ### 1. Tests Unitaires & En Mémoire (`npm run test:unit`)
-**62 Tests Complets Répartis sur 7 Piliers (100% de Réussite) :**
+**67 Tests Complets Répartis sur 7 Piliers (100% de Réussite) :**
 - **Pilier 1** : Clés Web Crypto AES-GCM non-extractibles, IVs uniques de 96 bits par écriture, distinction d'erreurs.
 - **Pilier 2** : Hachage de code PIN par PBKDF2 (100 000 itérations), effacement cryptographique complet lors de la réinitialisation.
 - **Pilier 3** : Calcul des métriques cliniques par période d'observation sans contamination historique.
 - **Pilier 4** : Distinction redémarrage complet vs mise en veille, reprise transparente sur miroir local.
 - **Pilier 5** : Cycle de vie IndexedDB authentique, migration AES-CBC historique, absence totale de clés en clair dans localStorage.
 - **Pilier 6** : Redémarrage à froid avec purge mémoire vive complète, isolation des enregistrements corrompus.
-- **Pilier 7** : Sauvegardes contre la perte de données, annulation atomique `idbPersistAtomic`, coordination atomique par Web Locks API, protection anti-tronquage, hiérarchie explicite `IndexedDBUnavailableError` et 100% d'accord tri-directionnel UI / projections / journal.
+- **Pilier 7** : Sauvegardes contre la perte de données, annulation atomique `idbPersistAtomic`, validation sur validation effective de transaction (`tx.oncomplete`), instantané de secours chiffré AES-GCM, verrou distribué par bail sans Web Locks, et résilience de récupération face aux écritures interrompues, clés manquantes et enregistrements corrompus.
 
 ### 2. Suite de Vérification sur Navigateur Réel (`npm run test:browser`)
 Exécutée directement sur **Microsoft Edge (`msedge.exe`)** via le protocole Chrome DevTools (CDP) sur l'exécutable compilé `dist/standalone.html` :
@@ -249,7 +249,7 @@ PuffinLess/
 │       ├── clinicalMetrics.ts                      # Calculs de périodes cliniques
 │       └── dates.ts                                # Formatage et parsing temporel sécurisé
 ├── tests/
-│   ├── engineering-verification.test.js            # 62 tests de vérification logicielle (100% validé)
+│   ├── engineering-verification.test.js            # 67 tests de vérification logicielle (100% validé)
 │   └── real-browser-verification.js                # 6 tests Edge CDP authentiques inter-processus (100% validé)
 └── scripts/
     └── make-standalone.js                          # Pipeline d'inlining et d'obfuscation JavaScript

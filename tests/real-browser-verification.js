@@ -26,17 +26,37 @@ if (!fs.existsSync(STANDALONE_PATH)) {
   process.exit(1);
 }
 
-// Locate browser binary
+// Locate browser binary (supports Linux, Windows, macOS, and custom environment variables)
 const candidateBrowsers = [
+  process.env.CHROME_BIN,
+  process.env.BROWSER_BIN,
+  // Linux (Debian, Ubuntu, Arch, Fedora)
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+  // Windows
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-];
+  // macOS
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+].filter(Boolean);
 
-const browserExe = candidateBrowsers.find((p) => fs.existsSync(p));
+const browserExe = candidateBrowsers.find((p) => {
+  try {
+    return fs.existsSync(p);
+  } catch {
+    return false;
+  }
+});
+
 if (!browserExe) {
-  console.error('Error: Neither Microsoft Edge nor Google Chrome executable found on host system.');
+  console.error('Error: Neither Microsoft Edge, Google Chrome, nor Chromium executable found on host system.');
   process.exit(1);
 }
 
@@ -69,6 +89,9 @@ class BrowserSession {
       '--headless=new',
       `--remote-debugging-port=${this.debugPort}`,
       `--user-data-dir=${this.userDataDir}`,
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-features=msEdgeSyncDialog,SyncConfirmationDialog',

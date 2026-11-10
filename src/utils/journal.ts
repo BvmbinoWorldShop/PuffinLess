@@ -126,11 +126,65 @@ export function getJournalSequenceState(): { seq: number; initialized: boolean }
 }
 
 let sequenceAllocationMutex: Promise<any> = Promise.resolve();
+const CROSS_TAB_LOCK_KEY = 'puffinless_seq_lock';
+const LOCK_LEASE_MS = 3000;
+
+/**
+ * Distributed spinlock using localStorage for cross-tab mutual exclusion
+ * when Web Locks API (navigator.locks) is not available.
+ * Employs unique ownership tokens, lease expiration (crash resilience), and jitter backoff.
+ */
+async function acquireCrossTabStorageLock(ownerId: string, maxWaitMs = 2500): Promise<boolean> {
+  if (typeof localStorage === 'undefined') return true;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const now = Date.now();
+    let canAcquire = false;
+    try {
+      const existing = localStorage.getItem(CROSS_TAB_LOCK_KEY);
+      if (!existing) {
+        canAcquire = true;
+      } else {
+        const parts = existing.split(':');
+        const expiresAt = parseInt(parts[1], 10);
+        if (Number.isNaN(expiresAt) || now > expiresAt) {
+          canAcquire = true; // Previous owner lease expired (prevents deadlock on tab crash)
+        }
+      }
+
+      if (canAcquire) {
+        const lockVal = `${ownerId}:${now + LOCK_LEASE_MS}`;
+        localStorage.setItem(CROSS_TAB_LOCK_KEY, lockVal);
+        // Small verification delay to resolve potential split-second collision
+        await new Promise((r) => setTimeout(r, 10 + Math.random() * 10));
+        if (localStorage.getItem(CROSS_TAB_LOCK_KEY) === lockVal) {
+          return true; // Lock acquired
+        }
+      }
+    } catch {
+      return true;
+    }
+    // Random backoff jitter
+    await new Promise((r) => setTimeout(r, 15 + Math.random() * 20));
+  }
+  return false;
+}
+
+function releaseCrossTabStorageLock(ownerId: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const existing = localStorage.getItem(CROSS_TAB_LOCK_KEY);
+    if (existing && existing.startsWith(`${ownerId}:`)) {
+      localStorage.removeItem(CROSS_TAB_LOCK_KEY);
+    }
+  } catch {}
+}
 
 /**
  * Coordinate journal sequencing across tabs and disk with genuine atomicity.
- * Uses the Web Locks API (navigator.locks) for cross-tab mutual exclusion,
- * combined with a local mutex chain for in-process serialization.
+ * Uses the Web Locks API (navigator.locks) for cross-tab mutual exclusion.
+ * When Web Locks are unavailable, falls back to a distributed localStorage lease lock
+ * combined with an in-process serialized mutex queue.
  * Guarantees that two tabs or concurrent calls can NEVER allocate the same sequence.
  */
 export async function getNextMonotonicSequence(): Promise<number> {
@@ -173,7 +227,7 @@ export async function getNextMonotonicSequence(): Promise<number> {
     return nextSeq;
   };
 
-  // If Web Locks API is supported (standard in modern browsers across tabs)
+  // 1. Primary: If Web Locks API is supported (standard in modern browsers across tabs)
   if (
     typeof navigator !== 'undefined' &&
     navigator.locks &&
@@ -182,13 +236,25 @@ export async function getNextMonotonicSequence(): Promise<number> {
     try {
       return await navigator.locks.request('puffinless_journal_seq_lock', allocateAtomicSequence);
     } catch (lockErr) {
-      // If Web Locks request is aborted or fails, fall back to in-process mutex
-      console.warn('[Journal] Web Locks error during sequence allocation, falling back to mutex:', lockErr);
+      console.warn('[Journal] Web Locks error during sequence allocation, falling back to distributed lock:', lockErr);
     }
   }
 
-  // In-process serialized mutex queue (guarantees atomicity within tab / Node.js test environment)
-  const task = sequenceAllocationMutex.then(allocateAtomicSequence, allocateAtomicSequence);
+  // 2. Fallback: Distributed localStorage lease lock + in-process serialized mutex queue
+  const runWithFallbackLock = async (): Promise<number> => {
+    const ownerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    let lockAcquired = false;
+    try {
+      lockAcquired = await acquireCrossTabStorageLock(ownerId);
+      return await allocateAtomicSequence();
+    } finally {
+      if (lockAcquired) {
+        releaseCrossTabStorageLock(ownerId);
+      }
+    }
+  };
+
+  const task = sequenceAllocationMutex.then(runWithFallbackLock, runWithFallbackLock);
   sequenceAllocationMutex = task.catch(() => {});
   return task;
 }

@@ -419,9 +419,10 @@ export async function removeKeyFromVault(id: string): Promise<void> {
       const tx = db.transaction(KEY_STORE_NAME, 'readwrite');
       const store = tx.objectStore(KEY_STORE_NAME);
       const req = store.delete(id);
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
       req.onerror = () => reject(req.error);
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   } catch {
     // ignore

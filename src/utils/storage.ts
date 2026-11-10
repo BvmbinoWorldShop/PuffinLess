@@ -26,6 +26,8 @@ import {
   recoverAllDeviceData,
   createDeviceRescueSnapshot,
   getDeviceRescueSnapshot,
+  getDeviceRescueSnapshotAsync,
+  resetDeviceRescueSnapshotCache,
   mergeStreaks,
   mergeCravings,
   mergeSubstances,
@@ -101,7 +103,7 @@ export async function persistAtomicBatch(batch: AtomicPersistenceBatch): Promise
 
     // 3. Update device rescue snapshot if provided
     if (batch.rescueSnapshot) {
-      createDeviceRescueSnapshot(batch.rescueSnapshot);
+      await createDeviceRescueSnapshot(batch.rescueSnapshot);
     }
   });
 }
@@ -1313,6 +1315,9 @@ export async function initIndexedDBStorage(): Promise<HydratedStorageData | null
   if (typeof window === 'undefined') return null;
 
   try {
+    // Decrypt and warm the rescue snapshot into memory cache
+    await getDeviceRescueSnapshotAsync();
+
     // 1. Check IndexedDB across primary and legacy keys with explicit status distinction
     let idbProfile: UserProfile | null = null;
     let hasDecryptionError = false;
@@ -1642,6 +1647,7 @@ export async function resetAllUserData(): Promise<void> {
   purgeSecurityState();
 
   // 4. Wipe all browser storage completely
+  resetDeviceRescueSnapshotCache();
   if (typeof localStorage !== 'undefined') {
     try {
       localStorage.removeItem(RESCUE_BACKUP_KEY);
