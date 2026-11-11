@@ -80,6 +80,9 @@ import {
   getDeviceRescueSnapshot,
   getDeviceRescueSnapshotAsync,
   resetDeviceRescueSnapshotCache,
+  RESCUE_BACKUP_KEY,
+  RESCUE_ARCHIVE_KEY,
+  LEGACY_RESCUE_KEY,
 } from '../src/utils/recovery.ts';
 import { localDateStr, dayLabel } from '../src/utils/dates.ts';
 import { buildCoreReport, sumIntake } from '../src/core/obsidianCore.ts';
@@ -1889,6 +1892,192 @@ describe('PuffinLess Production Code Verification', () => {
       // Replay must reconstruct the craving from events_store
       assert.ok(report.cravings.length >= 1, 'Recovery must reconstruct craving projection from journal');
       assert.equal(report.cravings.some((c) => c.id === 'c-interrupted-99'), true, 'Interrupted craving must be restored');
+    });
+
+    test('recovery restores full data from both legacy plaintext JSON and modern AES-GCM backups', async () => {
+      // 1. Test recovery from legacy plaintext snapshot in LEGACY_RESCUE_KEY
+      const legacySnapshot = {
+        version: 1,
+        timestamp: '2026-01-10T12:00:00.000Z',
+        profile: {
+          name: 'LegacyPlaintextHero',
+          quitDate: '2026-01-01T00:00:00.000Z',
+          isOnboarded: true,
+          primarySubstance: 'cigarette',
+        },
+        cravings: [
+          { id: 'c-legacy-1', timestamp: '2026-01-05T10:00:00.000Z', intensity: 6, resisted: true },
+        ],
+        streaks: [
+          { id: 'st-legacy-1', start: '2026-01-01T00:00:00.000Z' },
+        ],
+      };
+      globalThis.localStorage.setItem(LEGACY_RESCUE_KEY, JSON.stringify(legacySnapshot));
+      resetDeviceRescueSnapshotCache();
+
+      const legacyReport = await recoverAllDeviceData();
+      assert.ok(legacyReport.recovered, 'Legacy plaintext backup must be recovered successfully');
+      assert.equal(legacyReport.profile?.name, 'LegacyPlaintextHero');
+      assert.equal(legacyReport.cravings.length, 1);
+      assert.equal(legacyReport.streaks.length, 1);
+
+      // Clean storage for modern encrypted test
+      await idbClear();
+      await clearJournalEvents();
+      globalThis.localStorage.clear();
+      resetDeviceRescueSnapshotCache();
+
+      // 2. Test recovery from modern AES-GCM encrypted snapshot in RESCUE_BACKUP_KEY
+      const modernSnapshot = {
+        version: 2,
+        timestamp: '2026-02-10T12:00:00.000Z',
+        profile: {
+          name: 'ModernEncryptedHero',
+          quitDate: '2026-02-01T00:00:00.000Z',
+          isOnboarded: true,
+          primarySubstance: 'puff_vape',
+        },
+        cravings: [
+          { id: 'c-modern-1', timestamp: '2026-02-05T14:00:00.000Z', intensity: 8, resisted: true },
+        ],
+        substanceLogs: [
+          { id: 'sub-modern-1', substance: 'puff_vape', count: 3, timestamp: '2026-02-06T15:00:00.000Z' },
+        ],
+      };
+      const cipher = await encryptData(modernSnapshot);
+      globalThis.localStorage.setItem(RESCUE_BACKUP_KEY, cipher);
+      resetDeviceRescueSnapshotCache();
+
+      const modernReport = await recoverAllDeviceData();
+      assert.ok(modernReport.recovered, 'Modern AES-GCM encrypted backup must be recovered successfully');
+      assert.equal(modernReport.profile?.name, 'ModernEncryptedHero');
+      assert.equal(modernReport.cravings.length, 1);
+      assert.equal(modernReport.substanceLogs.length, 1);
+    });
+
+    test('interrupted encryption or migration preserves previous valid backup in storage', async () => {
+      // 1. Establish an existing valid encrypted backup
+      const initialSnapshot = {
+        version: 2,
+        timestamp: '2026-02-01T10:00:00.000Z',
+        profile: {
+          name: 'ProtectedHero',
+          quitDate: '2026-01-20T00:00:00.000Z',
+          isOnboarded: true,
+        },
+        cravings: [
+          { id: 'c-protected-1', timestamp: '2026-01-25T11:00:00.000Z', intensity: 5, resisted: true },
+        ],
+      };
+      await createDeviceRescueSnapshot(initialSnapshot);
+      const validCipherBefore = globalThis.localStorage.getItem(RESCUE_BACKUP_KEY);
+      assert.ok(validCipherBefore && validCipherBefore.startsWith('aes-gcm:'));
+
+      // 2. Simulate an interrupted encryption failure during next snapshot creation
+      const origEncrypt = globalThis.crypto.subtle.encrypt;
+      globalThis.crypto.subtle.encrypt = async () => {
+        throw new Error('Simulated hardware/crypto power loss interruption');
+      };
+
+      try {
+        await createDeviceRescueSnapshot({
+          cravings: [{ id: 'c-new-interrupted', timestamp: '2026-02-11T12:00:00.000Z', intensity: 9, resisted: true }],
+        });
+      } finally {
+        globalThis.crypto.subtle.encrypt = origEncrypt;
+      }
+
+      // 3. Verify that the existing valid backup was NOT overwritten or destroyed
+      const cipherAfterFailedWrite = globalThis.localStorage.getItem(RESCUE_BACKUP_KEY);
+      assert.equal(cipherAfterFailedWrite, validCipherBefore, 'Interrupted encryption must preserve existing valid backup intact');
+
+      // 4. Verify that data can still be recovered without data loss
+      resetDeviceRescueSnapshotCache();
+      const recovered = await getDeviceRescueSnapshotAsync();
+      assert.ok(recovered, 'Must successfully recover prior backup');
+      assert.equal(recovered?.profile?.name, 'ProtectedHero');
+      assert.equal(recovered?.cravings?.length, 1);
+      assert.equal(recovered?.cravings?.[0].id, 'c-protected-1');
+
+      // 5. Create next valid snapshot and verify previous backup is safely archived in RESCUE_ARCHIVE_KEY
+      await createDeviceRescueSnapshot({
+        cravings: [{ id: 'c-archived-check', timestamp: '2026-02-11T12:00:00.000Z', intensity: 7, resisted: true }],
+      });
+      const archiveVal = globalThis.localStorage.getItem(RESCUE_ARCHIVE_KEY);
+      assert.ok(archiveVal && archiveVal.startsWith('aes-gcm:'), 'Previous valid backup must be safely preserved in RESCUE_ARCHIVE_KEY');
+    });
+
+    test('safe sequence allocation fails safely without allocating duplicate sequences when storage fails', async () => {
+      // Ensure sequence initialized
+      await ensureSequenceInitialized();
+
+      // Sabotage openPuffinLessDB directly without corrupting key vault
+      const origOpen = window.indexedDB.open;
+      try {
+        window.indexedDB.open = function(name, version) {
+          if (name === 'puffinless_indexeddb') {
+            throw new Error('Simulated IndexedDB disk I/O failure');
+          }
+          return origOpen.call(window.indexedDB, name, version);
+        };
+        closePuffinLessDB();
+
+        // Attempting sequence allocation must fail visibly with an explicit error
+        let failed = false;
+        try {
+          await getNextMonotonicSequence();
+        } catch (err) {
+          failed = true;
+          assert.match(err?.message || String(err), /(IndexedDB|sequence allocation|failed)/i);
+        }
+        assert.equal(failed, true, 'Sequence allocation must fail safely instead of returning uncoordinated numbers');
+      } finally {
+        window.indexedDB.open = origOpen;
+        closePuffinLessDB();
+      }
+    });
+
+    test('multi-tab concurrent writes allocate strictly unique sequences and preserve all entries without loss', async () => {
+      await clearJournalEvents();
+
+      // Simulate 10 operations across 2 simulated tabs executing simultaneously
+      const tab1Operations = Array.from({ length: 5 }).map(async (_, idx) => {
+        const ev = await createJournalEvent('SUBSTANCE_LOGGED', {
+          id: `tab1-sub-${idx}`,
+          substance: 'cigarette',
+          count: 1,
+          timestamp: new Date().toISOString(),
+        });
+        await idbPersistAtomic({ events: [ev] });
+        return ev;
+      });
+
+      const tab2Operations = Array.from({ length: 5 }).map(async (_, idx) => {
+        const ev = await createJournalEvent('CRAVING_LOGGED', {
+          id: `tab2-crave-${idx}`,
+          intensity: 7,
+          timestamp: new Date().toISOString(),
+          resisted: true,
+        });
+        await idbPersistAtomic({ events: [ev] });
+        return ev;
+      });
+
+      const allResults = await Promise.all([...tab1Operations, ...tab2Operations]);
+      assert.equal(allResults.length, 10);
+
+      // Verify sequence numbers are unique and no duplicates exist
+      const allocatedSeqs = allResults.map((e) => e.seq);
+      const uniqueSeqs = new Set(allocatedSeqs);
+      assert.equal(uniqueSeqs.size, 10, 'All 10 multi-tab events must receive unique sequence numbers');
+
+      // Verify all 10 events exist in the journal
+      const diskEvents = await getHistoricalJournalEvents();
+      assert.equal(diskEvents.length, 10, 'All 10 events must be persisted without data loss');
+
+      const diskSeqs = diskEvents.map((e) => e.seq);
+      const uniqueDiskSeqs = new Set(diskSeqs);
+      assert.equal(uniqueDiskSeqs.size, 10, 'Every persisted event in events_store must have a unique seq');
     });
   });
 });

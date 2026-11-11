@@ -179,8 +179,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       }
     } catch (err) {
       console.error('[ProfileModal] Recovery error:', err);
+      const detail = err instanceof Error ? err.message : String(err);
       setRecoveryMessage(
-        isFr ? 'Erreur lors du scan de récupération.' : 'Error during recovery scan.'
+        isFr
+          ? `✕ Échec du scan de récupération : ${detail}`
+          : `✕ Recovery scan failed: ${detail}`
       );
     } finally {
       setIsRecovering(false);
@@ -195,8 +198,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setIsExporting(true);
     try {
       await downloadUserDataJSON();
+      setRecoveryMessage(
+        isFr ? '✓ Sauvegarde exportée avec succès.' : '✓ Backup exported successfully.'
+      );
     } catch (err) {
       console.error('[ProfileModal] Error exporting data:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setRecoveryMessage(
+        isFr ? `✕ Échec de l'exportation : ${detail}` : `✕ Export failed: ${detail}`
+      );
     } finally {
       setIsExporting(false);
     }
@@ -220,13 +230,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         );
       } else {
         setRecoveryMessage(
-          res?.message || (isFr ? 'Impossible de restaurer ce fichier.' : 'Unable to restore this backup file.')
+          `✕ ${res?.message || (isFr ? 'Impossible de restaurer ce fichier.' : 'Unable to restore this backup file.')}`
         );
       }
     } catch (err) {
       console.error('[ProfileModal] Error importing backup:', err);
+      const detail = err instanceof Error ? err.message : String(err);
       setRecoveryMessage(
-        isFr ? 'Erreur lors de la lecture du fichier de sauvegarde.' : 'Error reading backup file.'
+        isFr ? `✕ Erreur lors de la lecture du fichier : ${detail}` : `✕ Error reading backup file: ${detail}`
       );
     } finally {
       setIsImporting(false);
@@ -1364,6 +1375,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
+            {/* Important Local Backup Reminder */}
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+              <div className="p-1 rounded-lg bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                <Shield className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-[11px] text-amber-200/90 leading-relaxed">
+                <span className="font-bold block text-amber-300">
+                  {isFr ? 'Rappel de Sauvegarde Importante' : 'Important Backup Reminder'}
+                </span>
+                {isFr
+                  ? 'Vos données et historiques sont chiffrés et stockés exclusivement sur cet appareil (zéro serveur distant). Pensez à exporter régulièrement un fichier de sauvegarde (.json) pour mettre vos progrès à l’abri en cas de changement d’appareil ou de nettoyage du navigateur.'
+                  : 'Your data and streak logs are encrypted and stored strictly on this device (zero cloud servers). Remember to periodically export a backup file (.json) to protect your journey against device changes or browser cache wipes.'}
+              </div>
+            </div>
+
             {/* Mode Récupération & Restauration Locale */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 border border-emerald-500/30 space-y-2">
               <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
@@ -1391,13 +1417,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
               {recoveryMessage && (
                 <div
-                  className={`p-2 rounded-xl text-[11px] font-semibold ${
+                  className={`p-2.5 rounded-xl text-[11px] font-semibold leading-relaxed flex items-start gap-2 ${
                     recoveryMessage.startsWith('✓')
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : recoveryMessage.startsWith('✕') || recoveryMessage.startsWith('⚠️')
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                       : 'bg-slate-800 text-slate-300 border border-white/10'
                   }`}
                 >
-                  {recoveryMessage}
+                  <span>{recoveryMessage}</span>
                 </div>
               )}
             </div>

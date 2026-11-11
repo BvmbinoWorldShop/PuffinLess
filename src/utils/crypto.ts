@@ -36,6 +36,7 @@ export function getCryptoLifecycleState(): CryptoLifecycleState {
 /** In-memory fallback and test store */
 const inMemoryKeyStore = new Map<string, CryptoKey>();
 let cachedCryptoKey: CryptoKey | null = null;
+let subtleCryptoKeyPromise: Promise<CryptoKey> | null = null;
 
 /** Custom error for cryptographic decryption integrity or key mismatch */
 export class DecryptionError extends Error {
@@ -583,83 +584,94 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
     cryptoLifecycleState = 'READY';
     return cachedCryptoKey;
   }
-
-  const cryptoInstance = getCrypto();
-
-  // 1. Retrieve non-extractable key from IndexedDB key vault with explicit status
-  const keyRes = await loadKeyFromVaultWithStatus(MASTER_KEY_ID);
-  if (keyRes.status === 'success' && keyRes.key) {
-    cachedCryptoKey = keyRes.key;
-    cryptoLifecycleState = 'READY';
-    // Genuinely purge raw key material from localStorage
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_DEVICE_KEY);
-      localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
-      localStorage.removeItem(DEVICE_RECOVERY_KEY);
-    }
-    return keyRes.key;
-  }
-  if (keyRes.status === 'error') {
-    // Database query error: do NOT collapse into missing key or generate a fresh key!
-    if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
-      const memKey = inMemoryKeyStore.get(MASTER_KEY_ID)!;
-      cachedCryptoKey = memKey;
-      cryptoLifecycleState = 'READY';
-      return memKey;
-    }
-    throw new Error(`[Crypto] Database error reading master key from vault: ${keyRes.error.message}`);
+  if (subtleCryptoKeyPromise) {
+    return subtleCryptoKeyPromise;
   }
 
-  // 2. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
-  if (typeof localStorage !== 'undefined') {
-    const legacyRaw =
-      localStorage.getItem(DEVICE_RECOVERY_KEY) ||
-      localStorage.getItem(STORAGE_DEVICE_KEY) ||
-      localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
+  subtleCryptoKeyPromise = (async () => {
+    try {
+      const cryptoInstance = getCrypto();
 
-    if (legacyRaw) {
-      let importedKey: CryptoKey | null = null;
-      try {
-        importedKey = await importOrDeriveKeyFromString(legacyRaw);
-        // saveKeyToVault performs write and read-back verification, throwing on failure
-        await saveKeyToVault(MASTER_KEY_ID, importedKey);
-        // CRITICAL: Purge raw key material from localStorage ONLY after confirmed vault persistence
-        localStorage.removeItem(STORAGE_DEVICE_KEY);
-        localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
-        localStorage.removeItem(DEVICE_RECOVERY_KEY);
-        cachedCryptoKey = importedKey;
+      // 1. Retrieve non-extractable key from IndexedDB key vault with explicit status
+      const keyRes = await loadKeyFromVaultWithStatus(MASTER_KEY_ID);
+      if (keyRes.status === 'success' && keyRes.key) {
+        cachedCryptoKey = keyRes.key;
         cryptoLifecycleState = 'READY';
-        return importedKey;
-      } catch (err) {
-        console.warn('[Crypto] Key persistence failed during legacy raw key migration, preserving legacy key material:', err);
-        if (importedKey) {
-          // Keep usable in memory for the current session without deleting the recoverable legacy key
-          cachedCryptoKey = importedKey;
-          return importedKey;
+        // Genuinely purge raw key material from localStorage
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(STORAGE_DEVICE_KEY);
+          localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+          localStorage.removeItem(DEVICE_RECOVERY_KEY);
+        }
+        return keyRes.key;
+      }
+      if (keyRes.status === 'error') {
+        // Database query error: do NOT collapse into missing key or generate a fresh key!
+        if (inMemoryKeyStore.has(MASTER_KEY_ID)) {
+          const memKey = inMemoryKeyStore.get(MASTER_KEY_ID)!;
+          cachedCryptoKey = memKey;
+          cryptoLifecycleState = 'READY';
+          return memKey;
+        }
+        throw new Error(`[Crypto] Database error reading master key from vault: ${keyRes.error.message}`);
+      }
+
+      // 2. Migrate any legacy raw keys in localStorage to non-extractable IndexedDB key, then purge raw keys
+      if (typeof localStorage !== 'undefined') {
+        const legacyRaw =
+          localStorage.getItem(DEVICE_RECOVERY_KEY) ||
+          localStorage.getItem(STORAGE_DEVICE_KEY) ||
+          localStorage.getItem(LEGACY_STORAGE_DEVICE_KEY);
+
+        if (legacyRaw) {
+          let importedKey: CryptoKey | null = null;
+          try {
+            importedKey = await importOrDeriveKeyFromString(legacyRaw);
+            // saveKeyToVault performs write and read-back verification, throwing on failure
+            await saveKeyToVault(MASTER_KEY_ID, importedKey);
+            // CRITICAL: Purge raw key material from localStorage ONLY after confirmed vault persistence
+            localStorage.removeItem(STORAGE_DEVICE_KEY);
+            localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+            localStorage.removeItem(DEVICE_RECOVERY_KEY);
+            cachedCryptoKey = importedKey;
+            cryptoLifecycleState = 'READY';
+            return importedKey;
+          } catch (err) {
+            console.warn('[Crypto] Key persistence failed during legacy raw key migration, preserving legacy key material:', err);
+            if (importedKey) {
+              // Keep usable in memory for the current session without deleting the recoverable legacy key
+              cachedCryptoKey = importedKey;
+              return importedKey;
+            }
+          }
         }
       }
-    }
-  }
 
-  // 3. Initial Boot on Device: Generate fresh 32-byte entropy seed and store ONLY non-extractable key in IndexedDB
-  const freshSeed = new Uint8Array(32);
-  cryptoInstance.getRandomValues(freshSeed);
-  const freshKey = await createKeyFromSeed(freshSeed);
+      // 3. Initial Boot on Device: Generate fresh 32-byte entropy seed and store ONLY non-extractable key in IndexedDB
+      const freshSeed = new Uint8Array(32);
+      cryptoInstance.getRandomValues(freshSeed);
+      const freshKey = await createKeyFromSeed(freshSeed);
 
-  try {
-    await saveKeyToVault(MASTER_KEY_ID, freshKey);
-    // Guarantee zero raw key material in localStorage
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_DEVICE_KEY);
-      localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
-      localStorage.removeItem(DEVICE_RECOVERY_KEY);
+      try {
+        await saveKeyToVault(MASTER_KEY_ID, freshKey);
+        // Guarantee zero raw key material in localStorage
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(STORAGE_DEVICE_KEY);
+          localStorage.removeItem(LEGACY_STORAGE_DEVICE_KEY);
+          localStorage.removeItem(DEVICE_RECOVERY_KEY);
+        }
+      } catch (err) {
+        console.warn('[Crypto] Could not persist fresh key to IndexedDB key vault, holding in memory:', err);
+      }
+      cachedCryptoKey = freshKey;
+      cryptoLifecycleState = 'READY';
+      return freshKey;
+    } finally {
+      subtleCryptoKeyPromise = null;
     }
-  } catch (err) {
-    console.warn('[Crypto] Could not persist fresh key to IndexedDB key vault, holding in memory:', err);
-  }
-  cachedCryptoKey = freshKey;
-  cryptoLifecycleState = 'READY';
-  return freshKey;
+  })();
+
+  return subtleCryptoKeyPromise;
 }
 
 /**
@@ -669,6 +681,7 @@ export async function getSubtleCryptoKey(): Promise<CryptoKey> {
  */
 export function lockCryptographicVault(): void {
   cachedCryptoKey = null;
+  subtleCryptoKeyPromise = null;
   inMemoryKeyStore.clear();
   cryptoLifecycleState = 'BOOTING';
   closeKeyVaultDB();
@@ -703,6 +716,7 @@ export function getLegacyVaultKey(): string {
  */
 export async function purgeVaultKeys(): Promise<void> {
   cachedCryptoKey = null;
+  subtleCryptoKeyPromise = null;
   inMemoryKeyStore.clear();
   cryptoLifecycleState = 'PURGED';
 

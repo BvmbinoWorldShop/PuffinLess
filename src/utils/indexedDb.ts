@@ -32,9 +32,19 @@ export class IndexedDBTransactionError extends Error {
   }
 }
 
+export class SequenceAllocationError extends Error {
+  cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'SequenceAllocationError';
+    this.cause = cause;
+  }
+}
+
 const DB_NAME = 'puffinless_indexeddb';
 const STORE_NAME = 'kv_store';
 export const EVENTS_STORE_NAME = 'events_store';
+export const JOURNAL_SEQ_COUNTER_KEY = '__puffinless_journal_seq_counter__';
 
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -463,7 +473,9 @@ export async function idbGetAllEntries(): Promise<Record<string, unknown>> {
       req.onsuccess = (e) => {
         const cursor = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
         if (cursor) {
-          rawEntries.push({ key: String(cursor.key), value: cursor.value });
+          if (cursor.key !== JOURNAL_SEQ_COUNTER_KEY) {
+            rawEntries.push({ key: String(cursor.key), value: cursor.value });
+          }
           cursor.continue();
         } else {
           Promise.all(
@@ -629,8 +641,134 @@ export async function idbGetMaxEventSeq(): Promise<number> {
 }
 
 /**
+ * Genuinely atomic sequence allocation using IndexedDB readwrite transaction.
+ *
+ * IndexedDB readwrite transactions on an object store are strictly serialized by the browser
+ * across all tabs, workers, and iframes sharing this origin.
+ *
+ * Inside this serialized transaction, the sequence counter is read, verified against the highest
+ * event seq recorded on disk, incremented, and persisted back to the store.
+ * The transaction resolves strictly on `tx.oncomplete`.
+ *
+ * If sequence allocation cannot be guaranteed (e.g. database error, quota error, lock contention),
+ * it fails SAFELY by throwing SequenceAllocationError, preventing any uncoordinated progression.
+ */
+export async function idbAllocateNextSequence(minSeq?: number): Promise<number> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    throw new SequenceAllocationError('IndexedDB is not available for atomic sequence allocation');
+  }
+
+  let db: IDBDatabase;
+  try {
+    db = await openPuffinLessDB();
+  } catch (err) {
+    throw new SequenceAllocationError(
+      `Cannot open database for sequence allocation: ${err instanceof Error ? err.message : String(err)}`,
+      err
+    );
+  }
+
+  return new Promise<number>((resolve, reject) => {
+    try {
+      const tx = db.transaction([STORE_NAME, EVENTS_STORE_NAME], 'readwrite');
+      const kvStore = tx.objectStore(STORE_NAME);
+      const eventsStore = tx.objectStore(EVENTS_STORE_NAME);
+
+      let allocatedSeq = 0;
+      let existingCounter = 0;
+      let maxEventSeq = 0;
+
+      const counterReq = kvStore.get(JOURNAL_SEQ_COUNTER_KEY);
+
+      counterReq.onsuccess = () => {
+        if (typeof counterReq.result === 'number' && !Number.isNaN(counterReq.result)) {
+          existingCounter = counterReq.result;
+        }
+
+        // Check the highest sequence in events_store
+        if (eventsStore.indexNames.contains('seq')) {
+          const index = eventsStore.index('seq');
+          const cursorReq = index.openCursor(null, 'prev');
+          cursorReq.onsuccess = () => {
+            const cursor = cursorReq.result;
+            if (cursor && typeof cursor.key === 'number') {
+              maxEventSeq = cursor.key;
+            }
+            commitSequence();
+          };
+          cursorReq.onerror = () => {
+            commitSequence();
+          };
+        } else {
+          commitSequence();
+        }
+
+        function commitSequence() {
+          let storageSyncSeq = 0;
+          if (typeof localStorage !== 'undefined') {
+            try {
+              const rawSync = localStorage.getItem('puffinless_seq_sync');
+              if (rawSync) {
+                const parsed = parseInt(rawSync, 10);
+                if (!Number.isNaN(parsed)) {
+                  storageSyncSeq = parsed;
+                }
+              }
+            } catch {}
+          }
+          allocatedSeq = Math.max(existingCounter, maxEventSeq, minSeq || 0, storageSyncSeq) + 1;
+          kvStore.put(allocatedSeq, JOURNAL_SEQ_COUNTER_KEY);
+        }
+      };
+
+      counterReq.onerror = () => {
+        reject(
+          new SequenceAllocationError(
+            `Failed to query journal sequence counter: ${counterReq.error?.message || 'unknown error'}`,
+            counterReq.error
+          )
+        );
+      };
+
+      tx.oncomplete = () => {
+        if (allocatedSeq <= 0) {
+          reject(new SequenceAllocationError('Transaction committed without valid sequence allocation'));
+        } else {
+          resolve(allocatedSeq);
+        }
+      };
+
+      tx.onerror = () => {
+        reject(
+          new SequenceAllocationError(
+            `Atomic sequence transaction failed: ${tx.error?.message || 'unknown error'}`,
+            tx.error
+          )
+        );
+      };
+
+      tx.onabort = () => {
+        reject(
+          new SequenceAllocationError(
+            `Atomic sequence transaction aborted: ${tx.error?.message || 'unknown abort'}`,
+            tx.error
+          )
+        );
+      };
+    } catch (err) {
+      reject(
+        new SequenceAllocationError(
+          `Failed to initiate sequence allocation transaction: ${err instanceof Error ? err.message : String(err)}`,
+          err
+        )
+      );
+    }
+  });
+}
+
+/**
  * Clear the events_store journal (called strictly during confirmed user data reset).
- * Fails visibly and never swallows errors.
+ * Fails visibly and never swallows errors. Also cleans up journal sequence metadata.
  */
 export async function idbClearEvents(): Promise<void> {
   if (typeof window === 'undefined' || !window.indexedDB) {
@@ -639,9 +777,11 @@ export async function idbClearEvents(): Promise<void> {
   const db = await openPuffinLessDB();
   return new Promise<void>((resolve, reject) => {
     try {
-      const tx = db.transaction(EVENTS_STORE_NAME, 'readwrite');
-      const store = tx.objectStore(EVENTS_STORE_NAME);
-      const req = store.clear();
+      const tx = db.transaction([EVENTS_STORE_NAME, STORE_NAME], 'readwrite');
+      const eventsStore = tx.objectStore(EVENTS_STORE_NAME);
+      const kvStore = tx.objectStore(STORE_NAME);
+      const req = eventsStore.clear();
+      kvStore.delete(JOURNAL_SEQ_COUNTER_KEY);
       tx.oncomplete = () => resolve();
       req.onerror = () => reject(req.error || new Error('[IndexedDB] Failed to clear events_store'));
       tx.onerror = () => reject(tx.error || new Error('[IndexedDB] Transaction error clearing events_store'));

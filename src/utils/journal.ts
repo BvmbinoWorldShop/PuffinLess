@@ -23,8 +23,14 @@ import {
   idbGetAllEventsWithStatus,
   idbGetMaxEventSeq,
   idbClearEvents,
+  idbAllocateNextSequence,
+  SequenceAllocationError,
+  JOURNAL_SEQ_COUNTER_KEY,
+  idbGetRaw,
   type JournalReadResult,
 } from './indexedDb.ts';
+
+export { SequenceAllocationError } from './indexedDb.ts';
 
 let monotonicSequence = 0;
 let sequenceInitialized = false;
@@ -93,7 +99,16 @@ function generateEventId(prefix: string = 'ev'): string {
 export async function restoreJournalSequence(): Promise<number> {
   try {
     const maxSeq = await idbGetMaxEventSeq();
-    monotonicSequence = Math.max(monotonicSequence, maxSeq);
+    let counterSeq = 0;
+    try {
+      const rawCounter = await idbGetRaw(JOURNAL_SEQ_COUNTER_KEY);
+      if (typeof rawCounter === 'number' && !Number.isNaN(rawCounter)) {
+        counterSeq = rawCounter;
+      }
+    } catch {
+      // counter not yet initialized
+    }
+    monotonicSequence = Math.max(monotonicSequence, maxSeq, counterSeq);
     sequenceInitialized = true;
     broadcastSequence(monotonicSequence);
     return monotonicSequence;
@@ -126,103 +141,38 @@ export function getJournalSequenceState(): { seq: number; initialized: boolean }
 }
 
 let sequenceAllocationMutex: Promise<any> = Promise.resolve();
-const CROSS_TAB_LOCK_KEY = 'puffinless_seq_lock';
-const LOCK_LEASE_MS = 3000;
-
-/**
- * Distributed spinlock using localStorage for cross-tab mutual exclusion
- * when Web Locks API (navigator.locks) is not available.
- * Employs unique ownership tokens, lease expiration (crash resilience), and jitter backoff.
- */
-async function acquireCrossTabStorageLock(ownerId: string, maxWaitMs = 2500): Promise<boolean> {
-  if (typeof localStorage === 'undefined') return true;
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    const now = Date.now();
-    let canAcquire = false;
-    try {
-      const existing = localStorage.getItem(CROSS_TAB_LOCK_KEY);
-      if (!existing) {
-        canAcquire = true;
-      } else {
-        const parts = existing.split(':');
-        const expiresAt = parseInt(parts[1], 10);
-        if (Number.isNaN(expiresAt) || now > expiresAt) {
-          canAcquire = true; // Previous owner lease expired (prevents deadlock on tab crash)
-        }
-      }
-
-      if (canAcquire) {
-        const lockVal = `${ownerId}:${now + LOCK_LEASE_MS}`;
-        localStorage.setItem(CROSS_TAB_LOCK_KEY, lockVal);
-        // Small verification delay to resolve potential split-second collision
-        await new Promise((r) => setTimeout(r, 10 + Math.random() * 10));
-        if (localStorage.getItem(CROSS_TAB_LOCK_KEY) === lockVal) {
-          return true; // Lock acquired
-        }
-      }
-    } catch {
-      return true;
-    }
-    // Random backoff jitter
-    await new Promise((r) => setTimeout(r, 15 + Math.random() * 20));
-  }
-  return false;
-}
-
-function releaseCrossTabStorageLock(ownerId: string): void {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    const existing = localStorage.getItem(CROSS_TAB_LOCK_KEY);
-    if (existing && existing.startsWith(`${ownerId}:`)) {
-      localStorage.removeItem(CROSS_TAB_LOCK_KEY);
-    }
-  } catch {}
-}
 
 /**
  * Coordinate journal sequencing across tabs and disk with genuine atomicity.
- * Uses the Web Locks API (navigator.locks) for cross-tab mutual exclusion.
- * When Web Locks are unavailable, falls back to a distributed localStorage lease lock
- * combined with an in-process serialized mutex queue.
- * Guarantees that two tabs or concurrent calls can NEVER allocate the same sequence.
+ *
+ * Sequence allocation uses IndexedDB's serialized ACID readwrite transactions
+ * as the authoritative atomic coordinator across all tabs and workers on this origin.
+ * When the Web Locks API (navigator.locks) is available, it provides cooperative
+ * cross-tab scheduling and delegates allocation to `idbAllocateNextSequence()`.
+ *
+ * If sequence allocation cannot be guaranteed (e.g. database error, transaction abort),
+ * this function FAILS SAFELY by throwing SequenceAllocationError, strictly preventing any
+ * tab from allocating duplicate sequence numbers or proceeding uncoordinated.
  */
 export async function getNextMonotonicSequence(): Promise<number> {
   const allocateAtomicSequence = async (): Promise<number> => {
     await ensureSequenceInitialized();
-    let currentHighest = monotonicSequence;
-    try {
-      const diskMax = await idbGetMaxEventSeq();
-      if (typeof diskMax === 'number' && !Number.isNaN(diskMax) && diskMax > currentHighest) {
-        currentHighest = diskMax;
-      }
-    } catch {
-      // continue with current highest if disk query errors
-    }
+    let currentInMem = monotonicSequence;
     if (typeof localStorage !== 'undefined') {
       try {
         const syncVal = localStorage.getItem(SEQ_STORAGE_KEY);
         if (syncVal) {
           const parsed = parseInt(syncVal, 10);
-          if (!Number.isNaN(parsed) && parsed > currentHighest) {
-            currentHighest = parsed;
+          if (!Number.isNaN(parsed) && parsed > currentInMem) {
+            currentInMem = parsed;
           }
         }
       } catch {
-        // ignore storage read failure
+        // ignore
       }
     }
-
-    const nextSeq = currentHighest + 1;
-    monotonicSequence = nextSeq;
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(SEQ_STORAGE_KEY, String(nextSeq));
-      } catch {
-        // ignore storage write failure
-      }
-    }
+    const nextSeq = await idbAllocateNextSequence(currentInMem);
+    monotonicSequence = Math.max(monotonicSequence, nextSeq);
     broadcastSequence(nextSeq);
     return nextSeq;
   };
@@ -236,25 +186,20 @@ export async function getNextMonotonicSequence(): Promise<number> {
     try {
       return await navigator.locks.request('puffinless_journal_seq_lock', allocateAtomicSequence);
     } catch (lockErr) {
-      console.warn('[Journal] Web Locks error during sequence allocation, falling back to distributed lock:', lockErr);
+      if (lockErr instanceof SequenceAllocationError || (lockErr instanceof Error && lockErr.name === 'SequenceAllocationError')) {
+        throw lockErr;
+      }
+      console.warn('[Journal] Web Locks error during sequence allocation, falling back to IndexedDB atomic transaction:', lockErr);
     }
   }
 
-  // 2. Fallback: Distributed localStorage lease lock + in-process serialized mutex queue
-  const runWithFallbackLock = async (): Promise<number> => {
-    const ownerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    let lockAcquired = false;
-    try {
-      lockAcquired = await acquireCrossTabStorageLock(ownerId);
-      return await allocateAtomicSequence();
-    } finally {
-      if (lockAcquired) {
-        releaseCrossTabStorageLock(ownerId);
-      }
-    }
+  // 2. Fallback: In-process serialized mutex queue + IndexedDB atomic readwrite transaction
+  // IndexedDB transactions with mode 'readwrite' guarantee strict cross-tab atomicity at the database engine level.
+  const runWithMutex = async (): Promise<number> => {
+    return await allocateAtomicSequence();
   };
 
-  const task = sequenceAllocationMutex.then(runWithFallbackLock, runWithFallbackLock);
+  const task = sequenceAllocationMutex.then(runWithMutex, runWithMutex);
   sequenceAllocationMutex = task.catch(() => {});
   return task;
 }
