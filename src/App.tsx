@@ -10,6 +10,7 @@ import { RewardsView } from './components/RewardsView';
 import { SosModal } from './components/SosModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProfileModal } from './components/ProfileModal';
+import { PrivacyTermsModal } from './components/PrivacyTermsModal';
 import { AppLockScreen } from './components/AppLockScreen';
 import { isAppSessionUnlocked } from './utils/security';
 import { formatDuration } from './utils/dates';
@@ -38,6 +39,7 @@ export function App() {
   });
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isPrivacyTermsOpen, setIsPrivacyTermsOpen] = useState(false);
 
   // Synchronize onboarding state with profile to permanently prevent presentation guide loop
   useEffect(() => {
@@ -212,6 +214,7 @@ export function App() {
         initialProfile={profile}
         initialStep={onboardingStep}
         onRecover={actions.recoverLocalData}
+        onOpenPrivacyTerms={() => setIsPrivacyTermsOpen(true)}
         onClose={() => {
           setIsManualOnboardingOpen(false);
           setIsOnboardingDismissed(true);
@@ -238,6 +241,7 @@ export function App() {
           onSaveProfile={actions.updateProfile}
           onRecoverData={actions.recoverLocalData}
           onImportData={actions.importUserData}
+          onOpenPrivacyTerms={() => setIsPrivacyTermsOpen(true)}
           onRerunOnboarding={(step = 1) => {
             setOnboardingStep(step);
             setIsOnboardingDismissed(false);
@@ -251,6 +255,12 @@ export function App() {
           }}
         />
       )}
+
+      <PrivacyTermsModal
+        isOpen={isPrivacyTermsOpen}
+        onClose={() => setIsPrivacyTermsOpen(false)}
+        language={lang}
+      />
     </div>
   </div>
 );

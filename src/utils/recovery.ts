@@ -1,7 +1,7 @@
 /**
  * LOCAL DEVICE RECOVERY ENGINE FOR PUFFINLESS
  * --------------------------------------------
- * Guarantees zero data loss across all app updates, browser storage migrations,
+ * Robust data recovery across app updates, browser storage migrations,
  * and key format transitions.
  *
  * Scans all device storage locations:

@@ -13,6 +13,7 @@ import {
   getSecurityConfig,
   saveSecurityConfig,
 } from '../utils/security';
+import { PrivacyTermsModal } from './PrivacyTermsModal';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface ProfileModalProps {
   onResetData: () => Promise<void> | void;
   onRecoverData?: () => Promise<any>;
   onImportData?: (jsonStr: string) => Promise<any>;
+  onOpenPrivacyTerms?: () => void;
 }
 
 const PRESET_AVATARS = [
@@ -85,6 +87,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onResetData,
   onRecoverData,
   onImportData,
+  onOpenPrivacyTerms,
 }) => {
   // Language & Theme
   const [lang, setLang] = useState<Language>(profile.language || 'en');
@@ -147,6 +150,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   // Local Device Recovery state
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
+  // Standalone Privacy Policy & Terms Modal state
+  const [isPrivacyTermsOpen, setIsPrivacyTermsOpen] = useState(false);
 
   const isFr = lang === 'fr';
 
@@ -1370,7 +1376,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   {isFr ? '5. Sauvegarde & Gestion des Données' : '5. Data Backup & Storage Management'}
                 </h4>
                 <p className="text-[10px] text-slate-400">
-                  {isFr ? 'Coffre-fort local avec sécurité de niveau militaire, export de sauvegarde et droit à l\'effacement' : 'Military-grade secured local vault, full backup export, and right to be forgotten'}
+                  {isFr ? 'Gestion du stockage local, export de sauvegarde et réinitialisation' : 'Local storage management, backup export, and reset controls'}
                 </p>
               </div>
             </div>
@@ -1385,8 +1391,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   {isFr ? 'Rappel de Sauvegarde Importante' : 'Important Backup Reminder'}
                 </span>
                 {isFr
-                  ? 'Vos données et historiques sont chiffrés et stockés exclusivement sur cet appareil (zéro serveur distant). Pensez à exporter régulièrement un fichier de sauvegarde (.json) pour mettre vos progrès à l’abri en cas de changement d’appareil ou de nettoyage du navigateur.'
-                  : 'Your data and streak logs are encrypted and stored strictly on this device (zero cloud servers). Remember to periodically export a backup file (.json) to protect your journey against device changes or browser cache wipes.'}
+                  ? 'Vos données et historiques sont stockés localement sur cet appareil. Pensez à exporter régulièrement un fichier de sauvegarde (.json) pour mettre vos progrès à l’abri en cas de changement d’appareil ou de nettoyage du navigateur.'
+                  : 'Your data and streak logs are stored locally on this device. Remember to periodically export a backup file (.json) to protect your journey against device changes or browser cache wipes.'}
               </div>
             </div>
 
@@ -1399,8 +1405,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                   <span className="text-[11px] text-slate-300 block">
                     {isFr
-                      ? 'Analyse en profondeur votre appareil pour retrouver et restaurer votre profil, vos jours d\'abstinence et tout votre historique sans perte.'
-                      : 'Deep-scans your device to locate and restore your profile, smoke-free days, and full history with zero data loss.'}
+                      ? 'Analyse votre appareil pour retrouver et restaurer votre profil, vos jours d\'abstinence et votre historique enregistré.'
+                      : 'Deep-scans your device to locate and restore your profile, smoke-free days, and your saved history.'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -1439,8 +1445,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                   <span className="text-[11px] text-slate-400 block">
                     {isFr
-                      ? 'Vos données sont 100% privées. Exportez une copie de secours sur votre téléphone/Drive ou restaurez un fichier existant à tout moment.'
-                      : 'Your data is 100% private. Export a backup copy to your device/Drive or restore an existing backup file at any time.'}
+                      ? 'Exportez une copie de secours sur votre appareil ou restaurez un fichier existant à tout moment.'
+                      : 'Export a backup copy to your device or restore an existing backup file at any time.'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -1495,12 +1501,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="p-3.5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2">
               <div>
                 <span className="text-xs font-bold text-rose-300 block">
-                  {isFr ? 'Suppression Définitive des Données (Droit à l\'oubli)' : 'Permanent Data Erasure (Right to be Forgotten)'}
+                  {isFr ? 'Réinitialisation & Suppression Locale des Données' : 'Local Reset & Data Deletion'}
                 </span>
                 <span className="text-[11px] text-slate-400 block">
                   {isFr
-                    ? 'Efface définitivement et détruit toutes vos données PuffinLess de cet appareil.'
-                    : 'Permanently and irreversibly erases all your PuffinLess data from this device.'}
+                    ? 'Efface la base de données locale, le journal et les clés de chiffrement de ce navigateur. Note : cela n\'efface pas les fichiers de sauvegarde (.json) déjà enregistrés sur votre disque, ni les sessions sur d\'autres appareils.'
+                    : 'Clears the local database, journal, and encryption keys within this specific browser. Note: does not delete .json backup files already saved to your disk, nor does it affect records in other browsers or devices.'}
                 </span>
               </div>
 
@@ -1517,7 +1523,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button text-xs text-rose-400 hover:text-rose-300 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isFr ? 'Supprimer toutes mes données' : 'Erase All My Data'}</span>
+                  <span>{isFr ? 'Réinitialiser les données de ce navigateur' : 'Reset Local Browser Data'}</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1533,7 +1539,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <span>{isFr ? 'Suppression en cours...' : 'Erasing data...'}</span>
                       </>
                     ) : (
-                      <span>{isFr ? 'Confirmer la Suppression Définitive' : 'Confirm Permanent Erasure'}</span>
+                      <span>{isFr ? 'Confirmer la Réinitialisation Locale' : 'Confirm Local Reset'}</span>
                     )}
                   </button>
                   <button
@@ -1598,8 +1604,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onClose();
-                  onRerunOnboarding(3);
+                  sound.playClick();
+                  if (onOpenPrivacyTerms) {
+                    onOpenPrivacyTerms();
+                  } else {
+                    setIsPrivacyTermsOpen(true);
+                  }
                 }}
                 className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-xs text-slate-300 hover:text-white transition-all group cursor-pointer"
               >
@@ -1609,10 +1619,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div className="text-left">
                     <span className="font-bold text-white block text-xs">
-                      {isFr ? 'Confidentialité & Légal' : 'Privacy & Legal'}
+                      {isFr ? 'Protection des Données' : 'Privacy & Terms'}
                     </span>
                     <span className="text-[10px] text-slate-400 block">
-                      {isFr ? 'Zéro cloud & mentions' : 'Zero cloud & disclaimers'}
+                      {isFr ? 'Politique complète & conditions' : 'Full policy & terms of service'}
                     </span>
                   </div>
                 </div>
@@ -1681,6 +1691,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         </form>
       </div>
+
+      <PrivacyTermsModal
+        isOpen={isPrivacyTermsOpen}
+        onClose={() => setIsPrivacyTermsOpen(false)}
+        language={isFr ? 'fr' : 'en'}
+      />
     </div>
   );
 };

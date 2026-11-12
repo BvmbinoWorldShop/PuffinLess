@@ -15,6 +15,7 @@ interface OnboardingModalProps {
   onComplete: (profile: UserProfile) => void;
   onClose?: () => void;
   onRecover?: () => Promise<any>;
+  onOpenPrivacyTerms?: () => void;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
@@ -24,6 +25,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onComplete,
   onClose,
   onRecover,
+  onOpenPrivacyTerms,
 }) => {
   const [lang, setLang] = useState<Language>(initialProfile.language || 'en');
   const isFr = lang === 'fr';
@@ -647,7 +649,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   {isFr ? 'Votre Arsenal PuffinLess est Prêt' : 'Your PuffinLess Arsenal is Primed'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {isFr ? 'Découvrez les outils cliniques conçus pour protéger votre décision 24h/24.' : 'Here is how PuffinLess protects your commitment 24/7.'}
+                  {isFr ? 'Découvrez les outils conçus pour protéger votre décision 24h/24.' : 'Here is how PuffinLess protects your commitment 24/7.'}
                 </p>
               </div>
 
@@ -662,8 +664,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     </h4>
                     <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
                       {isFr
-                        ? 'Respiration 4-7-8 d\'urgence et ancrage sensoriel en 1 clic pour désamorcer les pulsions vives en moins de 3 minutes.'
-                        : '1-tap emergency 4-7-8 breathing & 5-4-3-2-1 sensory grounding to collapse acute craving waves.'}
+                        ? 'Respiration 4-7-8 guidée et ancrage sensoriel en 1 clic pour vous aider à traverser les moments d\'envie vive.'
+                        : '1-tap guided 4-7-8 breathing & 5-4-3-2-1 sensory grounding to help you ride out acute cravings.'}
                     </p>
                   </div>
                 </div>
@@ -700,20 +702,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                 </div>
 
-                {/* Confidentialité & Protection de type militaire */}
+                {/* Respect de la vie privée */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-teal-500/30 bg-teal-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 shrink-0">
                     <Shield className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="text-xs font-semibold text-teal-200 flex items-center gap-1.5">
-                      <span>{isFr ? 'Confidentialité Client & Protection Militaire' : 'Client Privacy & Military-Grade Protection'}</span>
-                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-teal-500/30 text-teal-200 font-bold">100% Local</span>
+                      <span>{isFr ? 'Respect Total de Votre Vie Privée' : 'Complete Personal Privacy'}</span>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-teal-500/30 text-teal-200 font-bold">{isFr ? 'Sur votre appareil' : 'On your device'}</span>
                     </h4>
                     <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
                       {isFr
-                        ? 'Vos données personnelles et habitudes sont strictement confidentielles. Elles demeurent exclusivement sur votre appareil avec un système de protection autonome de type militaire : aucun serveur distant, aucun cloud externe, confidentialité absolue.'
-                        : 'Your personal data and logs are strictly confidential, protected locally on your device with autonomous military-grade security. No remote servers, no third-party tracking, absolute privacy.'}
+                        ? 'Vos habitudes et vos notes restent exclusivement sur votre téléphone ou votre ordinateur. Aucun serveur distant, aucun compte obligatoire, aucun pistage : vos données vous appartiennent.'
+                        : 'Your habits and notes remain strictly on your phone or computer. No remote servers, no mandatory accounts, and no tracking: your data belongs to you.'}
                     </p>
                   </div>
                 </div>
@@ -725,12 +727,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs font-semibold text-rose-200">
-                      {isFr ? 'Règle Fondamentale pour le Chronomètre' : 'Core Rule for the Sobriety Timer'}
+                      {isFr ? 'Règle Utile pour le Chronomètre' : 'Helpful Rule for the Timer'}
                     </h4>
                     <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
                       {isFr
-                        ? 'Pour une précision clinique, enregistrez toujours votre prise à la fin exacte de votre consommation. Le chronomètre démarrera ainsi au moment réel de votre arrêt définitif.'
-                        : 'For clinical accuracy, always log your intake right at the end of consumption so the sobriety timer starts at the exact moment you actually stop.'}
+                        ? 'Pour un suivi précis, enregistrez votre prise à la fin exacte de votre consommation. Le chronomètre démarrera ainsi au moment réel où vous vous arrêtez.'
+                        : 'For an accurate count, log your intake right at the end of consumption so the timer starts at the exact moment you stop.'}
                     </p>
                   </div>
                 </div>
@@ -745,126 +747,118 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base">🛡️</span>
                   <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                    {isFr ? 'Confidentialité Locale & Cadre Légal' : 'Local-First Privacy & Legal Framework'}
+                    {isFr ? 'Votre Vie Privée & Nos Engagements' : 'Your Privacy & Our Commitments'}
                   </h2>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {isFr
-                    ? 'PuffinLess ne collecte ni ne transmet aucune donnée en ligne. Votre appareil est votre sanctuaire de mémoire souverain et autonome.'
-                    : 'PuffinLess never collects, stores, or transmits your personal data online. Your device is your sovereign, self-contained memory vault.'}
+                    ? 'Ce que nous ne faisons pas avec vos données, comment vos informations sont protégées, et les règles d\'utilisation de PuffinLess.'
+                    : 'What we do not do with your data, how your information stays protected, and the simple rules of using PuffinLess.'}
                 </p>
               </div>
 
               <div className="space-y-2.5">
-                {/* 1. Architecture 100% Locale (Mémoire de l'appareil) */}
+                {/* 1. Stockage Local & Hébergement Web */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-emerald-500/30 bg-emerald-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 shrink-0">
                     <Database className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-emerald-300">
-                        {isFr ? 'Stockage 100% Local (Mémoire Appareil)' : '100% Local Storage (Device Memory)'}
-                      </h4>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-200 font-bold">
-                        {isFr ? 'Zéro Cloud' : 'Zero Cloud'}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-bold text-emerald-300">
+                      {isFr ? 'Stockage Local & Hébergement Web' : 'Local Storage & Web Hosting'}
+                    </h4>
                     <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                       {isFr
-                        ? 'Toutes vos données (consommations, envies, finances, journal d\'événements, objectifs) sont enregistrées exclusivement dans la mémoire interne de votre navigateur (IndexedDB & stockage local chiffré AES-GCM). Rien n\'est jamais envoyé en ligne ni sur des serveurs distants.'
-                        : 'All your intake logs, cravings, finances, event journals, and goals are stored exclusively inside your browser\'s local database (AES-GCM encrypted IndexedDB). Zero data is ever sent online or to remote cloud servers.'}
+                        ? 'Vos journaux d\'habitudes, consommations, envies et notes financières restent stockés localement sur votre appareil. L\'hébergement du site web implique des métadonnées de connexion réseau standard lors du chargement des pages (requêtes HTTP, adresse IP), mais aucun journal personnel n\'est collecté ni stocké sur nos serveurs.'
+                        : 'Your habit logs, intake events, cravings, and financial notes remain stored locally on your device. Web hosting involves standard network connection metadata (HTTP requests, IP address) during page delivery, but PuffinLess does not collect or store your personal habit logs on remote servers.'}
                     </p>
                   </div>
                 </div>
 
-                {/* 2. Politique de Confidentialité & Traitement des Données */}
+                {/* 2. Confidentialité & Pas de Tiers */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-teal-500/30 bg-teal-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 shrink-0">
                     <Lock className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-teal-300">
-                        {isFr ? 'Politique de Confidentialité (Zéro Collecte)' : 'Privacy Policy (Zero Data Collection)'}
-                      </h4>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-teal-500/25 text-teal-200 font-bold">
-                        {isFr ? 'Anonymat Total' : '100% Anonymous'}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-bold text-teal-300">
+                      {isFr ? 'Confidentialité & Pas de Tiers' : 'Privacy & No Third-Party Sharing'}
+                    </h4>
                     <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                       {isFr
-                        ? 'Aucun compte requis, aucun traceur analytique, aucune télémétrie, aucune publicité. Vous restez totalement anonyme. Aucun tiers, employeur ou assureur ne peut accéder à votre progression.'
-                        : 'No account required, no analytics trackers, no telemetry, and no ads. You remain completely anonymous. No third party, employer, or insurer can ever access your sobriety logs.'}
+                        ? 'PuffinLess ne requiert aucun compte obligatoire, n\'embarque aucun traceur publicitaire et ne transmet pas intentionnellement vos journaux personnels à des tiers, des employeurs ou des assureurs.'
+                        : 'PuffinLess does not require user accounts, includes no advertising trackers, and does not intentionally transmit your personal logs to third parties, employers, or insurers.'}
                     </p>
                   </div>
                 </div>
 
-                {/* 3. Conditions Générales & Usage Commercial */}
+                {/* 3. Conditions d'Utilisation & Multi-Appareils */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-amber-500/30 bg-amber-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-amber-300">
-                        {isFr ? 'Conditions de Service & Licence Commerciale' : 'Terms of Service & Commercial Conditions'}
-                      </h4>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-200 font-bold">
-                        {isFr ? 'Licence Perpétuelle' : 'Perpetual Access'}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-bold text-amber-300">
+                      {isFr ? 'Licence d\'Utilisation & Multi-Appareils' : 'Usage License & Multi-Device Access'}
+                    </h4>
                     <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                       {isFr
-                        ? 'PuffinLess est une application web autonome et pérenne. Votre achat ou licence commerciale vous confère un droit d\'utilisation complet et illimité sur vos appareils personnels sans abonnement récurrent imposé ni dépendance à un serveur.'
-                        : 'PuffinLess is an autonomous, standalone web application. Commercial purchase or license provides full, unrestricted personal use across your devices with zero forced subscription lock-in and zero remote server dependence.'}
+                        ? 'PuffinLess est conçu pour votre usage personnel sur vos appareils. Comme il n\'existe aucune synchronisation cloud automatique, l\'accès à vos données sur plusieurs appareils s\'effectue en exportant une sauvegarde (.json) d\'un appareil et en l\'important sur l\'autre.'
+                        : 'PuffinLess is provided for your personal use across your devices. Because there is no automatic cloud sync, accessing your records across multiple devices is done by exporting a backup file (.json) from one device and importing it on the other.'}
                     </p>
                   </div>
                 </div>
 
-                {/* 4. Export, Récupération & Suppression Souveraine */}
+                {/* 4. Sauvegarde, Restauration & Limites de Suppression */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-indigo-500/30 bg-indigo-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
                     <Download className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-indigo-300">
-                        {isFr ? 'Export, Restauration & Suppression Définitive' : 'Data Export, Recovery & Irreversible Deletion'}
-                      </h4>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-indigo-500/25 text-indigo-200 font-bold">
-                        {isFr ? 'Souveraineté' : 'Full Control'}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-bold text-indigo-300">
+                      {isFr ? 'Sauvegardes & Portée de la Réinitialisation' : 'Backups & Reset Scope'}
+                    </h4>
                     <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                       {isFr
-                        ? 'Vous êtes l\'unique propriétaire de vos données. Exportez votre historique complet en format JSON en 1 clic dans les Paramètres, restaurez vos données sur un nouvel appareil par simple import, ou détruisez instantanément toutes les bases et clés de chiffrement via la réinitialisation définitive.'
-                        : 'You have full sovereign ownership. Export your complete data in 1-click JSON from Profile Settings, restore backups onto any new device via simple file import, or permanently shred all database records and cryptographic keys with the Reset button.'}
+                        ? 'Vous pouvez exporter une sauvegarde (.json) à tout moment. L\'opération de réinitialisation supprime la base locale et les clés de ce navigateur précis. Elle ne supprime pas les fichiers exportés déjà enregistrés sur votre disque ni vos données dans un autre navigateur.'
+                        : 'You can export a local backup (.json) at any time. The reset operation clears the local database and keys within this specific browser. It does not delete backup files previously downloaded to your disk, nor does it affect records in other browsers.'}
                     </p>
                   </div>
                 </div>
 
-                {/* 5. Avertissement Médical & Limites Cliniques */}
+                {/* 5. Accompagnement personnel (non médical) */}
                 <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/30 bg-rose-950/20 flex items-start gap-3">
                   <div className="p-2 rounded-xl bg-rose-500/20 text-rose-300 shrink-0">
                     <AlertTriangle className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-rose-300">
-                        {isFr ? 'Avertissement Médical & Limites Légales' : 'Medical & Clinical Disclaimer'}
-                      </h4>
-                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-rose-500/25 text-rose-200 font-bold">
-                        {isFr ? 'Non-Médical' : 'Non-Medical Tool'}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-bold text-rose-300">
+                      {isFr ? 'Accompagnement Personnel (Non Médical)' : 'Personal Companion (Non-Medical)'}
+                    </h4>
                     <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                       {isFr
-                        ? 'PuffinLess est un outil d\'auto-mesure comportementale et de soutien psychologique au sevrage. PuffinLess n\'est PAS un dispositif médical, un service d\'urgence ni un fournisseur de soins de santé, et ne fournit aucun diagnostic médical, traitement ou ordonnance. En cas de symptômes de sevrage sévères ou de détresse physiologique, consultez immédiatement un médecin ou les services d\'urgence.'
-                        : 'PuffinLess is a behavioral habit-tracking and psycho-educational self-management companion. PuffinLess is NOT a medical device, medical practice, or emergency healthcare service, and does not provide clinical diagnoses, treatments, or prescriptions. For severe withdrawal symptoms or medical emergencies, consult a licensed healthcare professional immediately.'}
+                        ? 'PuffinLess est un outil personnel d\'auto-mesure et de suivi d\'habitudes. Ce n\'est pas un service médical et cela ne remplace aucun avis, diagnostic ou traitement médical. En cas de difficultés de santé ou de symptômes de sevrage sévères, contactez un médecin ou les services d\'urgence.'
+                        : 'PuffinLess is a personal habit tracker and self-monitoring companion. It is not a medical service and does not replace professional medical advice, diagnosis, or treatment. If you experience health concerns or severe withdrawal symptoms, consult a doctor or emergency services.'}
                     </p>
                   </div>
                 </div>
+
+                {/* Bouton d'accès complet à la politique & conditions */}
+                {onOpenPrivacyTerms && (
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        onOpenPrivacyTerms();
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shadow-md cursor-pointer hover:border-emerald-400"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isFr ? 'Consulter la Politique & Conditions Complètes' : 'View Full Privacy Policy & Terms of Service'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

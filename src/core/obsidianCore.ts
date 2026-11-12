@@ -393,30 +393,30 @@ export function buildCoreReport(input: {
       id: 'substance-cannabis-coach',
       tone: 'info',
       priority: 58,
-      title: isFr ? 'Restauration des Récepteurs CB1 & Sommeil Paradoxal' : 'CB1 Receptor Recovery & REM Sleep',
+      title: isFr ? 'Sommeil & Cycles de Repos Naturels' : 'Sleep & Natural Rest Cycles',
       body: isFr
-        ? 'Après l\'arrêt du cannabis, les récepteurs cannabinoïdes CB1 du cerveau se régénèrent en 3 à 4 semaines. Le sommeil paradoxal profond (rêves, consolidation mnésique) redevient naturel et réparateur.'
-        : 'After stopping cannabis, CB1 cannabinoid receptors regenerate over 3 to 4 weeks. Deep REM sleep rebounds, restoring natural dream cycles and sharp daytime recall.',
+        ? 'Au fil des semaines sans cannabis, beaucoup de personnes constatent un retour progressif à des cycles de sommeil plus profonds et des rêves plus nets au réveil.'
+        : 'Over the weeks following cannabis cessation, many people notice a gradual return to natural sleep rhythms and clearer dreams upon waking.',
     });
   } else if (primarySub === 'puff_vape') {
     add({
       id: 'substance-vape-coach',
       tone: 'info',
       priority: 58,
-      title: isFr ? 'Désactivation des Puffs & Vapeurs Chauffées' : 'Dismantling Vape Salt-Nic Loops',
+      title: isFr ? 'Désamorcer le Geste Réflexe de la Vape' : 'Breaking the Continuous Vape Habit',
       body: isFr
-        ? 'Les puffs délivrent des sels de nicotine à absorption fulgurante incitant au micro-puffing continu. En coupant ce flux, vos bronches et alvéoles éliminent les traces d\'aérosols en quelques jours.'
-        : 'Vape puffs deliver ultra-rapid nicotine salts that drive compulsive micro-puffing all day long. Breaking this loop allows airways to expel aerosol traces within days.',
+        ? 'La vape incite souvent au micro-geste automatique tout au long de la journée. En espaçant ces moments, vous reprenez le contrôle de votre attention et de vos routines.'
+        : 'Vaping often encourages an automatic, unconscious hand-to-mouth reflex. Creating intentional distance helps break the loop and reclaims your daily focus.',
     });
   } else if (primarySub === 'cigarette') {
     add({
       id: 'substance-cig-coach',
       tone: 'info',
       priority: 58,
-      title: isFr ? 'Désoxydation Sanguine & Oxygène Cellulaire' : 'Oxygen Saturation & Arterial Cleansing',
+      title: isFr ? 'Respiration & Vitalité Retrouvée' : 'Breathing & Daily Vitality',
       body: isFr
-        ? 'Le monoxyde de carbone quitte définitivement votre système cardiovasculaire en 24 à 48 heures. Votre taux d\'oxygène remonte à 100%, allégeant immédiatement la charge cardiaque.'
-        : 'Carbon monoxide fully leaves your vascular system within 24 to 48 hours. Cellular oxygen saturation climbs back to 100%, immediately easing cardiac load.',
+        ? 'Dès les premiers jours sans fumée, les voies respiratoires commencent à s\'apaiser et la sensation d\'aisance au quotidien s\'améliore pas à pas.'
+        : 'Within days of stopping smoking, breathing often feels easier and day-to-day stamina begins to improve.',
     });
   }
 

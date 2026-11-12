@@ -750,15 +750,15 @@ export function getRotatingWeeklyQuote(lang: Language = 'fr'): Quote {
 export const WELLNESS_ARTICLES: WellnessArticle[] = [
   {
     id: 'art-1',
-    title: 'The 3-Minute Peak: Why Cravings Always Subside',
+    title: 'Riding the Wave: Why Cravings Subside',
     readTime: '3 min read',
-    category: 'Neuroscience',
-    summary: 'Nicotine and cannabinoid cravings follow a predictable biological bell curve. Learn why waiting 180 seconds breaks the cycle.',
+    category: 'Habit Coaching',
+    summary: 'Nicotine and cannabinoid cravings follow a wave-like curve. Learn why taking a mindful pause helps break the cycle.',
     imageGradient: 'from-emerald-600/30 to-teal-800/30',
     content: [
-      'When your brain senses a drop in synaptic nicotine or THC, the amygdala registers an emergency craving alert. It feels like an unbearable wave that will escalate forever.',
-      'Clinical EEG studies demonstrate that craving neurochemistry peaks within 2 to 3 minutes, plateauing before descending back to baseline.',
-      'Techniques like Box Breathing and cold water stimulation force your parasympathetic nervous system into activation, collapsing the craving amplitude by up to 70% in seconds.',
+      'When your body experiences an urge, it can feel like a wave that will escalate forever.',
+      'Observations in habit research demonstrate that craving intensity reaches a crest within minutes before gradually easing back.',
+      'Techniques like 4-7-8 breathing and sipping cold water help engage your calm focus, allowing you to ride out the urge safely.',
     ],
   },
   {
@@ -1309,7 +1309,7 @@ export interface HydratedStorageData {
  * - Checks IndexedDB and localStorage.
  * - If neither contains an active profile, automatically triggers deep device recovery.
  * - Consolidates all cravings, streaks, substances, and sleep entries without duplicates.
- * - Guarantees zero data loss across updates.
+ * - Protects local data integrity across updates.
  */
 export async function initIndexedDBStorage(): Promise<HydratedStorageData | null> {
   if (typeof window === 'undefined') return null;

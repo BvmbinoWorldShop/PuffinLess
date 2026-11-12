@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const distDir = path.resolve('dist');
 const distHtmlPath = path.join(distDir, 'index.html');
@@ -35,39 +34,16 @@ if (cssMatch && cssMatch[1]) {
   }
 }
 
-// Find JS file in dist/assets & apply advanced anti-reverse engineering obfuscation
+// Find JS file in dist/assets & inline into standalone single-file HTML
 const jsMatch = html.match(/<script type="module"[^>]*src="(?:\.\/|\/)?assets\/([^"]+)"[^>]*><\/script>/);
 if (jsMatch && jsMatch[1]) {
   const jsPath = path.join(distDir, 'assets', jsMatch[1]);
   if (fs.existsSync(jsPath)) {
-    console.log('🔒 Applying anti-reverse engineering & AI code protection (Control Flow Flattening, Base64 String Tables, Hex Mangles)...');
     const rawJs = fs.readFileSync(jsPath, 'utf8');
-    const startTime = Date.now();
-
-    const obfuscationResult = JavaScriptObfuscator.obfuscate(rawJs, {
-      compact: true,
-      controlFlowFlattening: true,
-      controlFlowFlatteningThreshold: 0.15,
-      numbersToExpressions: true,
-      simplify: true,
-      stringArray: true,
-      stringArrayEncoding: ['base64'],
-      stringArrayThreshold: 0.75,
-      splitStrings: true,
-      splitStringsChunkLength: 6,
-      identifierNamesGenerator: 'hexadecimal',
-      renameGlobals: false
-    });
-
-    const protectedJs = obfuscationResult.getObfuscatedCode();
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`✅ Protection applied in ${duration}s. Size: ${(rawJs.length / 1024).toFixed(0)} KB -> ${(protectedJs.length / 1024).toFixed(0)} KB (obfuscated)`);
-
-    // Update the dist asset so web deployment is also protected
-    fs.writeFileSync(jsPath, protectedJs, 'utf8');
+    console.log(`⚡ Inlining ultra-fast production bundle: ${(rawJs.length / 1024).toFixed(0)} KB...`);
 
     // Embed into standalone single-file HTML (use function replacer to safely protect $ tokens)
-    html = html.replace(jsMatch[0], () => `<script type="module">\n${protectedJs}\n</script>`);
+    html = html.replace(jsMatch[0], () => `<script type="module">\n${rawJs}\n</script>`);
   }
 }
 

@@ -55,7 +55,7 @@ interface ActivityEvent {
   isSlip: boolean;
 }
 
-/** Formulates clinical corrective action to neutralize a specific trigger */
+/** Formulates supportive action for a specific trigger */
 function getCorrectiveAction(trigger: string, isFr: boolean): string {
   if (!trigger) return isFr ? 'Respiration 4-7-8 immédiate' : 'Immediate 4-7-8 breathing';
   const t = trigger.toLowerCase();
@@ -85,8 +85,8 @@ function getCorrectiveAction(trigger: string, isFr: boolean): string {
       : 'Chamomile/lemon balm tea + screen curfew 30 min before bed';
   }
   return isFr
-    ? 'Protocole comportemental des 180 secondes : temporiser avec un verre d\'eau, l\'intensité de la pulsion décroît naturellement'
-    : 'Behavioral 180-second rule: sip fresh water and pause, craving intensity naturally subsides';
+    ? 'Technique d\'attente : temporiser avec un verre d\'eau, l\'intensité de la pulsion s\'apaise avec le temps'
+    : 'Pause technique: sip fresh water and pause, craving intensity tends to subside over time';
 }
 
 export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> = ({
@@ -175,7 +175,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
       })
     : currentDateStr;
 
-  const rawName = profile?.name?.trim() || (isFr ? 'MEMBRE CERTIFIÉ' : 'CERTIFIED MEMBER');
+  const rawName = profile?.name?.trim() || (isFr ? 'MEMBRE PUFFINLESS' : 'PUFFINLESS MEMBER');
   const verificationHash = `PFL-${stats.days}D-${Math.abs(
     rawName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 1337)
   ).toString(16).toUpperCase()}-${now.getFullYear()}`;
@@ -907,7 +907,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
         </div>
         <div style="text-align: right; font-size: 9.5px; color: #cbd5e1; line-height: 1.4;">
           <div><b style="color: #ffffff;">${isFr ? 'Date de Début :' : 'Start Date:'}</b> ${startDateStr}</div>
-          <div><span class="pill pill-emerald" style="margin-top: 3px;">${isFr ? 'Protocole Actif' : 'Active Protocol'}</span></div>
+          <div><span class="pill pill-emerald" style="margin-top: 3px;">${isFr ? 'Suivi Actif' : 'Active Tracking'}</span></div>
         </div>
       </div>
 
@@ -1201,7 +1201,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
                     <span style="font-size: 7.5px; font-weight: 900; color: #ffffff;">${count}x</span>
                   </div>
                 `).join('')
-                : `<div style="grid-column: span 2; font-size: 7px; color: #34d399; text-align: center; padding: 3px;">✓ ${isFr ? 'Déclencheurs neutralisés' : 'Triggers neutralized'}</div>`
+                : `<div style="grid-column: span 2; font-size: 7px; color: #34d399; text-align: center; padding: 3px;">✓ ${isFr ? 'Envies surmontées' : 'Cravings overcome'}</div>`
             }
           </div>
         </div>
@@ -1600,7 +1600,7 @@ export const ClinicalCertificateModal: React.FC<ClinicalCertificateModalProps> =
               <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                    {isFr ? 'Bénéficiaire Certifié' : 'Certified Victor'}
+                    {isFr ? 'Titulaire du Bilan' : 'Report Holder'}
                   </div>
                   <h4 className="text-lg font-black text-amber-300 mt-0.5">
                     {profile?.name || (isFr ? 'Membre PuffinLess' : 'PuffinLess Victor')}

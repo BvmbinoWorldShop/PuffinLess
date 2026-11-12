@@ -3,7 +3,7 @@
 **Version :** 2.4 (Allocation Atomique de Séquence IndexedDB, Instantanés de Secours Échelonnés & Suite CDP Edge/Chrome Multi-Onglets)  
 **Classification :** Spécification d'Architecture Système Centrale  
 **Paradigme d'Architecture :** 100% Embarqué Sur L'Appareil, Hors-Ligne par Défaut, Zéro Télémétrie, Persistance Atomique Multi-Store & Journalisation Monotone Coordonnée  
-**Auteur :** Équipe de Pair Programming DeepMind Advanced Agentic Coding
+**Auteur :** Équipe Architecture PuffinLess
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TD
         UI_Log["Enregistreur de prises (Cigarettes, Puffs, Cannabis)"]
         UI_Money["Centre Financier & Typographie Haute Lisibilité (MoneyView)"]
         UI_ErrorBanner["Bannière d'alerte de stockage (data-testid='persistence-error-banner')"]
-        UI_SOS["Protocole d'urgence SOS 180s"]
+        UI_SOS["Intercepteur d'Envie SOS"]
         UI_Cert["Certificat clinique & Métriques de période"]
         UI_Modals["Profil, Rappel de Sauvegarde & Modal de récupération"]
     end
@@ -245,7 +245,7 @@ PuffinLess/
 │   ├── components/                                 # Couche présentation UI
 │   │   ├── MoneyView.tsx                           # Centre financier à typographie blanche haute lisibilité
 │   │   ├── ProfileModal.tsx                        # Profil, bannière de rappel d'export & récupération transparente
-│   │   ├── SosModal.tsx                            # Protocole de désamorçage 180 secondes
+│   │   ├── SosModal.tsx                            # Intercepteur d'envie et respiration 4-7-8
 │   │   ├── ClinicalCertificateModal.tsx           # Synthèse médicale par période
 │   │   └── ...
 │   ├── core/

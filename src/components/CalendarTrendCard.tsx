@@ -48,7 +48,7 @@ export const CalendarTrendCard: React.FC<CalendarTrendCardProps> = ({
     if (t.includes('soir') || t.includes('détente') || t.includes('relax')) {
       return isFr ? 'Tisane mélisse/camomille et extinction des écrans 30 min avant le coucher' : 'Chamomile tea and screen curfew 30 min before bed';
     }
-    return isFr ? 'Règle des 180 secondes : boire de l\'eau glacée pour briser la pulsion' : '180-second rule: drink ice-cold water to break urge';
+    return isFr ? 'Astuce anti-pulsion : boire de l\'eau fraîche pour laisser passer l\'envie' : 'Craving tip: drink fresh water to help the urge pass';
   };
 
   // Month navigation

@@ -3,7 +3,7 @@
 **Version:** 2.4 (Atomic IndexedDB Sequence Allocation, Staged Encrypted Rescue Snapshots & Edge/Chrome Multi-Tab CDP Suite)  
 **Classification:** Core System Architecture Specification  
 **Architecture Paradigm:** 100% On-Device, Offline-First, Zero-Telemetry, Truly Atomic Multi-Store Persistence & Cross-Tab Monotonic Event Sourcing  
-**Author:** DeepMind Advanced Agentic Coding Pair Programming Team
+**Author:** PuffinLess Architecture Team
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TD
         UI_Log["Intake Logger (Cigarettes, Puffs, Cannabis)"]
         UI_Money["Financial Center & High-Contrast Metrics (MoneyView)"]
         UI_ErrorBanner["Sticky Persistence Error Banner (data-testid='persistence-error-banner')"]
-        UI_SOS["SOS Emergency 180s Craving Breaker"]
+        UI_SOS["SOS Mindful Craving Breaker"]
         UI_Cert["Clinical Certificate & Period Metrics"]
         UI_Modals["Profile, Backup Reminder & Recovery Modal"]
     end
@@ -220,7 +220,7 @@ The reliability of PuffinLess persistence is enforced through a dual verificatio
 - **Pillar 4**: Cold restart vs standby session lock distinctions, transparent fallback recovery.
 - **Pillar 5**: Real IndexedDB lifecycle, legacy AES-CBC migration, zero raw keys in localStorage.
 - **Pillar 6**: Complete volatile memory wipe cold restart, corrupted record isolation.
-- **Pillar 7**: Zero data loss safeguards, `idbPersistAtomic` ACID rollback, transaction completion resolution (`tx.oncomplete`), AES-GCM encrypted rescue snapshot staging and archival preservation, atomic `idbAllocateNextSequence` concurrent multi-tab allocation with zero collisions, fail-safe `SequenceAllocationError` enforcement, and transparent recovery from both legacy plaintext (`{...}`) and modern encrypted (`aes-gcm:`) backups.
+- **Pillar 7**: Data resilience safeguards, `idbPersistAtomic` ACID rollback, transaction completion resolution (`tx.oncomplete`), AES-GCM encrypted rescue snapshot staging and archival preservation, atomic `idbAllocateNextSequence` concurrent multi-tab allocation with zero collisions, fail-safe `SequenceAllocationError` enforcement, and transparent recovery from both legacy plaintext (`{...}`) and modern encrypted (`aes-gcm:`) backups.
 
 ### 2. Genuine Browser Verification Suite (`npm run test:browser`)
 Executed against **Microsoft Edge (`msedge.exe`)** and **Google Chrome (`google-chrome`)** via the Chrome DevTools Protocol (CDP) on the compiled, obfuscated `dist/standalone.html`:
