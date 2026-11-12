@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap, Leaf, Target, BarChart2, X, RefreshCw } from 'lucide-react';
+import {
+  ArrowRight, Check, Heart, Shield, DollarSign, Clock, Wind, Award, Zap,
+  Leaf, Target, BarChart2, X, RefreshCw, Lock, FileText, Download, AlertTriangle, Database
+} from 'lucide-react';
 import type { UserProfile, QuitMode, Language, QuitGoal } from '../types';
 import { PuffinLessLogo } from './PuffinLessLogo';
 import { sound } from '../utils/audio';
@@ -28,16 +31,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryFeedback, setRecoveryFeedback] = useState<string | null>(null);
 
-  // If user has already onboarded, clicking "Guide" shows the 3 guide parts: Welcome, Arsenal, Mobile PWA with Finish button
+  // If user has already onboarded, clicking "Guide" shows the 4 guide parts: Welcome, Arsenal, Privacy/Terms/Disclaimer, Mobile PWA
   const isGuideMode = Boolean(initialProfile.isOnboarded);
-  const totalSteps = isGuideMode ? 3 : 4;
+  const totalSteps = isGuideMode ? 4 : 5;
 
   const [step, setStep] = useState<number>(() => {
     if (isGuideMode) {
-      if (initialStep === 4) return 3; // PWA step in guide mode is 3
-      return Math.min(initialStep, 3);
+      if (initialStep === 5) return 4; // PWA step in guide mode is 4
+      if (initialStep === 4) return 4; // Direct PWA request
+      if (initialStep === 3) return 3; // Direct Legal & Privacy request
+      return Math.min(initialStep, 4);
     }
-    return initialStep;
+    return Math.min(initialStep, 5);
   });
 
   const [pwaPlatform, setPwaPlatform] = useState<'ios' | 'android'>('ios');
@@ -191,12 +196,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const costPerCig = cigsInPack > 0 && pricePerPack ? Number(pricePerPack) / cigsInPack : 0.6;
   const estimatedYearlyCost = (numCigs * costPerCig * 365 + (numCannabis * 52 * 12)).toFixed(0);
 
-  // In Guide Mode: Step 1 = Welcome, Step 2 = Arsenal, Step 3 = PWA
-  // In Onboarding: Step 1 = Welcome, Step 2 = Baseline Habits, Step 3 = Arsenal, Step 4 = PWA
+  // In Guide Mode: Step 1 = Welcome, Step 2 = Arsenal, Step 3 = Privacy & Legal, Step 4 = PWA
+  // In Onboarding: Step 1 = Welcome, Step 2 = Baseline Habits, Step 3 = Arsenal, Step 4 = Privacy & Legal, Step 5 = PWA
   const isWelcomeStep = step === 1;
   const isBaselineStep = !isGuideMode && step === 2;
   const isArsenalStep = (isGuideMode && step === 2) || (!isGuideMode && step === 3);
-  const isPwaStep = (isGuideMode && step === 3) || (!isGuideMode && step === 4);
+  const isLegalPrivacyStep = (isGuideMode && step === 3) || (!isGuideMode && step === 4);
+  const isPwaStep = (isGuideMode && step === 4) || (!isGuideMode && step === 5);
 
   return (
     <div
@@ -732,6 +738,137 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
           )}
 
+          {/* LEGAL, PRIVACY, LOCAL MEMORY & DISCLAIMER PART */}
+          {isLegalPrivacyStep && (
+            <div className="space-y-3.5 animate-fade-in">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">🛡️</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    {isFr ? 'Confidentialité Locale & Cadre Légal' : 'Local-First Privacy & Legal Framework'}
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {isFr
+                    ? 'PuffinLess ne collecte ni ne transmet aucune donnée en ligne. Votre appareil est votre sanctuaire de mémoire souverain et autonome.'
+                    : 'PuffinLess never collects, stores, or transmits your personal data online. Your device is your sovereign, self-contained memory vault.'}
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                {/* 1. Architecture 100% Locale (Mémoire de l'appareil) */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-emerald-500/30 bg-emerald-950/20 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 shrink-0">
+                    <Database className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-emerald-300">
+                        {isFr ? 'Stockage 100% Local (Mémoire Appareil)' : '100% Local Storage (Device Memory)'}
+                      </h4>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-200 font-bold">
+                        {isFr ? 'Zéro Cloud' : 'Zero Cloud'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      {isFr
+                        ? 'Toutes vos données (consommations, envies, finances, journal d\'événements, objectifs) sont enregistrées exclusivement dans la mémoire interne de votre navigateur (IndexedDB & stockage local chiffré AES-GCM). Rien n\'est jamais envoyé en ligne ni sur des serveurs distants.'
+                        : 'All your intake logs, cravings, finances, event journals, and goals are stored exclusively inside your browser\'s local database (AES-GCM encrypted IndexedDB). Zero data is ever sent online or to remote cloud servers.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. Politique de Confidentialité & Traitement des Données */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-teal-500/30 bg-teal-950/20 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 shrink-0">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-teal-300">
+                        {isFr ? 'Politique de Confidentialité (Zéro Collecte)' : 'Privacy Policy (Zero Data Collection)'}
+                      </h4>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-teal-500/25 text-teal-200 font-bold">
+                        {isFr ? 'Anonymat Total' : '100% Anonymous'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      {isFr
+                        ? 'Aucun compte requis, aucun traceur analytique, aucune télémétrie, aucune publicité. Vous restez totalement anonyme. Aucun tiers, employeur ou assureur ne peut accéder à votre progression.'
+                        : 'No account required, no analytics trackers, no telemetry, and no ads. You remain completely anonymous. No third party, employer, or insurer can ever access your sobriety logs.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Conditions Générales & Usage Commercial */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-amber-500/30 bg-amber-950/20 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-amber-300">
+                        {isFr ? 'Conditions de Service & Licence Commerciale' : 'Terms of Service & Commercial Conditions'}
+                      </h4>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-200 font-bold">
+                        {isFr ? 'Licence Perpétuelle' : 'Perpetual Access'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      {isFr
+                        ? 'PuffinLess est une application web autonome et pérenne. Votre achat ou licence commerciale vous confère un droit d\'utilisation complet et illimité sur vos appareils personnels sans abonnement récurrent imposé ni dépendance à un serveur.'
+                        : 'PuffinLess is an autonomous, standalone web application. Commercial purchase or license provides full, unrestricted personal use across your devices with zero forced subscription lock-in and zero remote server dependence.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. Export, Récupération & Suppression Souveraine */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-indigo-500/30 bg-indigo-950/20 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-indigo-300">
+                        {isFr ? 'Export, Restauration & Suppression Définitive' : 'Data Export, Recovery & Irreversible Deletion'}
+                      </h4>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-indigo-500/25 text-indigo-200 font-bold">
+                        {isFr ? 'Souveraineté' : 'Full Control'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      {isFr
+                        ? 'Vous êtes l\'unique propriétaire de vos données. Exportez votre historique complet en format JSON en 1 clic dans les Paramètres, restaurez vos données sur un nouvel appareil par simple import, ou détruisez instantanément toutes les bases et clés de chiffrement via la réinitialisation définitive.'
+                        : 'You have full sovereign ownership. Export your complete data in 1-click JSON from Profile Settings, restore backups onto any new device via simple file import, or permanently shred all database records and cryptographic keys with the Reset button.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 5. Avertissement Médical & Limites Cliniques */}
+                <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/30 bg-rose-950/20 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-rose-500/20 text-rose-300 shrink-0">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-rose-300">
+                        {isFr ? 'Avertissement Médical & Limites Légales' : 'Medical & Clinical Disclaimer'}
+                      </h4>
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-rose-500/25 text-rose-200 font-bold">
+                        {isFr ? 'Non-Médical' : 'Non-Medical Tool'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      {isFr
+                        ? 'PuffinLess est un outil d\'auto-mesure comportementale et de soutien psychologique au sevrage. PuffinLess n\'est PAS un dispositif médical, un service d\'urgence ni un fournisseur de soins de santé, et ne fournit aucun diagnostic médical, traitement ou ordonnance. En cas de symptômes de sevrage sévères ou de détresse physiologique, consultez immédiatement un médecin ou les services d\'urgence.'
+                        : 'PuffinLess is a behavioral habit-tracking and psycho-educational self-management companion. PuffinLess is NOT a medical device, medical practice, or emergency healthcare service, and does not provide clinical diagnoses, treatments, or prescriptions. For severe withdrawal symptoms or medical emergencies, consult a licensed healthcare professional immediately.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* PWA PART: Mobile PWA Install Tips (iOS & Android) */}
           {isPwaStep && (
             <div className="space-y-4 animate-fade-in">
@@ -932,8 +1069,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           >
             <span>
               {isGuideMode
-                ? (step === 3 ? (isFr ? 'Terminer' : 'Finish') : (isFr ? 'Continuer' : 'Continue'))
-                : (step === 4 ? (isFr ? 'Démarrer Mon Aventure PuffinLess' : 'Start My PuffinLess Journey') : (isFr ? 'Continuer' : 'Continue'))}
+                ? (step === totalSteps ? (isFr ? 'Terminer' : 'Finish') : (isFr ? 'Continuer' : 'Continue'))
+                : (step === totalSteps ? (isFr ? 'Démarrer Mon Aventure PuffinLess' : 'Start My PuffinLess Journey') : (isFr ? 'Continuer' : 'Continue'))}
             </span>
             <ArrowRight className="w-4 h-4" />
           </button>

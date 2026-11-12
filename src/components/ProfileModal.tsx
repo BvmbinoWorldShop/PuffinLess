@@ -1570,7 +1570,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1585,14 +1585,38 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div className="text-left">
                     <span className="font-bold text-white block text-xs">
-                      {isFr ? 'Revoir la Visite Guidée' : 'Rerun Onboarding Tour'}
+                      {isFr ? 'Visite Guidée' : 'Onboarding Tour'}
                     </span>
                     <span className="text-[10px] text-slate-400 block">
-                      {isFr ? 'Redécouvrir les outils clés' : 'Walk through key app tools'}
+                      {isFr ? 'Outils clés & arsenal' : 'Key tools walkthrough'}
                     </span>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onRerunOnboarding(3);
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-xs text-slate-300 hover:text-white transition-all group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 group-hover:scale-105 transition-transform">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-white block text-xs">
+                      {isFr ? 'Confidentialité & Légal' : 'Privacy & Legal'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {isFr ? 'Zéro cloud & mentions' : 'Zero cloud & disclaimers'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
               </button>
 
               <button
@@ -1609,10 +1633,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div className="text-left">
                     <span className="font-bold text-white block text-xs">
-                      {isFr ? 'Guide d\'Installation Mobile PWA' : 'Mobile PWA Installation Guide'}
+                      {isFr ? 'Guide PWA' : 'PWA Install'}
                     </span>
                     <span className="text-[10px] text-slate-400 block">
-                      {isFr ? 'Fixer sur iOS / Android plein écran' : 'Install on iOS / Android home screen'}
+                      {isFr ? 'Écran d\'accueil mobile' : 'Mobile home screen'}
                     </span>
                   </div>
                 </div>
