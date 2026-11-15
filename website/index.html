@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PuffinLess — Break Free from Cigarettes, Vapes & Cannabis | Private Local-First Companion</title>
+  <meta name="description" content="The offline-first habit tracker and sobriety companion. Track cigarettes, nicotine vapes, and weed without monthly subscriptions or cloud data storage.">
+  <link rel="icon" type="image/svg+xml" href="../dist/favicon.svg">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            slate: {
+              950: '#070b14',
+            },
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            },
+            amber: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #070b14;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+    .glass-nav {
+      background: rgba(7, 11, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card:hover {
+      border-color: rgba(52, 211, 153, 0.3);
+      box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.15);
+    }
+    .hero-glow {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(7, 11, 20, 0) 70%);
+      pointer-events: none;
+      filter: blur(50px);
+    }
+    .gold-glow {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.14) 0%, rgba(7, 11, 20, 0) 70%);
+      pointer-events: none;
+      filter: blur(60px);
+    }
+    .text-gradient-emerald {
+      background: linear-gradient(135deg, #ffffff 30%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .text-gradient-gold {
+      background: linear-gradient(135deg, #fbbf24 20%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    input[type=range] {
+      accent-color: #10b981;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500/30 selection:text-emerald-200 min-h-screen relative">
+
+  <!-- Ambient Background Glows -->
+  <div class="hero-glow top-0 left-1/2 -translate-x-1/2"></div>
+  <div class="gold-glow top-[40%] right-[-10%]"></div>
+  <div class="hero-glow top-[75%] left-[-10%]"></div>
+
+  <!-- NAVIGATION -->
+  <header class="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="font-extrabold text-lg tracking-wider text-white">PUFFIN<span class="text-emerald-400">LESS</span></span>
+      </a>
+
+      <!-- Desktop Links -->
+      <nav class="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-300">
+        <a href="#features" class="hover:text-emerald-400 transition-colors" data-i18n="navFeatures">Features</a>
+        <a href="#calculator" class="hover:text-emerald-400 transition-colors" data-i18n="navCalc">Savings Calculator</a>
+        <a href="#privacy" class="hover:text-emerald-400 transition-colors" data-i18n="navPrivacy">Local-First Privacy</a>
+        <a href="#pricing" class="hover:text-emerald-400 transition-colors" data-i18n="navPricing">Pricing</a>
+        <a href="#faq" class="hover:text-emerald-400 transition-colors" data-i18n="navFaq">FAQ</a>
+      </nav>
+
+      <!-- Action & Language Bar -->
+      <div class="flex items-center gap-3">
+        <!-- Language Switcher -->
+        <button id="langToggle" class="px-2.5 py-1 rounded-xl bg-slate-900 border border-white/10 hover:border-white/20 text-xs font-bold text-slate-300 flex items-center gap-1.5 transition-all">
+          <span id="langFlag">🇫🇷</span>
+          <span id="langLabel">FR</span>
+        </button>
+
+        <a href="#pricing" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-xs tracking-wide shadow-lg shadow-emerald-500/25 transition-all hover:scale-105 active:scale-95" data-i18n="navCta">
+          Get Instant Access
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="pt-32 pb-20 px-4 sm:px-6 max-w-5xl mx-auto text-center relative z-10">
+    <!-- Value pill -->
+    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-6 shadow-sm">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span data-i18n="heroBadge">Offline-First • Zero Cloud Database • No Subscriptions</span>
+    </div>
+
+    <!-- Main Heading -->
+    <h1 class="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight max-w-4xl mx-auto mb-6">
+      <span data-i18n="heroTitle1">Break Free from Cigarettes, Vapes & Weed.</span><br/>
+      <span class="text-gradient-emerald" data-i18n="heroTitle2">Keep 100% of your records on your device.</span>
+    </h1>
+
+    <!-- Subtitle -->
+    <p class="text-sm sm:text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-8" data-i18n="heroSub">
+      A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, and a 10-year compound wealth calculator. No accounts. No tracking cookies. Zero remote servers storing your logs.
+    </p>
+
+    <!-- CTAs -->
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto mb-14">
+      <a href="#pricing" class="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm tracking-wide shadow-xl shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 text-center" data-i18n="heroBtnGet">
+        Start Your Journey — One-Time Access
+      </a>
+      <a href="#calculator" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl glass-card hover:bg-slate-800 text-slate-200 font-bold text-sm transition-all text-center" data-i18n="heroBtnCalc">
+        Calculate Money Lost
+      </a>
+    </div>
+
+    <!-- App Preview Mockup Window -->
+    <div class="relative max-w-3xl mx-auto rounded-3xl glass-card p-3 sm:p-5 border border-white/10 shadow-2xl shadow-emerald-950/40">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10 px-2 text-xs text-slate-400">
+        <div class="flex items-center gap-2">
+          <div class="flex gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+          </div>
+          <span class="font-mono text-[11px] text-slate-400">puffinless.local</span>
+        </div>
+        <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          Device Storage Active
+        </span>
+      </div>
+
+      <!-- Mockup Metrics Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 text-left">
+        <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-white/10">
+          <span class="text-[10px] uppercase font-bold text-slate-400" data-i18n="mockStreak">Smoke-Free Streak</span>
+          <div class="text-xl sm:text-2xl font-black text-white mt-1">14d 08h 22m</div>
+          <span class="text-[10px] text-emerald-400 font-semibold" data-i18n="mockLevel">Level 3: Bronze Vanguard</span>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+          <span class="text-[10px] uppercase font-bold text-amber-300" data-i18n="mockSaved">Money Preserved</span>
+          <div class="text-xl sm:text-2xl font-black text-amber-300 mt-1">€175.00</div>
+          <span class="text-[10px] text-amber-200/70" data-i18n="mockRate">~€12.50 / day avoided</span>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+          <span class="text-[10px] uppercase font-bold text-emerald-300" data-i18n="mockDoses">Doses Avoided</span>
+          <div class="text-xl sm:text-2xl font-black text-emerald-300 mt-1">280</div>
+          <span class="text-[10px] text-emerald-200/70" data-i18n="mockCigs">Cigarettes & Puffs</span>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+          <span class="text-[10px] uppercase font-bold text-rose-300" data-i18n="mockCravings">Cravings Defeated</span>
+          <div class="text-xl sm:text-2xl font-black text-rose-300 mt-1">18 / 18</div>
+          <span class="text-[10px] text-rose-200/70" data-i18n="mockMastery">100% Craving Mastery</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SAVINGS CALCULATOR SECTION -->
+  <section id="calculator" class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+    <div class="text-center mb-10">
+      <span class="text-xs font-bold text-amber-400 tracking-wider uppercase" data-i18n="calcTag">Financial Reality Check</span>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="calcTitle">
+        See How Much You Are Truly Burning
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-lg mx-auto" data-i18n="calcSub">
+        Adjust the sliders below to see your direct monthly expense, annual drain, and 10-year compounding wealth if that money stayed in your pocket.
+      </p>
+    </div>
+
+    <div class="p-6 sm:p-8 rounded-3xl glass-card border border-white/10 shadow-xl space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Controls -->
+        <div class="space-y-5">
+          <!-- Cigarettes / day -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-2">
+              <span class="text-slate-300" data-i18n="sliderCigs">Cigarettes per Day</span>
+              <span id="cigsVal" class="text-emerald-400 font-mono text-sm">15 cigs</span>
+            </div>
+            <input id="cigsInput" type="range" min="0" max="40" value="15" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- Pack Price -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-2">
+              <span class="text-slate-300" data-i18n="sliderPrice">Price per Pack (20 cigs)</span>
+              <span id="priceVal" class="text-emerald-400 font-mono text-sm">€12.50</span>
+            </div>
+            <input id="priceInput" type="range" min="5" max="25" step="0.5" value="12.5" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- Vape Pods / Puffs / week -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-2">
+              <span class="text-slate-300" data-i18n="sliderVape">Vape / Pod Expenses (per week)</span>
+              <span id="vapeVal" class="text-cyan-400 font-mono text-sm">€10.00</span>
+            </div>
+            <input id="vapeInput" type="range" min="0" max="60" step="2" value="10" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- Weed / Cannabis / week -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-2">
+              <span class="text-slate-300" data-i18n="sliderWeed">Cannabis / CBD (per week)</span>
+              <span id="weedVal" class="text-amber-400 font-mono text-sm">€20.00</span>
+            </div>
+            <input id="weedInput" type="range" min="0" max="150" step="5" value="20" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Calculated Summary Outputs -->
+        <div class="flex flex-col justify-between p-5 rounded-2xl bg-slate-900/90 border border-white/10 space-y-4">
+          <div>
+            <span class="text-[11px] uppercase font-bold text-slate-400 tracking-wider" data-i18n="outMonth">Monthly Out-of-Pocket Drain</span>
+            <div id="resMonth" class="text-2xl sm:text-3xl font-extrabold text-white mt-1">€411.00</div>
+          </div>
+
+          <div class="pt-3 border-t border-white/10">
+            <span class="text-[11px] uppercase font-bold text-emerald-400 tracking-wider" data-i18n="outYear">1-Year Direct Savings</span>
+            <div id="resYear" class="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1">€4,932.00</div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+            <span class="text-[10px] uppercase font-bold text-amber-300 tracking-wider block" data-i18n="outTenYear">10-Year Compounded Wealth (7% return)</span>
+            <div id="resTenYear" class="text-2xl sm:text-3xl font-black text-gradient-gold mt-1">€68,142.00</div>
+            <p class="text-[10px] text-slate-300 mt-1" data-i18n="outDesc">
+              Money that could fund a house down payment, world travel, or an emergency safety net instead of evaporating in smoke.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CORE FEATURES GRID -->
+  <section id="features" class="py-20 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
+    <div class="text-center mb-14">
+      <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase" data-i18n="featTag">Engineered for Freedom</span>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="featTitle">
+        Four Pillars That Change the Game
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-lg mx-auto" data-i18n="featSub">
+        Traditional quit apps rely on guilt, ad trackers, and subscriptions. PuffinLess focuses on mindful psychology, high contrast financial clarity, and absolute privacy.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      
+      <!-- Feature 1: Tri-Substance Tracking -->
+      <div class="p-6 rounded-3xl glass-card space-y-3">
+        <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
+          ⚡
+        </div>
+        <h3 class="text-lg font-bold text-white" data-i18n="f1Title">Triple-Substance Precision</h3>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f1Desc">
+          Most apps only track traditional cigarettes. PuffinLess natively tracks tobacco cigarettes, nicotine vape/puffs, and cannabis/weed simultaneously, acknowledging the modern reality of multiple habits.
+        </p>
+      </div>
+
+      <!-- Feature 2: SOS Crave Interceptor -->
+      <div class="p-6 rounded-3xl glass-card space-y-3">
+        <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold">
+          🫁
+        </div>
+        <h3 class="text-lg font-bold text-white" data-i18n="f2Title">SOS Crave Interceptor</h3>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f2Desc">
+          When an acute urge strikes, 1 tap opens guided 4-7-8 breathing and 5-4-3-2-1 sensory grounding. Instead of fighting impulses with panic, learn to surf the craving wave until it organically subsides.
+        </p>
+      </div>
+
+      <!-- Feature 3: Local-First Privacy -->
+      <div class="p-6 rounded-3xl glass-card space-y-3">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
+          🛡️
+        </div>
+        <h3 class="text-lg font-bold text-white" data-i18n="f3Title">Local-First Storage & Zero Cloud</h3>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f3Desc">
+          Your addiction and recovery journey is deeply personal. Your habit logs, streaks, and financial data are saved directly on your device. No cloud databases, no user accounts, no telemetry, and no data sales.
+        </p>
+      </div>
+
+      <!-- Feature 4: Sleep & Daily Reality -->
+      <div class="p-6 rounded-3xl glass-card space-y-3">
+        <div class="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold">
+          🌙
+        </div>
+        <h3 class="text-lg font-bold text-white" data-i18n="f4Title">Sleep Trends & Habit Insights</h3>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f4Desc">
+          See how your deep sleep and daily energy recover as smoke-free days accumulate. Log slips honestly without shame: a slip is valuable data to adjust your strategy, not a reason to quit your journey.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE: PUFFINLESS VS OTHERS -->
+  <section class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+    <div class="text-center mb-12">
+      <span class="text-xs font-bold text-teal-400 tracking-wider uppercase" data-i18n="compTag">The Honest Alternative</span>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="compTitle">
+        PuffinLess vs. Typical Cloud Apps
+      </h2>
+    </div>
+
+    <div class="overflow-x-auto rounded-3xl glass-card border border-white/10 shadow-2xl">
+      <table class="w-full text-left text-xs sm:text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-white/10 bg-slate-900/80">
+            <th class="p-4 sm:p-5 font-bold text-slate-400" data-i18n="thDim">Dimension</th>
+            <th class="p-4 sm:p-5 font-bold text-emerald-400 text-center bg-emerald-950/20">PUFFINLESS</th>
+            <th class="p-4 sm:p-5 font-bold text-slate-400 text-center" data-i18n="thOther">Typical Cloud Apps</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c1Dim">Pricing Model</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c1Pfl">One-time payment (Lifetime)</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c1Other">€49–€99 / year subscription</td>
+          </tr>
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c2Dim">Data Storage</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c2Pfl">100% on your device (IndexedDB)</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c2Other">Remote company cloud servers</td>
+          </tr>
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c3Dim">Account Requirement</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c3Pfl">Zero account / email required</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c3Other">Mandatory signup / Google / FB</td>
+          </tr>
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c4Dim">Habits Tracked</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c4Pfl">Cigarettes, Puffs/Vapes & Weed</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c4Other">Cigarettes only</td>
+          </tr>
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c5Dim">Offline Capability</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c5Pfl">100% functional without internet</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c5Other">Breaks or refuses sync offline</td>
+          </tr>
+          <tr>
+            <td class="p-4 sm:p-5 font-semibold text-white" data-i18n="c6Dim">Backup & Export</td>
+            <td class="p-4 sm:p-5 text-center text-emerald-300 font-bold bg-emerald-950/10" data-i18n="c6Pfl">1-click unencrypted JSON export</td>
+            <td class="p-4 sm:p-5 text-center text-slate-400" data-i18n="c6Other">Data locked into proprietary platform</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PRICING SECTION -->
+  <section id="pricing" class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+    <div class="text-center mb-14">
+      <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase" data-i18n="priceTag">Simple Transparent Value</span>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="priceTitle">
+        Invest Once. Reclaim Thousands.
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-md mx-auto" data-i18n="priceSub">
+        Less than the cost of two packs of cigarettes or three vape pods. One payment, yours forever.
+      </p>
+    </div>
+
+    <!-- Pricing Card -->
+    <div class="max-w-md mx-auto rounded-3xl glass-card border border-emerald-500/40 p-7 sm:p-9 relative shadow-2xl shadow-emerald-950/50 text-center">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[11px] uppercase tracking-wider shadow-md">
+        Lifetime License
+      </div>
+
+      <div class="mt-3">
+        <span class="text-xs text-slate-400 font-semibold" data-i18n="cardOneTime">One-Time Payment</span>
+        <div class="flex items-center justify-center gap-1 my-2">
+          <span class="text-4xl sm:text-5xl font-black text-white">€19.99</span>
+          <span class="text-xs text-slate-400 self-end mb-2">/ forever</span>
+        </div>
+        <p class="text-xs text-emerald-400 font-semibold" data-i18n="cardSave">Pays for itself in less than 48 hours of sobriety</p>
+      </div>
+
+      <ul class="text-left text-xs sm:text-sm text-slate-300 my-7 space-y-3">
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList1">Complete PuffinLess v2.4 Application</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList2">Standalone offline file (.html) + Mobile PWA</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList3">SOS Crave Interceptor (4-7-8 Breathing & Grounding)</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList4">Money Center & 10-Year Compounding Wealth</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList5">Zero subscription fees, zero ads, zero accounts</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fList6">1-Click JSON Backup Export & Local Reset Controls</span>
+        </li>
+      </ul>
+
+      <a href="https://buy.stripe.com/puffinless-access" target="_blank" class="block w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm tracking-wide shadow-xl shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95" data-i18n="btnBuy">
+        Get PuffinLess Now
+      </a>
+
+      <div class="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-400">
+        <span>🔒 Secure Checkout</span>
+        <span>•</span>
+        <span>Instant Download</span>
+        <span>•</span>
+        <span>Runs on iOS, Android & Desktop</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section id="faq" class="py-20 px-4 sm:px-6 max-w-3xl mx-auto relative z-10">
+    <div class="text-center mb-12">
+      <span class="text-xs font-bold text-slate-400 tracking-wider uppercase" data-i18n="faqTag">Got Questions?</span>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white mt-1" data-i18n="faqTitle">
+        Frequently Asked Questions
+      </h2>
+    </div>
+
+    <div class="space-y-3.5 text-left">
+      
+      <!-- FAQ 1 -->
+      <details class="glass-card rounded-2xl p-4.5 border border-white/10 group cursor-pointer">
+        <summary class="font-bold text-sm text-white flex justify-between items-center list-none select-none">
+          <span data-i18n="q1">Where are my personal records stored?</span>
+          <span class="text-emerald-400 transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-3 leading-relaxed" data-i18n="a1">
+          Your data is stored directly in your browser's physical memory using IndexedDB and localStorage. PuffinLess operates on a local-first architecture: no personal habit logs or consumption entries are uploaded to cloud servers.
+        </p>
+      </details>
+
+      <!-- FAQ 2 -->
+      <details class="glass-card rounded-2xl p-4.5 border border-white/10 group cursor-pointer">
+        <summary class="font-bold text-sm text-white flex justify-between items-center list-none select-none">
+          <span data-i18n="q2">How do I move my records between my phone and computer?</span>
+          <span class="text-emerald-400 transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-3 leading-relaxed" data-i18n="a2">
+          Because there is no automatic central cloud sync, moving records between devices is done in seconds: click "Export" in Settings to download your backup file (.json), and click "Import" on your second device. You remain in complete control of your files.
+        </p>
+      </details>
+
+      <!-- FAQ 3 -->
+      <details class="glass-card rounded-2xl p-4.5 border border-white/10 group cursor-pointer">
+        <summary class="font-bold text-sm text-white flex justify-between items-center list-none select-none">
+          <span data-i18n="q3">Does PuffinLess work without internet access?</span>
+          <span class="text-emerald-400 transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-3 leading-relaxed" data-i18n="a3">
+          Yes! PuffinLess is 100% offline-first. You can install it as a Progressive Web App (PWA) on iOS Safari or Android Chrome, or open the standalone single-file HTML directly. It works in airplane mode, subway tunnels, and remote retreats.
+        </p>
+      </details>
+
+      <!-- FAQ 4 -->
+      <details class="glass-card rounded-2xl p-4.5 border border-white/10 group cursor-pointer">
+        <summary class="font-bold text-sm text-white flex justify-between items-center list-none select-none">
+          <span data-i18n="q4">Is PuffinLess a medical service?</span>
+          <span class="text-emerald-400 transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-3 leading-relaxed" data-i18n="a4">
+          No. PuffinLess is a personal habit tracker and self-monitoring companion. It does not provide medical diagnoses, treatment, or clinical prescriptions. If you experience severe withdrawal symptoms or health complications, please consult a qualified healthcare professional.
+        </p>
+      </details>
+
+      <!-- FAQ 5 -->
+      <details class="glass-card rounded-2xl p-4.5 border border-white/10 group cursor-pointer">
+        <summary class="font-bold text-sm text-white flex justify-between items-center list-none select-none">
+          <span data-i18n="q5">Why is there no monthly subscription?</span>
+          <span class="text-emerald-400 transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-3 leading-relaxed" data-i18n="a5">
+          Because we do not run expensive cloud server farms or track your personal data, we do not have large monthly hosting overhead to bill you for. You pay once for the software, and it is yours to use.
+        </p>
+      </details>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/10 py-12 px-4 sm:px-6 max-w-6xl mx-auto text-xs text-slate-400">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">P</div>
+        <span class="font-bold text-white tracking-wider">PUFFINLESS</span>
+        <span class="text-slate-500">© 2026</span>
+      </div>
+
+      <div class="flex flex-wrap justify-center gap-6 text-slate-400">
+        <a href="#features" class="hover:text-white transition-colors" data-i18n="navFeatures">Features</a>
+        <a href="#calculator" class="hover:text-white transition-colors" data-i18n="navCalc">Savings Calculator</a>
+        <a href="#pricing" class="hover:text-white transition-colors" data-i18n="navPricing">Pricing</a>
+        <a href="#faq" class="hover:text-white transition-colors" data-i18n="navFaq">FAQ</a>
+      </div>
+
+      <div class="text-[11px] text-slate-400 text-center md:text-right">
+        <span>Local-First Habit Architecture</span> • <span>Privacy by Design</span>
+      </div>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-white/5 text-[10px] text-slate-400 text-center leading-relaxed">
+      PuffinLess is a personal companion for habit tracking and self-monitoring. It is not a medical device and does not provide clinical diagnosis or medical treatment.
+    </div>
+  </footer>
+
+  <!-- Interactive JavaScript for Calculator & Language Toggle -->
+  <script>
+    // BILINGUAL TRANSLATION DICTIONARY
+    const translations = {
+      en: {
+        navFeatures: "Features",
+        navCalc: "Savings Calculator",
+        navPrivacy: "Local-First Privacy",
+        navPricing: "Pricing",
+        navFaq: "FAQ",
+        navCta: "Get Instant Access",
+        heroBadge: "Offline-First • Zero Cloud Database • No Subscriptions",
+        heroTitle1: "Break Free from Cigarettes, Vapes & Weed.",
+        heroTitle2: "Keep 100% of your records on your device.",
+        heroSub: "A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, and a 10-year compound wealth calculator. No accounts. No tracking cookies. Zero remote servers storing your logs.",
+        heroBtnGet: "Start Your Journey — One-Time Access",
+        heroBtnCalc: "Calculate Money Lost",
+        mockStreak: "Smoke-Free Streak",
+        mockLevel: "Level 3: Bronze Vanguard",
+        mockSaved: "Money Preserved",
+        mockRate: "~€12.50 / day avoided",
+        mockDoses: "Doses Avoided",
+        mockCigs: "Cigarettes & Puffs",
+        mockCravings: "Cravings Defeated",
+        mockMastery: "100% Craving Mastery",
+        calcTag: "Financial Reality Check",
+        calcTitle: "See How Much You Are Truly Burning",
+        calcSub: "Adjust the sliders below to see your direct monthly expense, annual drain, and 10-year compounding wealth if that money stayed in your pocket.",
+        sliderCigs: "Cigarettes per Day",
+        sliderPrice: "Price per Pack (20 cigs)",
+        sliderVape: "Vape / Pod Expenses (per week)",
+        sliderWeed: "Cannabis / CBD (per week)",
+        outMonth: "Monthly Out-of-Pocket Drain",
+        outYear: "1-Year Direct Savings",
+        outTenYear: "10-Year Compounded Wealth (7% return)",
+        outDesc: "Money that could fund a house down payment, world travel, or an emergency safety net instead of evaporating in smoke.",
+        featTag: "Engineered for Freedom",
+        featTitle: "Four Pillars That Change the Game",
+        featSub: "Traditional quit apps rely on guilt, ad trackers, and subscriptions. PuffinLess focuses on mindful psychology, high contrast financial clarity, and absolute privacy.",
+        f1Title: "Triple-Substance Precision",
+        f1Desc: "Most apps only track traditional cigarettes. PuffinLess natively tracks tobacco cigarettes, nicotine vape/puffs, and cannabis/weed simultaneously, acknowledging the modern reality of multiple habits.",
+        f2Title: "SOS Crave Interceptor",
+        f2Desc: "When an acute urge strikes, 1 tap opens guided 4-7-8 breathing and 5-4-3-2-1 sensory grounding. Instead of fighting impulses with panic, learn to surf the craving wave until it organically subsides.",
+        f3Title: "Local-First Storage & Zero Cloud",
+        f3Desc: "Your addiction and recovery journey is deeply personal. Your habit logs, streaks, and financial data are saved directly on your device. No cloud databases, no user accounts, no telemetry, and no data sales.",
+        f4Title: "Sleep Trends & Habit Insights",
+        f4Desc: "See how your deep sleep and daily energy recover as smoke-free days accumulate. Log slips honestly without shame: a slip is valuable data to adjust your strategy, not a reason to quit your journey.",
+        compTag: "The Honest Alternative",
+        compTitle: "PuffinLess vs. Typical Cloud Apps",
+        thDim: "Dimension",
+        thOther: "Typical Cloud Apps",
+        c1Dim: "Pricing Model",
+        c1Pfl: "One-time payment (Lifetime)",
+        c1Other: "€49–€99 / year subscription",
+        c2Dim: "Data Storage",
+        c2Pfl: "100% on your device (IndexedDB)",
+        c2Other: "Remote company cloud servers",
+        c3Dim: "Account Requirement",
+        c3Pfl: "Zero account / email required",
+        c3Other: "Mandatory signup / Google / FB",
+        c4Dim: "Habits Tracked",
+        c4Pfl: "Cigarettes, Puffs/Vapes & Weed",
+        c4Other: "Cigarettes only",
+        c5Dim: "Offline Capability",
+        c5Pfl: "100% functional without internet",
+        c5Other: "Breaks or refuses sync offline",
+        c6Dim: "Backup & Export",
+        c6Pfl: "1-click unencrypted JSON export",
+        c6Other: "Data locked into proprietary platform",
+        priceTag: "Simple Transparent Value",
+        priceTitle: "Invest Once. Reclaim Thousands.",
+        priceSub: "Less than the cost of two packs of cigarettes or three vape pods. One payment, yours forever.",
+        cardOneTime: "One-Time Payment",
+        cardSave: "Pays for itself in less than 48 hours of sobriety",
+        fList1: "Complete PuffinLess v2.4 Application",
+        fList2: "Standalone offline file (.html) + Mobile PWA",
+        fList3: "SOS Crave Interceptor (4-7-8 Breathing & Grounding)",
+        fList4: "Money Center & 10-Year Compounding Wealth",
+        fList5: "Zero subscription fees, zero ads, zero accounts",
+        fList6: "1-Click JSON Backup Export & Local Reset Controls",
+        btnBuy: "Get PuffinLess Now",
+        faqTag: "Got Questions?",
+        faqTitle: "Frequently Asked Questions",
+        q1: "Where are my personal records stored?",
+        a1: "Your data is stored directly in your browser's physical memory using IndexedDB and localStorage. PuffinLess operates on a local-first architecture: no personal habit logs or consumption entries are uploaded to cloud servers.",
+        q2: "How do I move my records between my phone and computer?",
+        a2: "Because there is no automatic central cloud sync, moving records between devices is done in seconds: click 'Export' in Settings to download your backup file (.json), and click 'Import' on your second device. You remain in complete control of your files.",
+        q3: "Does PuffinLess work without internet access?",
+        a3: "Yes! PuffinLess is 100% offline-first. You can install it as a Progressive Web App (PWA) on iOS Safari or Android Chrome, or open the standalone single-file HTML directly. It works in airplane mode, subway tunnels, and remote retreats.",
+        q4: "Is PuffinLess a medical service?",
+        a4: "No. PuffinLess is a personal habit tracker and self-monitoring companion. It does not provide medical diagnoses, treatment, or clinical prescriptions. If you experience severe withdrawal symptoms or health complications, please consult a qualified healthcare professional.",
+        q5: "Why is there no monthly subscription?",
+        a5: "Because we do not run expensive cloud server farms or track your personal data, we do not have large monthly hosting overhead to bill you for. You pay once for the software, and it is yours to use."
+      },
+      fr: {
+        navFeatures: "Fonctionnalités",
+        navCalc: "Calculateur d'Économies",
+        navPrivacy: "Stockage Local & Privé",
+        navPricing: "Tarif",
+        navFaq: "FAQ",
+        navCta: "Accès Immédiat",
+        heroBadge: "Local-First • Zéro Cloud • Aucun Abonnement",
+        heroTitle1: "Libérez-vous du Tabac, de la Vape et du Cannabis.",
+        heroTitle2: "Vos données restent à 100% sur votre appareil.",
+        heroSub: "Un outil d'accompagnement personnel doté de chronomètres d'abstinence de haute précision, d'un intercepteur d'envie SOS guidé et d'un calculateur de capital sur 10 ans. Zéro compte. Zéro traceur. Aucun serveur distant ne stocke vos données.",
+        heroBtnGet: "Démarrer l'Aventure — Accès à Vie",
+        heroBtnCalc: "Calculer l'Argent Perdu",
+        mockStreak: "Temps d'Abstinence",
+        mockLevel: "Niveau 3 : Gardien de Bronze",
+        mockSaved: "Argent Préservé",
+        mockRate: "~12,50 € / jour évité",
+        mockDoses: "Prises Évitées",
+        mockCigs: "Cigarettes & Bouffées",
+        mockCravings: "Envies Surmontées",
+        mockMastery: "100% Maîtrise des Pulsions",
+        calcTag: "Prise de Conscience Financière",
+        calcTitle: "Visualisez l'Argent Réellement Parti en Fumée",
+        calcSub: "Ajustez les curseurs ci-dessous pour voir votre dépense mensuelle directe, la perte annuelle et le capital cumulé sur 10 ans si cet argent restait dans votre poche.",
+        sliderCigs: "Cigarettes par Jour",
+        sliderPrice: "Prix du Paquet (20 cig)",
+        sliderVape: "Dépenses Vape / Puffs (par semaine)",
+        sliderWeed: "Cannabis / CBD (par semaine)",
+        outMonth: "Dépense Mensuelle Directe",
+        outYear: "Économies sur 1 An",
+        outTenYear: "Capital Cumulé sur 10 Ans (rendement 7%)",
+        outDesc: "Un capital qui pourrait financer l'apport d'un logement, des voyages ou une épargne de sécurité au lieu de s'évaporer en fumée.",
+        featTag: "Conçu Pour Votre Liberté",
+        featTitle: "Quatre Piliers Qui Changent Tout",
+        featSub: "Les applications classiques reposent sur la culpabilisation, les traceurs publicitaires et les abonnements récurrents. PuffinLess privilégie la clarté financière, la psychologie bienveillante et le respect total de votre vie privée.",
+        f1Title: "Précision Multi-Substances",
+        f1Desc: "La plupart des applications ne ciblent que le tabac classique. PuffinLess suit simultanément les cigarettes, la vape/puffs et le cannabis/CBD pour refléter fidèlement la réalité de vos habitudes.",
+        f2Title: "Intercepteur d'Envie SOS",
+        f2Desc: "Quand une envie aiguë survient, 1 clic lance la respiration guidée 4-7-8 et l'ancrage sensoriel 5-4-3-2-1. Au lieu de lutter dans la panique, apprenez à surfer sur la vague jusqu'à ce qu'elle s'apaise d'elle-même.",
+        f3Title: "Stockage Local & Zéro Cloud",
+        f3Desc: "Votre démarche d'arrêt est intime. Vos consommations, vos jours sans tabac et vos économies restent stockés sur votre appareil. Aucun serveur distant, aucun compte obligatoire et aucune vente de vos données.",
+        f4Title: "Sommeil & Clarté Quotidienne",
+        f4Desc: "Observez comment votre sommeil réparateur et votre énergie augmentent avec les jours d'abstinence. Enregistrez les écarts sans honte : un faux pas est une information utile pour ajuster votre méthode, pas un échec.",
+        compTag: "L'Alternative Transparente",
+        compTitle: "PuffinLess vs. Applications Cloud Classiques",
+        thDim: "Critère",
+        thOther: "Applications Cloud Classiques",
+        c1Dim: "Modèle Tarifaire",
+        c1Pfl: "Achat unique (Licence à vie)",
+        c1Other: "49 € à 99 € / an en abonnement",
+        c2Dim: "Stockage des Données",
+        c2Pfl: "100% sur votre appareil (IndexedDB)",
+        c2Other: "Serveurs cloud de l'éditeur",
+        c3Dim: "Obligation de Compte",
+        c3Pfl: "Zéro compte / zéro e-mail requis",
+        c3Other: "Inscription obligatoire / Google / FB",
+        c4Dim: "Substances Prises en Charge",
+        c4Pfl: "Cigarettes, Puffs/Vapes & Cannabis",
+        c4Other: "Cigarettes uniquement",
+        c5Dim: "Utilisation Hors-Ligne",
+        c5Pfl: "100% autonome sans connexion internet",
+        c5Other: "Bloqué ou synchronisation impossible",
+        c6Dim: "Sauvegarde & Export",
+        c6Pfl: "Export JSON en 1 clic sans verrouillage",
+        c6Other: "Données prisonnières de l'application",
+        priceTag: "Valeur Claire & Sans Surprise",
+        priceTitle: "Investissez Une Fois. Économisez des Milliers d'Euros.",
+        priceSub: "Moins que le coût de deux paquets de cigarettes ou trois recharges de vape. Un seul paiement, à vous pour toujours.",
+        cardOneTime: "Paiement Unique",
+        cardSave: "Remboursé en moins de 48 heures d'arrêt",
+        fList1: "Application complète PuffinLess v2.4",
+        fList2: "Monofichier hors-ligne (.html) + PWA Mobile",
+        fList3: "Intercepteur d'Envie SOS (Respiration 4-7-8 & Ancrage)",
+        fList4: "Centre Financier & Projection de Capital sur 10 ans",
+        fList5: "Zéro abonnement récurrent, zéro pub, zéro compte",
+        fList6: "Export JSON en 1 clic & Réinitialisation locale",
+        btnBuy: "Obtenir PuffinLess Immédiatement",
+        faqTag: "Questions Fréquentes",
+        faqTitle: "Foire Aux Questions",
+        q1: "Où sont stockées mes données personnelles ?",
+        a1: "Vos données sont enregistrées directement dans la mémoire physique de votre navigateur (IndexedDB et localStorage). PuffinLess fonctionne selon une architecture locale : aucun journal d'habitude ni consommation n'est envoyé sur des serveurs distants.",
+        q2: "Comment transférer mes données entre mon téléphone et mon PC ?",
+        a2: "En l'absence de synchronisation cloud automatique, le transfert prend quelques secondes : cliquez sur 'Exporter' dans les Paramètres pour télécharger votre fichier (.json), et cliquez sur 'Importer' sur votre second appareil.",
+        q3: "L'application fonctionne-t-elle sans connexion internet ?",
+        a3: "Oui ! PuffinLess est 100% autonome et hors-ligne. Vous pouvez l'installer en application web (PWA) sur Safari iOS ou Chrome Android, ou double-cliquer directement sur le fichier HTML autonome. Elle fonctionne en mode avion et dans le métro.",
+        q4: "PuffinLess est-il un service médical ?",
+        a4: "Non. PuffinLess est un outil d'accompagnement personnel et d'auto-mesure comportementale. Il ne fournit aucun diagnostic médical ni prescription. Si vous ressentez des symptômes de sevrage sévères, consultez un médecin qualifié.",
+        q5: "Pourquoi n'y a-t-il aucun abonnement mensuel ?",
+        a5: "Comme nous n'hébergeons pas de serveurs cloud coûteux pour stocker vos données personnelles, nous n'avons aucun frais mensuel récurrent à vous refacturer. Vous achetez le logiciel une fois, et il vous appartient."
+      }
+    };
+
+    let currentLang = 'en';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const dict = translations[lang];
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) {
+          el.textContent = dict[key];
+        }
+      });
+      document.getElementById('langFlag').textContent = lang === 'en' ? '🇫🇷' : '🇬🇧';
+      document.getElementById('langLabel').textContent = lang === 'en' ? 'FR' : 'EN';
+      updateCalculations();
+    }
+
+    document.getElementById('langToggle').addEventListener('click', () => {
+      setLanguage(currentLang === 'en' ? 'fr' : 'en');
+    });
+
+    // SAVINGS CALCULATOR LOGIC
+    const cigsInput = document.getElementById('cigsInput');
+    const priceInput = document.getElementById('priceInput');
+    const vapeInput = document.getElementById('vapeInput');
+    const weedInput = document.getElementById('weedInput');
+
+    function updateCalculations() {
+      const cigs = Number(cigsInput.value) || 0;
+      const price = Number(priceInput.value) || 0;
+      const vape = Number(vapeInput.value) || 0;
+      const weed = Number(weedInput.value) || 0;
+
+      document.getElementById('cigsVal').textContent = `${cigs} ${currentLang === 'fr' ? 'cig' : 'cigs'}`;
+      document.getElementById('priceVal').textContent = `€${price.toFixed(2)}`;
+      document.getElementById('vapeVal').textContent = `€${vape.toFixed(2)}`;
+      document.getElementById('weedVal').textContent = `€${weed.toFixed(2)}`;
+
+      const costPerCig = price > 0 ? price / 20 : 0.6;
+      const dailyCigCost = cigs * costPerCig;
+      const dailyVapeCost = vape / 7;
+      const dailyWeedCost = weed / 7;
+
+      const dailyTotal = dailyCigCost + dailyVapeCost + dailyWeedCost;
+      const monthlyTotal = dailyTotal * 30.5;
+      const yearlyTotal = dailyTotal * 365;
+
+      // 10 years compounding monthly at 7% annual interest: FV = P * [((1 + r)^n - 1) / r]
+      const monthlyRate = 0.07 / 12;
+      const months = 120;
+      const tenYearCompound = monthlyTotal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+
+      const fmt = (num) => new Intl.NumberFormat(currentLang === 'fr' ? 'fr-FR' : 'en-US', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 0
+      }).format(num);
+
+      document.getElementById('resMonth').textContent = fmt(monthlyTotal);
+      document.getElementById('resYear').textContent = fmt(yearlyTotal);
+      document.getElementById('resTenYear').textContent = fmt(tenYearCompound);
+    }
+
+    [cigsInput, priceInput, vapeInput, weedInput].forEach((input) => {
+      input.addEventListener('input', updateCalculations);
+    });
+
+    // Initialize
+    updateCalculations();
+  </script>
+</body>
+</html>
