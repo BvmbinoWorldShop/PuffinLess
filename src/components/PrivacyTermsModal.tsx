@@ -126,8 +126,8 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
                   </h3>
                   <p className="mt-1">
                     {isFr
-                      ? 'Toutes vos données d\'utilisation personnelle — y compris vos consommations enregistrées, envies surmontées, notes financières, journaux de sommeil et dates d\'abstinence — sont conservées directement et exclusivement dans la mémoire de votre appareil (via les technologies de stockage de votre navigateur, IndexedDB et localStorage).'
-                      : 'All your personal usage records — including logged intake, resisted cravings, financial estimates, sleep logs, and streak dates — are stored directly and exclusively on your personal device (using standard browser technologies, IndexedDB and localStorage).'}
+                      ? 'Toutes vos données d\'utilisation personnelle — y compris vos consommations enregistrées, envies surmontées, notes financières, journaux de sommeil et dates d\'abstinence — sont conservées directement et exclusivement dans la mémoire privée et sécurisée de votre appareil.'
+                      : 'All your personal usage records — including logged intake, resisted cravings, financial estimates, sleep logs, and streak dates — are stored directly and exclusively within your device\'s private and secure local storage.'}
                   </p>
                 </div>
               </div>
@@ -231,8 +231,8 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
                   <li>
                     <b className="text-white">{isFr ? 'Ce qui est effacé :' : 'What is deleted:'}</b>{' '}
                     {isFr
-                      ? 'La base IndexedDB locale, le journal d\'événements, le miroir de stockage localStorage et les clés de chiffrement de ce navigateur.'
-                      : 'The local IndexedDB database, event journal, localStorage mirror, and encryption keys within this specific browser profile.'}
+                      ? 'Toutes les données de l\'application, l\'historique d\'activité et les paramètres enregistrés dans ce navigateur.'
+                      : 'All local application records, activity history, and saved preferences within this specific browser.'}
                   </li>
                   <li>
                     <b className="text-white">{isFr ? 'Fichiers exportés préalablement :' : 'Previously exported files:'}</b>{' '}

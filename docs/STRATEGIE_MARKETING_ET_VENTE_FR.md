@@ -20,7 +20,7 @@ PuffinLess s'inscrit au carrefour de deux grandes tendances actuelles :
 | Frustrations des Autres Applications | Solution PuffinLess |
 | :--- | :--- |
 | **Abonnements Récurrents Chers** (49 € à 99 €/an) | **Achat unique** (19,99 € à vie). Rentabilisé en moins de 48 heures d'abstinence. |
-| **Collecte & Fuites Cloud** | **100% Local-First**. Enregistrements stockés dans la mémoire locale (IndexedDB). Zéro serveur cloud. |
+| **Collecte & Fuites Cloud** | **100% Local-First**. Enregistrements stockés directement sur votre appareil privé. Zéro serveur cloud. |
 | **Tabac Classique Uniquement** | **Précision Multi-Substances**. Cigarettes, puffs/vapes et cannabis suivis simultanément. |
 | **Culpabilisation en Cas d'Écart** | **Accompagnement Bienveillant**. Un faux pas est une donnée d'apprentissage, pas un échec. |
 | **Création de Compte Forcée** | **Zéro compte requis**. Démarrage immédiat sans e-mail ni mot de passe. |

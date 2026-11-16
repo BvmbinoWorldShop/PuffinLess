@@ -641,7 +641,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
           )}
 
-          {/* ARSENAL PART: PuffinLess Arsenal, Military-Grade Privacy, and Sobriety Timer Rule */}
+          {/* ARSENAL PART: PuffinLess Arsenal, Private On-Device Protection, and Sobriety Timer Rule */}
           {isArsenalStep && (
             <div className="space-y-3.5">
               <div>

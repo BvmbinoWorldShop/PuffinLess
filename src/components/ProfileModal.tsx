@@ -1343,7 +1343,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 )}
               </div>
 
-              {/* 2. Cryptographic Device Security (Military-grade at rest) */}
+              {/* 2. Private Device Storage */}
               <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-2">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400">
@@ -1351,12 +1351,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">
-                      {isFr ? 'Protection Militaire des Données' : 'Military-Grade Data Protection'}
+                      {isFr ? 'Protection Privée des Données' : 'Private On-Device Protection'}
                     </span>
                     <span className="text-[11px] text-slate-300 block">
                       {isFr
-                        ? 'Protection physique au repos avec sécurité de niveau militaire. Vos informations restent strictement cloisonnées et chiffrées sur votre appareil, sans aucun accès externe.'
-                        : 'At-rest physical protection with military-grade security. Your information remains strictly isolated and encrypted on your device, with zero external access.'}
+                        ? 'Vos informations restent strictement cloisonnées sur votre appareil, sans aucun accès externe ni serveur distant.'
+                        : 'Your information remains strictly isolated on your device, with zero external access and no remote servers.'}
                     </span>
                   </div>
                 </div>
@@ -1364,7 +1364,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           {/* ========================================================= */}
-          {/* SECTION 5: SAUVEGARDE & GESTION DES DONNÉES (RGPD)        */}
+          {/* SECTION 5: SAUVEGARDE & GESTION DES DONNÉES               */}
           {/* ========================================================= */}
           <div className="space-y-3.5 pt-4 border-t border-white/10">
             <div className="flex items-center gap-2 pb-2 border-b border-white/10">
@@ -1505,8 +1505,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </span>
                 <span className="text-[11px] text-slate-400 block">
                   {isFr
-                    ? 'Efface la base de données locale, le journal et les clés de chiffrement de ce navigateur. Note : cela n\'efface pas les fichiers de sauvegarde (.json) déjà enregistrés sur votre disque, ni les sessions sur d\'autres appareils.'
-                    : 'Clears the local database, journal, and encryption keys within this specific browser. Note: does not delete .json backup files already saved to your disk, nor does it affect records in other browsers or devices.'}
+                    ? 'Efface l\'ensemble des données locales et des historiques enregistrés dans ce navigateur. Note : cela n\'efface pas les fichiers de sauvegarde (.json) déjà enregistrés sur votre disque, ni les sessions sur d\'autres appareils.'
+                    : 'Clears all local application data and recorded history within this specific browser. Note: does not delete .json backup files already saved to your disk, nor does it affect records in other browsers or devices.'}
                 </span>
               </div>
 

@@ -1701,7 +1701,6 @@ export async function exportAllUserDataJSON(): Promise<string> {
   const exportPayload = {
     exportedAt: new Date().toISOString(),
     formatVersion: '2.0',
-    securityStandard: 'Military-Grade Authenticated Encryption',
     appName: 'PuffinLess',
     profile,
     streaks,

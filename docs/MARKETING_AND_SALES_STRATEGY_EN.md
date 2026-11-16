@@ -20,7 +20,7 @@ PuffinLess stands at the intersection of two powerful modern consumer shifts:
 | Friction in Other Apps | PuffinLess Solution |
 | :--- | :--- |
 | **Expensive Subscriptions** ($49–$99/yr) | **One-time payment** ($19.99 lifetime). Pays for itself in 48 hours of sobriety. |
-| **Data Harvesting & Cloud Leaks** | **100% Local-First**. Records live in browser memory (IndexedDB). Zero cloud database. |
+| **Data Harvesting & Cloud Leaks** | **100% Local-First**. Records live directly on your private device. Zero cloud database. |
 | **Cigarettes Only** | **Tri-Substance Precision**. Tracks cigarettes, nicotine vapes, and cannabis simultaneously. |
 | **Guilt & Shame Spirals on Relapse** | **Mindful Coaching**. Slips are recorded as data, not defeat. |
 | **Forced Account Signups** | **Zero accounts required**. Open and start immediately. |
