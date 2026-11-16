@@ -7,10 +7,10 @@
   <meta name="description" content="The offline-first habit tracker and sobriety companion. Track cigarettes, nicotine vapes, and weed without monthly subscriptions or cloud data storage.">
   <link rel="icon" type="image/svg+xml" href="../dist/favicon.svg">
   
-  <!-- Fonts -->
+  <!-- Fonts: Exactly aligned with PuffinLess App (Plus Jakarta Sans & JetBrains Mono) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,12 +20,12 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'Roboto', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           },
           colors: {
             slate: {
-              950: '#070b14',
+              950: '#030712',
             },
             emerald: {
               400: '#34d399',
@@ -43,21 +43,26 @@
   </script>
   <style>
     body {
-      background-color: #070b14;
+      background-color: #030712;
       color: #f1f5f9;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
       overflow-x: hidden;
+      letter-spacing: -0.01em;
+    }
+    h1, h2, h3, h4, .brand-font {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -0.025em;
     }
     .glass-nav {
-      background: rgba(7, 11, 20, 0.85);
+      background: rgba(3, 7, 18, 0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-card {
       background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-card:hover {
@@ -68,7 +73,7 @@
       position: absolute;
       width: 500px;
       height: 500px;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(7, 11, 20, 0) 70%);
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(3, 7, 18, 0) 70%);
       pointer-events: none;
       filter: blur(50px);
     }
@@ -76,12 +81,17 @@
       position: absolute;
       width: 400px;
       height: 400px;
-      background: radial-gradient(circle, rgba(245, 158, 11, 0.14) 0%, rgba(7, 11, 20, 0) 70%);
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.14) 0%, rgba(3, 7, 18, 0) 70%);
       pointer-events: none;
       filter: blur(60px);
     }
     .text-gradient-emerald {
       background: linear-gradient(135deg, #ffffff 30%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .text-gradient-brand {
+      background: linear-gradient(90deg, #34d399 0%, #5eead4 50%, #a7f3d0 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -93,35 +103,69 @@
     input[type=range] {
       accent-color: #10b981;
     }
+    /* Breathing animation for SOS preview */
+    @keyframes pulse-breathe {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      21% { transform: scale(1.35); opacity: 1; } /* Inhale 4s */
+      58% { transform: scale(1.35); opacity: 0.95; } /* Hold 7s */
+      100% { transform: scale(1); opacity: 0.8; } /* Exhale 8s */
+    }
+    .breathe-circle {
+      animation: pulse-breathe 19s ease-in-out infinite;
+    }
+    /* Tab active indicator */
+    .tab-btn.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(52, 211, 153, 0.4);
+      color: #ffffff;
+    }
   </style>
 </head>
 <body class="selection:bg-emerald-500/30 selection:text-emerald-200 min-h-screen relative">
 
   <!-- Ambient Background Glows -->
   <div class="hero-glow top-0 left-1/2 -translate-x-1/2"></div>
-  <div class="gold-glow top-[40%] right-[-10%]"></div>
-  <div class="hero-glow top-[75%] left-[-10%]"></div>
+  <div class="gold-glow top-[30%] right-[-10%]"></div>
+  <div class="hero-glow top-[65%] left-[-10%]"></div>
 
   <!-- NAVIGATION -->
   <header class="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       
-      <!-- Brand Logo -->
+      <!-- Brand Logo (Exact official PuffinLessLogo SVG + Typography) -->
       <a href="#" class="flex items-center gap-2.5 group">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <path d="m9 12 2 2 4-4"/>
+        <div class="w-9 h-9 shrink-0 drop-shadow-md group-hover:scale-105 transition-transform">
+          <svg class="w-full h-full" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pflNavBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#10b981" />
+                <stop offset="50%" stop-color="#059669" />
+                <stop offset="100%" stop-color="#047857" />
+              </linearGradient>
+              <linearGradient id="cleanAuraNav" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#34d399" stop-opacity="0.8" />
+                <stop offset="100%" stop-color="#a7f3d0" stop-opacity="0.2" />
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#pflNavBg)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5" />
+            <path d="M16 44 L28 32 C29 31 30.5 31 31.5 32 C32.5 33 32.5 34.5 31.5 35.5 L19.5 47.5 C18.5 48.5 17 48.5 16 47.5 C15 46.5 15 45 16 44 Z" fill="white" fill-opacity="0.9" />
+            <path d="M18 46 L21 43" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="34" cy="30" r="2" fill="#fbbf24" />
+            <circle cx="38" cy="36" r="1.5" fill="#34d399" />
+            <path d="M33 27 C34 19 44 14 49 14 C49 19 46 30 38 31 C35 31.5 32.5 29.5 33 27 Z" fill="url(#cleanAuraNav)" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M36 27 Q41 22 47 16" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.7" />
           </svg>
         </div>
-        <span class="font-extrabold text-lg tracking-wider text-white">PUFFIN<span class="text-emerald-400">LESS</span></span>
+        <span class="font-extrabold text-lg sm:text-xl tracking-tight text-gradient-brand">
+          PuffinLess
+        </span>
       </a>
 
       <!-- Desktop Links -->
-      <nav class="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-300">
-        <a href="#features" class="hover:text-emerald-400 transition-colors" data-i18n="navFeatures">Features</a>
+      <nav class="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-300">
+        <a href="#preview" class="hover:text-emerald-400 transition-colors" data-i18n="navPreview">App Preview</a>
         <a href="#calculator" class="hover:text-emerald-400 transition-colors" data-i18n="navCalc">Savings Calculator</a>
-        <a href="#privacy" class="hover:text-emerald-400 transition-colors" data-i18n="navPrivacy">Local-First Privacy</a>
+        <a href="#features" class="hover:text-emerald-400 transition-colors" data-i18n="navFeatures">Features</a>
         <a href="#pricing" class="hover:text-emerald-400 transition-colors" data-i18n="navPricing">Pricing</a>
         <a href="#faq" class="hover:text-emerald-400 transition-colors" data-i18n="navFaq">FAQ</a>
       </nav>
@@ -143,7 +187,7 @@
   </header>
 
   <!-- HERO SECTION -->
-  <section class="pt-32 pb-20 px-4 sm:px-6 max-w-5xl mx-auto text-center relative z-10">
+  <section class="pt-32 pb-16 px-4 sm:px-6 max-w-5xl mx-auto text-center relative z-10">
     <!-- Value pill -->
     <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-6 shadow-sm">
       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -158,43 +202,108 @@
 
     <!-- Subtitle -->
     <p class="text-sm sm:text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-8" data-i18n="heroSub">
-      A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, and a 10-year compound wealth calculator. No accounts. No tracking cookies. Zero remote servers storing your logs.
+      A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, monthly habit calendars, and printable PDF sobriety audits. No accounts. No tracking cookies. Zero remote servers storing your logs.
     </p>
 
     <!-- CTAs -->
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto mb-14">
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto mb-10">
       <a href="#pricing" class="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm tracking-wide shadow-xl shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 text-center" data-i18n="heroBtnGet">
         Start Your Journey — One-Time Access
       </a>
-      <a href="#calculator" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl glass-card hover:bg-slate-800 text-slate-200 font-bold text-sm transition-all text-center" data-i18n="heroBtnCalc">
-        Calculate Money Lost
+      <a href="#preview" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl glass-card hover:bg-slate-800 text-slate-200 font-bold text-sm transition-all text-center" data-i18n="heroBtnDemo">
+        Explore Live App Demos
       </a>
     </div>
+  </section>
 
-    <!-- App Preview Mockup Window -->
-    <div class="relative max-w-3xl mx-auto rounded-3xl glass-card p-3 sm:p-5 border border-white/10 shadow-2xl shadow-emerald-950/40">
-      <div class="flex items-center justify-between pb-3 border-b border-white/10 px-2 text-xs text-slate-400">
+  <!-- ======================================================== -->
+  <!-- SECTION: INTERACTIVE APP SHOWCASE & PREVIEWS             -->
+  <!-- ======================================================== -->
+  <section id="preview" class="py-12 pb-24 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
+    <div class="text-center mb-8">
+      <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase" data-i18n="showcaseTag">Interactive Product Experience</span>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="showcaseTitle">
+        See PuffinLess in Action
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-xl mx-auto" data-i18n="showcaseSub">
+        Click through the interactive previews below to explore the live dashboard counter, monthly sobriety calendar, printable A4 audit report, and the emergency SOS crave interceptor.
+      </p>
+    </div>
+
+    <!-- Preview Tab Switcher -->
+    <div class="flex flex-wrap items-center justify-center gap-2 p-1.5 rounded-2xl glass-card max-w-2xl mx-auto mb-8 border border-white/10">
+      <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-300 flex items-center gap-1.5">
+        <span>⏱️</span> <span data-i18n="tabDash">Live Dashboard</span>
+      </button>
+      <button onclick="switchTab('calendar')" id="tabBtn-calendar" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-300 flex items-center gap-1.5">
+        <span>📅</span> <span data-i18n="tabCal">Sobriety Calendar</span>
+      </button>
+      <button onclick="switchTab('pdf')" id="tabBtn-pdf" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-300 flex items-center gap-1.5">
+        <span>📄</span> <span data-i18n="tabPdf">Exported PDF Audit</span>
+      </button>
+      <button onclick="switchTab('sos')" id="tabBtn-sos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-300 flex items-center gap-1.5">
+        <span>🫁</span> <span data-i18n="tabSos">SOS Crave Interceptor</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: LIVE DASHBOARD PREVIEW -->
+    <div id="view-dashboard" class="tab-view block rounded-3xl glass-card p-4 sm:p-6 border border-white/10 shadow-2xl shadow-emerald-950/40 relative">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10 text-xs text-slate-400">
         <div class="flex items-center gap-2">
           <div class="flex gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
             <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
           </div>
-          <span class="font-mono text-[11px] text-slate-400">puffinless.local</span>
+          <span class="font-mono text-[11px] text-slate-400">puffinless.app • Command Center</span>
         </div>
         <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          Device Storage Active
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Live Session Active
         </span>
       </div>
 
-      <!-- Mockup Metrics Grid -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 text-left">
-        <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-white/10">
-          <span class="text-[10px] uppercase font-bold text-slate-400" data-i18n="mockStreak">Smoke-Free Streak</span>
-          <div class="text-xl sm:text-2xl font-black text-white mt-1">14d 08h 22m</div>
-          <span class="text-[10px] text-emerald-400 font-semibold" data-i18n="mockLevel">Level 3: Bronze Vanguard</span>
+      <!-- Real-Time Sobriety Clock -->
+      <div class="py-6 text-center">
+        <span class="text-[11px] uppercase tracking-wider font-bold text-slate-400" data-i18n="dashCleanTime">Continuous Sobriety Time</span>
+        <div class="flex items-center justify-center gap-2 sm:gap-4 mt-2">
+          <div class="bg-slate-900/90 border border-white/10 rounded-2xl px-3 sm:px-4 py-2.5 min-w-[64px]">
+            <div class="text-2xl sm:text-4xl font-extrabold text-white font-mono">14</div>
+            <span class="text-[10px] uppercase text-slate-400 font-bold" data-i18n="timeDays">Days</span>
+          </div>
+          <span class="text-2xl sm:text-3xl font-extrabold text-slate-600">:</span>
+          <div class="bg-slate-900/90 border border-white/10 rounded-2xl px-3 sm:px-4 py-2.5 min-w-[64px]">
+            <div class="text-2xl sm:text-4xl font-extrabold text-white font-mono">08</div>
+            <span class="text-[10px] uppercase text-slate-400 font-bold" data-i18n="timeHours">Hours</span>
+          </div>
+          <span class="text-2xl sm:text-3xl font-extrabold text-slate-600">:</span>
+          <div class="bg-slate-900/90 border border-white/10 rounded-2xl px-3 sm:px-4 py-2.5 min-w-[64px]">
+            <div class="text-2xl sm:text-4xl font-extrabold text-white font-mono">22</div>
+            <span class="text-[10px] uppercase text-slate-400 font-bold" data-i18n="timeMins">Mins</span>
+          </div>
+          <span class="text-2xl sm:text-3xl font-extrabold text-slate-600">:</span>
+          <div class="bg-slate-900/90 border border-emerald-500/30 rounded-2xl px-3 sm:px-4 py-2.5 min-w-[64px] bg-emerald-950/20">
+            <div id="liveClockSec" class="text-2xl sm:text-4xl font-extrabold text-emerald-400 font-mono">45</div>
+            <span class="text-[10px] uppercase text-emerald-300 font-bold" data-i18n="timeSecs">Secs</span>
+          </div>
         </div>
+
+        <!-- Level Bar -->
+        <div class="max-w-md mx-auto mt-5 px-2">
+          <div class="flex items-center justify-between text-xs font-bold mb-1.5">
+            <span class="text-amber-400 flex items-center gap-1">
+              <span>🥉</span> <span data-i18n="lvlBronze">Level 3: Bronze Vanguard</span>
+            </span>
+            <span class="text-slate-400">68% <span data-i18n="toSilver">to Silver Guardian</span></span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-white/10">
+            <div class="h-full bg-gradient-to-r from-amber-500 via-emerald-400 to-teal-400 rounded-full w-[68%]"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-left">
         <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
           <span class="text-[10px] uppercase font-bold text-amber-300" data-i18n="mockSaved">Money Preserved</span>
           <div class="text-xl sm:text-2xl font-black text-amber-300 mt-1">€175.00</div>
@@ -205,20 +314,237 @@
           <div class="text-xl sm:text-2xl font-black text-emerald-300 mt-1">280</div>
           <span class="text-[10px] text-emerald-200/70" data-i18n="mockCigs">Cigarettes & Puffs</span>
         </div>
+        <div class="p-3.5 rounded-2xl bg-teal-500/10 border border-teal-500/20">
+          <span class="text-[10px] uppercase font-bold text-teal-300" data-i18n="mockLife">Clean Life Regained</span>
+          <div class="text-xl sm:text-2xl font-black text-teal-300 mt-1">+51.3 h</div>
+          <span class="text-[10px] text-teal-200/70" data-i18n="mockLifeSub">Based on BMJ ~11m/cig</span>
+        </div>
         <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
           <span class="text-[10px] uppercase font-bold text-rose-300" data-i18n="mockCravings">Cravings Defeated</span>
-          <div class="text-xl sm:text-2xl font-black text-rose-300 mt-1">18 / 18</div>
+          <div id="dashCravingCount" class="text-xl sm:text-2xl font-black text-rose-300 mt-1">18 / 18</div>
           <span class="text-[10px] text-rose-200/70" data-i18n="mockMastery">100% Craving Mastery</span>
+        </div>
+      </div>
+
+      <!-- Interactive Quick Action Simulation -->
+      <div class="mt-5 p-3 rounded-2xl bg-slate-900/60 border border-white/5 flex items-center justify-between gap-3 flex-wrap">
+        <span class="text-xs text-slate-300" data-i18n="dashDemoNotice">⚡ Try logging a craving victory directly in this preview:</span>
+        <div class="flex items-center gap-2">
+          <button onclick="simulateCravingConquered()" class="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs transition-all hover:scale-105 active:scale-95">
+            +1 <span data-i18n="btnConquer">Conquer Craving</span>
+          </button>
+          <span id="craveFeedback" class="text-[11px] text-emerald-400 font-semibold hidden animate-fade-in">✓ Victory logged!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SOBRIETY CALENDAR & METRICS PREVIEW -->
+    <div id="view-calendar" class="tab-view hidden rounded-3xl glass-card p-4 sm:p-6 border border-white/10 shadow-2xl relative">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📅</span>
+            <h3 class="font-extrabold text-white text-base" data-i18n="calTitle">Habit History & Sobriety Calendar</h3>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5" data-i18n="calSub">Click any day to inspect recorded triggers, sleep ratings, and micro-coaching.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-bold text-slate-300 bg-slate-900 px-3 py-1.5 rounded-xl border border-white/10">
+          <span>November 2026</span>
+          <span class="text-emerald-400 text-[10px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20">28/30 Clean (93.3%)</span>
+        </div>
+      </div>
+
+      <!-- Calendar Month Grid (November 2026) -->
+      <div class="pt-5">
+        <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[11px] font-bold text-slate-500 mb-2">
+          <div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div><div>SUN</div>
+        </div>
+        
+        <div id="calGrid" class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs">
+          <!-- Calendar Days generated dynamically with realistic demo data -->
+        </div>
+      </div>
+
+      <!-- Selected Day Inspector Drawer -->
+      <div id="dayDrawer" class="mt-6 p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-2">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span id="dayDrawerDate" class="font-bold text-white text-sm">November 14, 2026</span>
+            <span id="dayDrawerStatus" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">100% Clean</span>
+          </div>
+          <div class="flex items-center gap-3 text-xs text-slate-300 font-semibold">
+            <span id="dayDrawerSleep" class="flex items-center gap-1">🌙 8.5/10 Sleep</span>
+            <span id="dayDrawerEnergy" class="flex items-center gap-1">⚡ 9/10 Energy</span>
+          </div>
+        </div>
+        <div class="pt-2 border-t border-white/10 text-xs text-slate-300 leading-relaxed" id="dayDrawerTip">
+          <b class="text-white">Situational Insight:</b> Evening craving occurred around 21:15 after dinner. Used the 4-7-8 breathing session for 2 minutes. The pulse peaked and dissolved naturally with zero slip recorded.
+        </div>
+      </div>
+
+      <!-- Sleep & Energy Correlated Progress Bar -->
+      <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10 text-xs">
+        <div class="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 flex items-center justify-between">
+          <div>
+            <span class="text-purple-300 font-bold block" data-i18n="sleepScore">Deep REM Sleep Quality</span>
+            <span class="text-[11px] text-slate-400" data-i18n="sleepScoreSub">+38% recovery vs active smoking</span>
+          </div>
+          <div class="text-xl font-black text-purple-300 font-mono">8.4 / 10</div>
+        </div>
+        <div class="p-3 rounded-xl bg-teal-950/20 border border-teal-500/20 flex items-center justify-between">
+          <div>
+            <span class="text-teal-300 font-bold block" data-i18n="energyScore">Daily Energy & Stamina</span>
+            <span class="text-[11px] text-slate-400" data-i18n="energyScoreSub">Oxygen saturation normalized</span>
+          </div>
+          <div class="text-xl font-black text-teal-300 font-mono">8.8 / 10</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: EXPORTED PDF SOBRIETY AUDIT REPORT DEMO -->
+    <div id="view-pdf" class="tab-view hidden rounded-3xl glass-card p-4 sm:p-6 border border-white/10 shadow-2xl relative">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📄</span>
+            <h3 class="font-extrabold text-white text-base" data-i18n="pdfTitle">Personal Sobriety Audit Report</h3>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5" data-i18n="pdfSub">Export high-resolution, printable A4 verification documents with zero cloud tracking.</p>
+        </div>
+        <button onclick="togglePdfModal(true)" class="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5">
+          <span>🔍</span> <span data-i18n="btnZoomPdf">Open Full A4 Preview</span>
+        </button>
+      </div>
+
+      <!-- Realistic A4 PDF Mockup Paper Card -->
+      <div class="mt-6 max-w-2xl mx-auto rounded-2xl bg-slate-900 border border-amber-500/30 p-5 sm:p-7 shadow-2xl text-left relative overflow-hidden font-sans">
+        <!-- Watermark / Background Texture -->
+        <div class="absolute -right-16 -top-16 w-64 h-64 bg-amber-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+        <!-- Document Header -->
+        <div class="flex items-start justify-between pb-4 border-b border-white/10 gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-xs">P</div>
+            <div>
+              <div class="text-[9px] uppercase font-black tracking-widest text-amber-400">PUFFINLESS RECOVERY PROGRAM</div>
+              <div class="text-xs font-extrabold text-white">BILAN PERSONNEL DE SOBRIÉTÉ</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[8px] text-slate-400 font-mono">REF: PFL-2026-X88A</div>
+            <div class="text-[9px] text-emerald-400 font-bold">✓ DONNÉES LOCALES VÉRIFIÉES</div>
+          </div>
+        </div>
+
+        <!-- Sobriety Status Box -->
+        <div class="my-4 p-3 rounded-xl bg-slate-950/80 border border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div>
+            <span class="text-[9px] uppercase text-slate-400 font-bold block" data-i18n="pdfStreak">Durée d'Abstinence</span>
+            <span class="text-white font-extrabold text-sm font-mono">14j 08h 22m</span>
+          </div>
+          <div>
+            <span class="text-[9px] uppercase text-slate-400 font-bold block" data-i18n="pdfDoses">Doses Évitées</span>
+            <span class="text-emerald-400 font-extrabold text-sm font-mono">280 unités</span>
+          </div>
+          <div>
+            <span class="text-[9px] uppercase text-slate-400 font-bold block" data-i18n="pdfMoney">Argent Préservé</span>
+            <span class="text-amber-400 font-extrabold text-sm font-mono">€175.00</span>
+          </div>
+          <div>
+            <span class="text-[9px] uppercase text-slate-400 font-bold block" data-i18n="pdfLife">Vie Regagnée</span>
+            <span class="text-teal-400 font-extrabold text-sm font-mono">+51.3 h</span>
+          </div>
+        </div>
+
+        <!-- Cellular Recovery Table -->
+        <div class="space-y-1.5 mb-4 text-[11px]">
+          <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block" data-i18n="pdfMilestones">Restaurations Biologiques Enregistrées :</span>
+          <div class="p-2 rounded-lg bg-slate-950/40 border border-white/5 flex justify-between items-center">
+            <span class="text-slate-300">Monoxyde de Carbone sanguin (Oxygénation optimale)</span>
+            <span class="text-emerald-400 font-bold">100% Purifié ✓</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950/40 border border-white/5 flex justify-between items-center">
+            <span class="text-slate-300">Dilatation des Bronchioles & Capacité Pulmonaire</span>
+            <span class="text-emerald-400 font-bold">+18% Amélioration ✓</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950/40 border border-white/5 flex justify-between items-center">
+            <span class="text-slate-300">Papilles Gustatives & Récepteurs Olfactifs</span>
+            <span class="text-emerald-400 font-bold">100% Rétabli ✓</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950/40 border border-white/5 flex justify-between items-center">
+            <span class="text-slate-300">Sensibilité Dopaminergique & Cycle de Sommeil REM</span>
+            <span class="text-amber-400 font-bold">85% Normalisé ⏳</span>
+          </div>
+        </div>
+
+        <!-- Attestation Footer Seal -->
+        <div class="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
+          <span>Généré localement depuis l'appareil actif • Aucune copie cloud</span>
+          <span class="text-amber-400 font-mono font-bold">PROTOCOL-VERIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: SOS CRAVE INTERCEPTOR PREVIEW -->
+    <div id="view-sos" class="tab-view hidden rounded-3xl glass-card p-4 sm:p-6 border border-white/10 shadow-2xl relative">
+      <div class="text-center max-w-lg mx-auto mb-6">
+        <span class="text-xs font-bold text-rose-400 uppercase tracking-wider" data-i18n="sosTag">Urge Surfing Protocol</span>
+        <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1 tracking-tight" data-i18n="sosTitle">
+          4-7-8 Breathing & Craving Interceptor
+        </h3>
+        <p class="text-xs text-slate-300 mt-1" data-i18n="sosSub">
+          A physical urge peaks within 3 minutes then subsides. Watch the breathing pacer below to activate your parasympathetic nervous system and let the urge pass safely.
+        </p>
+      </div>
+
+      <!-- Animated Breathing Visualizer -->
+      <div class="py-8 flex flex-col items-center justify-center">
+        <div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full bg-emerald-500/10 border border-emerald-500/30 breathe-circle"></div>
+          <div class="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-700/30 border border-emerald-400/50 flex flex-col items-center justify-center text-center p-3 shadow-xl shadow-emerald-950/50">
+            <span class="text-xs uppercase font-extrabold text-emerald-300 tracking-wider" id="breathPhase">4-7-8</span>
+            <span class="text-2xl font-black text-white font-mono mt-1" id="breathTimer">Rhythm</span>
+            <span class="text-[9px] text-slate-300 mt-0.5" id="breathInstruction">Inhale • Hold • Exhale</span>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-xs font-semibold text-emerald-300" data-i18n="sosPacerActive">Guided Breathing Rhythm Active</span>
+        </div>
+      </div>
+
+      <!-- 5-4-3-2-1 Sensory Grounding Breakdown -->
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-4 border-t border-white/10 text-center text-xs">
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-white/5">
+          <div class="text-emerald-400 font-extrabold text-sm">5</div>
+          <span class="text-[10px] text-slate-300" data-i18n="g5">Things you see</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-white/5">
+          <div class="text-teal-400 font-extrabold text-sm">4</div>
+          <span class="text-[10px] text-slate-300" data-i18n="g4">Things you touch</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-white/5">
+          <div class="text-cyan-400 font-extrabold text-sm">3</div>
+          <span class="text-[10px] text-slate-300" data-i18n="g3">Things you hear</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-white/5">
+          <div class="text-amber-400 font-extrabold text-sm">2</div>
+          <span class="text-[10px] text-slate-300" data-i18n="g2">Things you smell</span>
+        </div>
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-white/5">
+          <div class="text-rose-400 font-extrabold text-sm">1</div>
+          <span class="text-[10px] text-slate-300" data-i18n="g1">Conscious breath</span>
         </div>
       </div>
     </div>
   </section>
 
   <!-- SAVINGS CALCULATOR SECTION -->
-  <section id="calculator" class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+  <section id="calculator" class="py-16 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
     <div class="text-center mb-10">
       <span class="text-xs font-bold text-amber-400 tracking-wider uppercase" data-i18n="calcTag">Financial Reality Check</span>
-      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="calcTitle">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="calcTitle">
         See How Much You Are Truly Burning
       </h2>
       <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-lg mx-auto" data-i18n="calcSub">
@@ -294,10 +620,10 @@
   </section>
 
   <!-- CORE FEATURES GRID -->
-  <section id="features" class="py-20 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
+  <section id="features" class="py-16 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
     <div class="text-center mb-14">
       <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase" data-i18n="featTag">Engineered for Freedom</span>
-      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="featTitle">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="featTitle">
         Four Pillars That Change the Game
       </h2>
       <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-lg mx-auto" data-i18n="featSub">
@@ -312,7 +638,7 @@
         <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
           ⚡
         </div>
-        <h3 class="text-lg font-bold text-white" data-i18n="f1Title">Triple-Substance Precision</h3>
+        <h3 class="text-lg font-bold text-white tracking-tight" data-i18n="f1Title">Triple-Substance Precision</h3>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f1Desc">
           Most apps only track traditional cigarettes. PuffinLess natively tracks tobacco cigarettes, nicotine vape/puffs, and cannabis/weed simultaneously, acknowledging the modern reality of multiple habits.
         </p>
@@ -323,7 +649,7 @@
         <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold">
           🫁
         </div>
-        <h3 class="text-lg font-bold text-white" data-i18n="f2Title">SOS Crave Interceptor</h3>
+        <h3 class="text-lg font-bold text-white tracking-tight" data-i18n="f2Title">SOS Crave Interceptor</h3>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f2Desc">
           When an acute urge strikes, 1 tap opens guided 4-7-8 breathing and 5-4-3-2-1 sensory grounding. Instead of fighting impulses with panic, learn to surf the craving wave until it organically subsides.
         </p>
@@ -334,7 +660,7 @@
         <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
           🛡️
         </div>
-        <h3 class="text-lg font-bold text-white" data-i18n="f3Title">Local-First Storage & Zero Cloud</h3>
+        <h3 class="text-lg font-bold text-white tracking-tight" data-i18n="f3Title">Local-First Storage & Zero Cloud</h3>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f3Desc">
           Your addiction and recovery journey is deeply personal. Your habit logs, streaks, and financial data are saved directly on your device. No cloud databases, no user accounts, no telemetry, and no data sales.
         </p>
@@ -345,7 +671,7 @@
         <div class="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold">
           🌙
         </div>
-        <h3 class="text-lg font-bold text-white" data-i18n="f4Title">Sleep Trends & Habit Insights</h3>
+        <h3 class="text-lg font-bold text-white tracking-tight" data-i18n="f4Title">Sleep Trends & Habit Insights</h3>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="f4Desc">
           See how your deep sleep and daily energy recover as smoke-free days accumulate. Log slips honestly without shame: a slip is valuable data to adjust your strategy, not a reason to quit your journey.
         </p>
@@ -355,10 +681,10 @@
   </section>
 
   <!-- COMPARISON TABLE: PUFFINLESS VS OTHERS -->
-  <section class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+  <section class="py-16 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
     <div class="text-center mb-12">
       <span class="text-xs font-bold text-teal-400 tracking-wider uppercase" data-i18n="compTag">The Honest Alternative</span>
-      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="compTitle">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="compTitle">
         PuffinLess vs. Typical Cloud Apps
       </h2>
     </div>
@@ -368,7 +694,7 @@
         <thead>
           <tr class="border-b border-white/10 bg-slate-900/80">
             <th class="p-4 sm:p-5 font-bold text-slate-400" data-i18n="thDim">Dimension</th>
-            <th class="p-4 sm:p-5 font-bold text-emerald-400 text-center bg-emerald-950/20">PUFFINLESS</th>
+            <th class="p-4 sm:p-5 font-black text-emerald-300 text-center bg-emerald-950/30 border-x border-emerald-500/20">PUFFINLESS</th>
             <th class="p-4 sm:p-5 font-bold text-slate-400 text-center" data-i18n="thOther">Typical Cloud Apps</th>
           </tr>
         </thead>
@@ -409,10 +735,10 @@
   </section>
 
   <!-- PRICING SECTION -->
-  <section id="pricing" class="py-20 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
-    <div class="text-center mb-14">
+  <section id="pricing" class="py-16 px-4 sm:px-6 max-w-4xl mx-auto relative z-10">
+    <div class="text-center mb-12">
       <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase" data-i18n="priceTag">Simple Transparent Value</span>
-      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2" data-i18n="priceTitle">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="priceTitle">
         Invest Once. Reclaim Thousands.
       </h2>
       <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-md mx-auto" data-i18n="priceSub">
@@ -423,22 +749,21 @@
     <!-- Pricing Card -->
     <div class="max-w-md mx-auto rounded-3xl glass-card border border-emerald-500/40 p-7 sm:p-9 relative shadow-2xl shadow-emerald-950/50 text-center">
       <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[11px] uppercase tracking-wider shadow-md">
-        Lifetime License
+        Lifetime Access
       </div>
 
-      <div class="mt-3">
-        <span class="text-xs text-slate-400 font-semibold" data-i18n="cardOneTime">One-Time Payment</span>
-        <div class="flex items-center justify-center gap-1 my-2">
-          <span class="text-4xl sm:text-5xl font-black text-white">€19.99</span>
-          <span class="text-xs text-slate-400 self-end mb-2">/ forever</span>
-        </div>
-        <p class="text-xs text-emerald-400 font-semibold" data-i18n="cardSave">Pays for itself in less than 48 hours of sobriety</p>
+      <span class="text-xs font-bold text-slate-400 uppercase tracking-widest block" data-i18n="cardOneTime">One-Time Payment</span>
+      <div class="text-5xl font-black text-white mt-3 font-mono">
+        €19<span class="text-2xl text-emerald-400">.99</span>
       </div>
+      <p class="text-xs text-emerald-300 font-medium mt-2" data-i18n="cardSave">
+        Pays for itself in less than 48 hours of sobriety
+      </p>
 
-      <ul class="text-left text-xs sm:text-sm text-slate-300 my-7 space-y-3">
+      <ul class="my-7 space-y-3 text-left text-xs text-slate-300 border-t border-b border-white/10 py-6">
         <li class="flex items-center gap-2.5">
           <span class="text-emerald-400 font-bold">✓</span>
-          <span data-i18n="fList1">Complete PuffinLess v2.4 Application</span>
+          <span data-i18n="fList1">Complete PuffinLess Application</span>
         </li>
         <li class="flex items-center gap-2.5">
           <span class="text-emerald-400 font-bold">✓</span>
@@ -454,11 +779,15 @@
         </li>
         <li class="flex items-center gap-2.5">
           <span class="text-emerald-400 font-bold">✓</span>
+          <span data-i18n="fListPdf">Printable A4 Sobriety Audit Report Generator</span>
+        </li>
+        <li class="flex items-center gap-2.5">
+          <span class="text-emerald-400 font-bold">✓</span>
           <span data-i18n="fList5">Zero subscription fees, zero ads, zero accounts</span>
         </li>
         <li class="flex items-center gap-2.5">
           <span class="text-emerald-400 font-bold">✓</span>
-          <span data-i18n="fList6">1-Click JSON Backup Export & Local Reset Controls</span>
+          <span data-i18n="fList6">1-Click Instant Backup Export & Private Reset</span>
         </li>
       </ul>
 
@@ -467,20 +796,16 @@
       </a>
 
       <div class="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-400">
-        <span>🔒 Secure Checkout</span>
-        <span>•</span>
-        <span>Instant Download</span>
-        <span>•</span>
-        <span>Runs on iOS, Android & Desktop</span>
+        <span>🔒 Secure SSL Checkout</span> • <span>Instant Download</span>
       </div>
     </div>
   </section>
 
   <!-- FAQ SECTION -->
-  <section id="faq" class="py-20 px-4 sm:px-6 max-w-3xl mx-auto relative z-10">
+  <section id="faq" class="py-16 px-4 sm:px-6 max-w-3xl mx-auto relative z-10">
     <div class="text-center mb-12">
       <span class="text-xs font-bold text-slate-400 tracking-wider uppercase" data-i18n="faqTag">Got Questions?</span>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-white mt-1" data-i18n="faqTitle">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-2 tracking-tight" data-i18n="faqTitle">
         Frequently Asked Questions
       </h2>
     </div>
@@ -545,18 +870,95 @@
     </div>
   </section>
 
+  <!-- FULL-PAGE A4 PDF MODAL PREVIEW -->
+  <div id="pdfModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="relative w-full max-w-3xl max-h-[90vh] bg-slate-900 border border-amber-500/40 rounded-3xl p-6 overflow-y-auto shadow-2xl flex flex-col">
+      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📄</span>
+          <div>
+            <h3 class="font-bold text-white text-sm" data-i18n="modalPdfTitle">A4 Printable Sobriety Audit Report Preview</h3>
+            <span class="text-[10px] text-slate-400">PFL-AUTONOMOUS-REPORT • 100% Client-Side Rendered</span>
+          </div>
+        </div>
+        <button onclick="togglePdfModal(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm">✕</button>
+      </div>
+
+      <!-- Mock Printable Page -->
+      <div class="mt-4 p-6 bg-slate-950 rounded-2xl border border-white/10 text-xs space-y-4">
+        <div class="text-center pb-4 border-b border-white/10">
+          <div class="inline-block px-3 py-1 rounded-full bg-amber-500/10 text-amber-300 font-bold text-[10px] uppercase mb-1">
+            Certificat & Bilan Personnel d'Abstinence
+          </div>
+          <h2 class="text-lg font-black text-white">PUFFINLESS PROTOCOL AUDIT</h2>
+          <p class="text-[10px] text-slate-400">Généré le 16 Novembre 2026 • Clé locale intègre</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-3 rounded-xl bg-slate-900 border border-white/5 space-y-1">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block">Profil d'Arrêt</span>
+            <div class="text-white font-bold">14 Jours, 08 Heures</div>
+            <div class="text-[11px] text-emerald-400">Début : 02 Nov 2026</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900 border border-white/5 space-y-1">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block">Économies Directes</span>
+            <div class="text-amber-300 font-bold">€175.00 Préservés</div>
+            <div class="text-[11px] text-slate-400">~280 doses évitées</div>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-2">Historique Récent des Prises & Déclencheurs :</span>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[11px] text-left border-collapse">
+              <thead>
+                <tr class="border-b border-white/10 text-slate-400 text-[10px]">
+                  <th class="py-1">Date</th><th>Substance</th><th>Déclencheur</th><th>Action Corrective</th><th>Statut</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5 text-slate-300">
+                <tr><td class="py-1.5 font-mono">15 Nov 21:40</td><td>Cigarette (2)</td><td>Stress professionnel</td><td>Respiration 4-7-8</td><td class="text-amber-400 font-bold">Écart Enregistré</td></tr>
+                <tr><td class="py-1.5 font-mono">14 Nov 16:30</td><td>Envie SOS (0)</td><td>Pause café</td><td>Thé vert + Ancrage 5-4-3</td><td class="text-emerald-400 font-bold">Envie Surmontée ✓</td></tr>
+                <tr><td class="py-1.5 font-mono">13 Nov 20:15</td><td>Envie SOS (0)</td><td>Fin de repas</td><td>Brossage de dents immédiat</td><td class="text-emerald-400 font-bold">Envie Surmontée ✓</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-end">
+        <button onclick="togglePdfModal(false)" class="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">
+          Close Preview
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="border-t border-white/10 py-12 px-4 sm:px-6 max-w-6xl mx-auto text-xs text-slate-400">
     <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">P</div>
-        <span class="font-bold text-white tracking-wider">PUFFINLESS</span>
-        <span class="text-slate-500">© 2026</span>
+      
+      <!-- Footer Logo -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 shrink-0 drop-shadow-md">
+          <svg class="w-full h-full" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#pflNavBg)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5" />
+            <path d="M16 44 L28 32 C29 31 30.5 31 31.5 32 C32.5 33 32.5 34.5 31.5 35.5 L19.5 47.5 C18.5 48.5 17 48.5 16 47.5 C15 46.5 15 45 16 44 Z" fill="white" fill-opacity="0.9" />
+            <path d="M18 46 L21 43" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="34" cy="30" r="2" fill="#fbbf24" />
+            <circle cx="38" cy="36" r="1.5" fill="#34d399" />
+            <path d="M33 27 C34 19 44 14 49 14 C49 19 46 30 38 31 C35 31.5 32.5 29.5 33 27 Z" fill="url(#cleanAuraNav)" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M36 27 Q41 22 47 16" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.7" />
+          </svg>
+        </div>
+        <span class="font-extrabold text-base tracking-tight text-white">PUFFIN<span class="text-emerald-400">LESS</span></span>
+        <span class="text-slate-500 ml-2">© 2026</span>
       </div>
 
       <div class="flex flex-wrap justify-center gap-6 text-slate-400">
-        <a href="#features" class="hover:text-white transition-colors" data-i18n="navFeatures">Features</a>
+        <a href="#preview" class="hover:text-white transition-colors" data-i18n="navPreview">App Preview</a>
         <a href="#calculator" class="hover:text-white transition-colors" data-i18n="navCalc">Savings Calculator</a>
+        <a href="#features" class="hover:text-white transition-colors" data-i18n="navFeatures">Features</a>
         <a href="#pricing" class="hover:text-white transition-colors" data-i18n="navPricing">Pricing</a>
         <a href="#faq" class="hover:text-white transition-colors" data-i18n="navFaq">FAQ</a>
       </div>
@@ -571,11 +973,14 @@
     </div>
   </footer>
 
-  <!-- Interactive JavaScript for Calculator & Language Toggle -->
+  <!-- ======================================================== -->
+  <!-- JAVASCRIPT: CALCULATOR, CALENDAR, TABS & BILINGUAL       -->
+  <!-- ======================================================== -->
   <script>
     // BILINGUAL TRANSLATION DICTIONARY
     const translations = {
       en: {
+        navPreview: "App Preview",
         navFeatures: "Features",
         navCalc: "Savings Calculator",
         navPrivacy: "Local-First Privacy",
@@ -585,17 +990,56 @@
         heroBadge: "Offline-First • Zero Cloud Database • No Subscriptions",
         heroTitle1: "Break Free from Cigarettes, Vapes & Weed.",
         heroTitle2: "Keep 100% of your records on your device.",
-        heroSub: "A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, and a 10-year compound wealth calculator. No accounts. No tracking cookies. Zero remote servers storing your logs.",
+        heroSub: "A mindful habit companion built with high-precision streak timers, guided SOS crave interceptors, monthly habit calendars, and printable PDF sobriety audits. No accounts. No tracking cookies. Zero remote servers storing your logs.",
         heroBtnGet: "Start Your Journey — One-Time Access",
-        heroBtnCalc: "Calculate Money Lost",
-        mockStreak: "Smoke-Free Streak",
-        mockLevel: "Level 3: Bronze Vanguard",
+        heroBtnDemo: "Explore Live App Demos",
+        showcaseTag: "Interactive Product Experience",
+        showcaseTitle: "See PuffinLess in Action",
+        showcaseSub: "Click through the interactive previews below to explore the live dashboard counter, monthly sobriety calendar, printable A4 audit report, and the emergency SOS crave interceptor.",
+        tabDash: "Live Dashboard",
+        tabCal: "Sobriety Calendar",
+        tabPdf: "Exported PDF Audit",
+        tabSos: "SOS Crave Interceptor",
+        dashCleanTime: "Continuous Sobriety Time",
+        timeDays: "Days",
+        timeHours: "Hours",
+        timeMins: "Mins",
+        timeSecs: "Secs",
+        lvlBronze: "Level 3: Bronze Vanguard",
+        toSilver: "to Silver Guardian",
         mockSaved: "Money Preserved",
         mockRate: "~€12.50 / day avoided",
         mockDoses: "Doses Avoided",
         mockCigs: "Cigarettes & Puffs",
+        mockLife: "Clean Life Regained",
+        mockLifeSub: "Based on BMJ ~11m/cig",
         mockCravings: "Cravings Defeated",
         mockMastery: "100% Craving Mastery",
+        dashDemoNotice: "⚡ Try logging a craving victory directly in this preview:",
+        btnConquer: "Conquer Craving",
+        calTitle: "Habit History & Sobriety Calendar",
+        calSub: "Click any day to inspect recorded triggers, sleep ratings, and micro-coaching.",
+        sleepScore: "Deep REM Sleep Quality",
+        sleepScoreSub: "+38% recovery vs active smoking",
+        energyScore: "Daily Energy & Stamina",
+        energyScoreSub: "Oxygen saturation normalized",
+        pdfTitle: "Personal Sobriety Audit Report",
+        pdfSub: "Export high-resolution, printable A4 verification documents with zero cloud tracking.",
+        btnZoomPdf: "Open Full A4 Preview",
+        pdfStreak: "Sobriety Duration",
+        pdfDoses: "Doses Avoided",
+        pdfMoney: "Money Preserved",
+        pdfLife: "Life Regained",
+        pdfMilestones: "Recorded Biological Restorations:",
+        sosTag: "Urge Surfing Protocol",
+        sosTitle: "4-7-8 Breathing & Craving Interceptor",
+        sosSub: "A physical urge peaks within 3 minutes then subsides. Watch the breathing pacer below to activate your parasympathetic nervous system and let the urge pass safely.",
+        sosPacerActive: "Guided Breathing Rhythm Active",
+        g5: "Things you see",
+        g4: "Things you touch",
+        g3: "Things you hear",
+        g2: "Things you smell",
+        g1: "Conscious breath",
         calcTag: "Financial Reality Check",
         calcTitle: "See How Much You Are Truly Burning",
         calcSub: "Adjust the sliders below to see your direct monthly expense, annual drain, and 10-year compounding wealth if that money stayed in your pocket.",
@@ -645,10 +1089,11 @@
         priceSub: "Less than the cost of two packs of cigarettes or three vape pods. One payment, yours forever.",
         cardOneTime: "One-Time Payment",
         cardSave: "Pays for itself in less than 48 hours of sobriety",
-        fList1: "Complete PuffinLess v2.4 Application",
+        fList1: "Complete PuffinLess Application",
         fList2: "Standalone offline file (.html) + Mobile PWA",
         fList3: "SOS Crave Interceptor (4-7-8 Breathing & Grounding)",
         fList4: "Money Center & 10-Year Compounding Wealth",
+        fListPdf: "Printable A4 Sobriety Audit Report Generator",
         fList5: "Zero subscription fees, zero ads, zero accounts",
         fList6: "1-Click Instant Backup Export & Private Reset",
         btnBuy: "Get PuffinLess Now",
@@ -663,9 +1108,11 @@
         q4: "Is PuffinLess a medical service?",
         a4: "No. PuffinLess is a personal habit tracker and self-monitoring companion. It does not provide medical diagnoses, treatment, or clinical prescriptions. If you experience severe withdrawal symptoms or health complications, please consult a qualified healthcare professional.",
         q5: "Why is there no monthly subscription?",
-        a5: "Because we do not run expensive cloud server farms or track your personal data, we do not have large monthly hosting overhead to bill you for. You pay once for the software, and it is yours to use."
+        a5: "Because we do not run expensive cloud server farms or track your personal data, we do not have large monthly hosting overhead to bill you for. You pay once for the software, and it is yours to use.",
+        modalPdfTitle: "A4 Printable Sobriety Audit Report Preview"
       },
       fr: {
+        navPreview: "Aperçu de l'App",
         navFeatures: "Fonctionnalités",
         navCalc: "Calculateur d'Économies",
         navPrivacy: "Stockage Local & Privé",
@@ -675,17 +1122,56 @@
         heroBadge: "Local-First • Zéro Cloud • Aucun Abonnement",
         heroTitle1: "Libérez-vous du Tabac, de la Vape et du Cannabis.",
         heroTitle2: "Vos données restent à 100% sur votre appareil.",
-        heroSub: "Un outil d'accompagnement personnel doté de chronomètres d'abstinence de haute précision, d'un intercepteur d'envie SOS guidé et d'un calculateur de capital sur 10 ans. Zéro compte. Zéro traceur. Aucun serveur distant ne stocke vos données.",
+        heroSub: "Un outil d'accompagnement personnel doté de chronomètres d'abstinence de haute précision, d'un intercepteur d'envie SOS guidé, d'un calendrier mensuel et de rapports PDF imprimables. Zéro compte. Zéro traceur. Aucun serveur distant.",
         heroBtnGet: "Démarrer l'Aventure — Accès à Vie",
-        heroBtnCalc: "Calculer l'Argent Perdu",
-        mockStreak: "Temps d'Abstinence",
-        mockLevel: "Niveau 3 : Gardien de Bronze",
+        heroBtnDemo: "Voir les Démos de l'Application",
+        showcaseTag: "Visite Interactive du Produit",
+        showcaseTitle: "Découvrez PuffinLess en Action",
+        showcaseSub: "Cliquez sur les aperçus ci-dessous pour tester le tableau de bord en direct, le calendrier des habitudes, le rapport d'audit PDF imprimable et l'intercepteur d'envie SOS.",
+        tabDash: "Tableau de Bord",
+        tabCal: "Calendrier des Habitudes",
+        tabPdf: "Bilan PDF Exportable",
+        tabSos: "Intercepteur SOS",
+        dashCleanTime: "Temps d'Abstinence Continu",
+        timeDays: "Jours",
+        timeHours: "Heures",
+        timeMins: "Mins",
+        timeSecs: "Secs",
+        lvlBronze: "Niveau 3 : Gardien de Bronze",
+        toSilver: "vers Gardien d'Argent",
         mockSaved: "Argent Préservé",
         mockRate: "~12,50 € / jour évité",
         mockDoses: "Prises Évitées",
         mockCigs: "Cigarettes & Bouffées",
+        mockLife: "Vie Regagnée",
+        mockLifeSub: "Selon l'étude BMJ ~11min/cig",
         mockCravings: "Envies Surmontées",
         mockMastery: "100% Maîtrise des Pulsions",
+        dashDemoNotice: "⚡ Testez l'enregistrement d'une victoire directement dans cet aperçu :",
+        btnConquer: "Surmonter l'Envie",
+        calTitle: "Historique & Calendrier des Habitudes",
+        calSub: "Cliquez sur un jour pour examiner les déclencheurs, le sommeil et le micro-coaching.",
+        sleepScore: "Qualité du Sommeil Réparateur (REM)",
+        sleepScoreSub: "+38% d'amélioration vs période de tabagisme",
+        energyScore: "Énergie Quotidienne & Clarté",
+        energyScoreSub: "Oxygénation sanguine normalisée",
+        pdfTitle: "Bilan Personnel de Sobriété",
+        pdfSub: "Exportez des rapports d'audit imprimables A4 en haute résolution sans traçage cloud.",
+        btnZoomPdf: "Ouvrir l'Aperçu A4 Complet",
+        pdfStreak: "Durée d'Abstinence",
+        pdfDoses: "Doses Évitées",
+        pdfMoney: "Argent Préservé",
+        pdfLife: "Vie Regagnée",
+        pdfMilestones: "Restaurations Biologiques Enregistrées :",
+        sosTag: "Protocole Anti-Pulsion",
+        sosTitle: "Respiration Guidée 4-7-8 & Intercepteur SOS",
+        sosSub: "Une pulsion physique atteint son pic en moins de 3 minutes puis s'estompe. Suivez le rythme respiratoire pour calmer votre système nerveux et laisser passer l'envie sans panique.",
+        sosPacerActive: "Rythme de Respiration Guidée Actif",
+        g5: "Choses que vous voyez",
+        g4: "Choses que vous touchez",
+        g3: "Choses que vous entendez",
+        g2: "Choses que vous sentez",
+        g1: "Respiration consciente",
         calcTag: "Prise de Conscience Financière",
         calcTitle: "Visualisez l'Argent Réellement Parti en Fumée",
         calcSub: "Ajustez les curseurs ci-dessous pour voir votre dépense mensuelle directe, la perte annuelle et le capital cumulé sur 10 ans si cet argent restait dans votre poche.",
@@ -735,10 +1221,11 @@
         priceSub: "Moins que le coût de deux paquets de cigarettes ou trois recharges de vape. Un seul paiement, à vous pour toujours.",
         cardOneTime: "Paiement Unique",
         cardSave: "Remboursé en moins de 48 heures d'arrêt",
-        fList1: "Application complète PuffinLess v2.4",
+        fList1: "Application complète PuffinLess",
         fList2: "Monofichier hors-ligne (.html) + PWA Mobile",
         fList3: "Intercepteur d'Envie SOS (Respiration 4-7-8 & Ancrage)",
         fList4: "Centre Financier & Projection de Capital sur 10 ans",
+        fListPdf: "Générateur de Rapport d'Audit A4 Imprimable",
         fList5: "Zéro abonnement récurrent, zéro pub, zéro compte",
         fList6: "Export de sauvegarde en 1 clic & Réinitialisation privée",
         btnBuy: "Obtenir PuffinLess Immédiatement",
@@ -753,7 +1240,8 @@
         q4: "PuffinLess est-il un service médical ?",
         a4: "Non. PuffinLess est un outil d'accompagnement personnel et d'auto-mesure comportementale. Il ne fournit aucun diagnostic médical ni prescription. Si vous ressentez des symptômes de sevrage sévères, consultez un médecin qualifié.",
         q5: "Pourquoi n'y a-t-il aucun abonnement mensuel ?",
-        a5: "Comme nous n'hébergeons pas de serveurs cloud coûteux pour stocker vos données personnelles, nous n'avons aucun frais mensuel récurrent à vous refacturer. Vous achetez le logiciel une fois, et il vous appartient."
+        a5: "Comme nous n'hébergeons pas de serveurs cloud coûteux pour stocker vos données personnelles, nous n'avons aucun frais mensuel récurrent à vous refacturer. Vous achetez le logiciel une fois, et il vous appartient.",
+        modalPdfTitle: "Aperçu du Rapport de Sobriété Imprimable A4"
       }
     };
 
@@ -771,11 +1259,162 @@
       document.getElementById('langFlag').textContent = lang === 'en' ? '🇫🇷' : '🇬🇧';
       document.getElementById('langLabel').textContent = lang === 'en' ? 'FR' : 'EN';
       updateCalculations();
+      renderCalendar();
     }
 
     document.getElementById('langToggle').addEventListener('click', () => {
       setLanguage(currentLang === 'en' ? 'fr' : 'en');
     });
+
+    // SHOWCASE TAB NAVIGATION
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      const targetView = document.getElementById(`view-${tabId}`);
+      const targetBtn = document.getElementById(`tabBtn-${tabId}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetBtn) targetBtn.classList.add('active');
+    }
+
+    // LIVE TICKING CLOCK IN DASHBOARD PREVIEW
+    let liveSec = 45;
+    setInterval(() => {
+      liveSec = (liveSec + 1) % 60;
+      const secEl = document.getElementById('liveClockSec');
+      if (secEl) {
+        secEl.textContent = liveSec.toString().padStart(2, '0');
+      }
+    }, 1000);
+
+    // INTERACTIVE CRAVING SIMULATION
+    let currentCraves = 18;
+    function simulateCravingConquered() {
+      currentCraves += 1;
+      const countEl = document.getElementById('dashCravingCount');
+      const feedbackEl = document.getElementById('craveFeedback');
+      if (countEl) countEl.textContent = `${currentCraves} / ${currentCraves}`;
+      if (feedbackEl) {
+        feedbackEl.classList.remove('hidden');
+        setTimeout(() => feedbackEl.classList.add('hidden'), 2500);
+      }
+    }
+
+    // CALENDAR DEMO DATA & RENDERING
+    const demoCalendarDays = [
+      { day: 1, clean: true, cravings: 3, sleep: 7.5, energy: 7.0, tip: "Day 1 victory. Initial carbon monoxide levels dropped drastically within 12 hours." },
+      { day: 2, clean: true, cravings: 4, sleep: 7.0, energy: 6.5, tip: "Peak nicotine withdrawal. Practiced grounding protocol twice to ride out irritability." },
+      { day: 3, clean: true, cravings: 5, sleep: 8.0, energy: 7.5, tip: "Bronchial airways begin to relax. Waking lung capacity and breathing felt noticeably lighter." },
+      { day: 4, clean: true, cravings: 2, sleep: 8.0, energy: 8.0, tip: "Cravings intensity cut in half. Energy levels rising steadily." },
+      { day: 5, clean: true, cravings: 2, sleep: 8.5, energy: 8.5, tip: "Dopamine sensitivity recalibrating. Foods taste sharper and aromas are more vivid." },
+      { day: 6, clean: true, cravings: 1, sleep: 8.5, energy: 8.5, tip: "Weekend social outing navigated with cold sparkling water. Zero slips recorded." },
+      { day: 7, clean: true, cravings: 1, sleep: 9.0, energy: 9.0, tip: "Full week milestone achieved! Over €87.50 preserved from tobacco expenditure." },
+      { day: 8, clean: true, cravings: 2, sleep: 8.0, energy: 8.5, tip: "Circulation to extremities improved. No cold fingertips or tension spikes." },
+      { day: 9, clean: true, cravings: 1, sleep: 8.5, energy: 8.5, tip: "Morning routine completely severed from cigarette conditioning. Drank matcha instead." },
+      { day: 10, clean: true, cravings: 2, sleep: 9.0, energy: 9.0, tip: "Double-digit clean days. Physical stamina and stair climbs feel effortless." },
+      { day: 11, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Stressful client call resolved with 4-7-8 breathing rather than reaching for a vape." },
+      { day: 12, clean: true, cravings: 0, sleep: 8.5, energy: 8.5, tip: "First full zero-craving day! The automatic habit impulse did not fire once." },
+      { day: 13, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Post-lunch reflex handled with peppermint tea. Craving disappeared in 2 minutes." },
+      { day: 14, clean: true, cravings: 2, sleep: 8.5, energy: 9.0, tip: "Two full weeks complete. REM deep sleep increased by +38% compared to smoking baseline." },
+      { day: 15, clean: false, doses: 2, trigger: "Late-night deadline stress", sleep: 7.0, energy: 7.5, tip: "Documented Slip Day: 2 cigarettes logged honestly. Practiced 4-7-8 reset, drank water, resumed streak immediately with 0 shame." },
+      { day: 16, clean: true, cravings: 3, sleep: 8.0, energy: 8.0, tip: "Immediate bounce-back. Resilience validated: a slip is learning data, not defeat." },
+      { day: 17, clean: true, cravings: 1, sleep: 8.5, energy: 8.5, tip: "Cardiovascular efficiency restored. Resting heart rate down by 11 bpm." },
+      { day: 18, clean: true, cravings: 1, sleep: 9.0, energy: 9.0, tip: "Clear head, zero brain fog. Focus on work tasks is sustained and calm." },
+      { day: 19, clean: true, cravings: 0, sleep: 8.5, energy: 8.5, tip: "Effortless abstinence. Spent avoided smoke budget on quality dinner with friends." },
+      { day: 20, clean: true, cravings: 1, sleep: 9.0, energy: 9.0, tip: "Day 20. Over 300 doses avoided. Lung epithelium cilia continuing active clearance." },
+      { day: 21, clean: true, cravings: 0, sleep: 9.0, energy: 9.5, tip: "Three continuous weeks. Habit neuro-pathways significantly rewired." },
+      { day: 22, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Walking past smoke shop with total indifference. Freedom felt physically." },
+      { day: 23, clean: true, cravings: 0, sleep: 9.0, energy: 9.0, tip: "Zero impulse. Clean breath feels naturally restorative." },
+      { day: 24, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Deep evening relaxation without any cannabis or nicotine crutch." },
+      { day: 25, clean: true, cravings: 0, sleep: 9.5, energy: 9.5, tip: "Peak recovery vitality. Energy stays stable all day without caffeine spikes." },
+      { day: 26, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Quick stress surge quelled in 60 seconds with tactile sensory grounding." },
+      { day: 27, clean: true, cravings: 0, sleep: 9.0, energy: 9.0, tip: "Savings counter crossed €330.00 milestone." },
+      { day: 28, clean: true, cravings: 0, sleep: 9.0, energy: 9.0, tip: "Clean lung capacity test: able to hold breath comfortably for 60 seconds." },
+      { day: 29, clean: true, cravings: 1, sleep: 8.5, energy: 9.0, tip: "Calm evening walk. Zero temptation." },
+      { day: 30, clean: true, cravings: 0, sleep: 9.5, energy: 9.5, tip: "Full Month Completed: 28 clean days (93.3%), 42 cravings mastered, €350 preserved!" }
+    ];
+
+    function selectCalDay(idx) {
+      const data = demoCalendarDays[idx];
+      if (!data) return;
+
+      document.querySelectorAll('.cal-day-cell').forEach(el => el.classList.remove('ring-2', 'ring-emerald-400', 'ring-amber-400'));
+      const activeEl = document.getElementById(`cal-cell-${idx}`);
+      if (activeEl) {
+        activeEl.classList.add('ring-2', data.clean ? 'ring-emerald-400' : 'ring-amber-400');
+      }
+
+      const dateEl = document.getElementById('dayDrawerDate');
+      const statusEl = document.getElementById('dayDrawerStatus');
+      const sleepEl = document.getElementById('dayDrawerSleep');
+      const energyEl = document.getElementById('dayDrawerEnergy');
+      const tipEl = document.getElementById('dayDrawerTip');
+
+      const isFr = currentLang === 'fr';
+      if (dateEl) dateEl.textContent = `${data.day} Novembre 2026`;
+      if (statusEl) {
+        if (data.clean) {
+          statusEl.textContent = isFr ? "100% Sans Fumer ✓" : "100% Clean ✓";
+          statusEl.className = "px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        } else {
+          statusEl.textContent = isFr ? `Écart : ${data.doses} cigs` : `Slip: ${data.doses} cigs`;
+          statusEl.className = "px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        }
+      }
+      if (sleepEl) sleepEl.textContent = `🌙 ${data.sleep}/10 ${isFr ? 'Sommeil' : 'Sleep'}`;
+      if (energyEl) energyEl.textContent = `⚡ ${data.energy}/10 ${isFr ? 'Énergie' : 'Energy'}`;
+      if (tipEl) {
+        tipEl.innerHTML = `<b class="text-white">${isFr ? 'Analyse Comportementale :' : 'Situational Insight:'}</b> ${data.tip}`;
+      }
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      demoCalendarDays.forEach((item, idx) => {
+        const btn = document.createElement('div');
+        btn.id = `cal-cell-${idx}`;
+        btn.onclick = () => selectCalDay(idx);
+        btn.className = `cal-day-cell cursor-pointer p-1.5 sm:p-2 rounded-xl border transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-between min-h-[50px] sm:min-h-[58px] ${
+          item.clean
+            ? 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400'
+            : 'bg-amber-950/20 border-amber-500/40 hover:border-amber-400'
+        }`;
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between w-full text-[10px] font-bold ${item.clean ? 'text-slate-300' : 'text-amber-300'}">
+            <span>${item.day}</span>
+            <span>${item.clean ? '✓' : '⚠️'}</span>
+          </div>
+          <div class="my-auto text-[9px] font-extrabold ${item.clean ? 'text-emerald-400' : 'text-amber-400'}">
+            ${item.clean ? (item.cravings > 0 ? `🛡️${item.cravings}` : '✨') : `${item.doses} cig`}
+          </div>
+          <div class="text-[8px] text-slate-500 w-full text-right">
+            ${item.sleep}★
+          </div>
+        `;
+        grid.appendChild(btn);
+      });
+
+      // Default highlight Day 14
+      selectCalDay(13);
+    }
+
+    // PDF MODAL TOGGLE
+    function togglePdfModal(show) {
+      const modal = document.getElementById('pdfModal');
+      if (modal) {
+        if (show) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        } else {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      }
+    }
 
     // SAVINGS CALCULATOR LOGIC
     const cigsInput = document.getElementById('cigsInput');
@@ -823,8 +1462,9 @@
       input.addEventListener('input', updateCalculations);
     });
 
-    // Initialize
+    // Initialize Page
     updateCalculations();
+    renderCalendar();
   </script>
 </body>
 </html>
