@@ -870,7 +870,117 @@
     </div>
   </section>
 
-  <!-- FULL-PAGE A4 PDF MODAL PREVIEW -->
+  <!-- PRIVACY POLICY MODAL -->
+  <div id="privacyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="relative w-full max-w-3xl max-h-[90vh] bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 sm:p-8 overflow-y-auto shadow-2xl flex flex-col text-left">
+      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xl">🛡️</span>
+          <div>
+            <h3 class="font-extrabold text-white text-base" data-i18n="modalPrivacyTitle">Privacy Policy & Data Handling</h3>
+            <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Local-First Architecture • RGPD / GDPR</span>
+          </div>
+        </div>
+        <button onclick="togglePrivacyModal(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-4 text-xs text-slate-300 leading-relaxed">
+        <!-- Publisher Identity -->
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-1.5">
+          <span class="font-bold text-white text-xs block" data-i18n="p1Title">1. Publisher Identity (Éditeur du Service)</span>
+          <p data-i18n="p1Desc">
+            PuffinLess Software — Independent habit tracking and sobriety companion software. Contact & Data Protection Lead: privacy@puffinless.app • contact@puffinless.app (Paris, France).
+          </p>
+        </div>
+
+        <!-- Local Storage Core -->
+        <div class="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
+          <span class="font-bold text-emerald-300 text-xs block" data-i18n="p2Title">2. Local Storage of Personal Records</span>
+          <p data-i18n="p2Desc">
+            All your habit logs, clean streak timers, resisted cravings, sleep ratings, and expense notes are stored directly and exclusively within your device's private local storage. PuffinLess operates zero central cloud database for your habit history.
+          </p>
+        </div>
+
+        <!-- Web Hosting & Network Metadata -->
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-1.5">
+          <span class="font-bold text-teal-300 text-xs block" data-i18n="p3Title">3. Web Hosting Providers & Technical Network Metadata</span>
+          <p data-i18n="p3Desc">
+            Static web assets (HTML, CSS, JS, fonts) are delivered via professional cloud infrastructure: Vercel Inc. (Covina, CA, USA) and GitHub Pages / Microsoft Corp. (San Francisco, CA, USA). Downloading assets naturally involves standard network connection metadata (IP address, user-agent, HTTP request headers) necessary for routing and DDoS protection. No personal habit records are ever uploaded to these servers.
+          </p>
+        </div>
+
+        <!-- No Trackers & User Rights -->
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-1.5">
+          <span class="font-bold text-white text-xs block" data-i18n="p4Title">4. Zero Advertising Trackers & User Data Rights (GDPR)</span>
+          <p data-i18n="p4Desc">
+            Zero advertising pixels, zero third-party analytics cookies, zero data sales. You have direct physical control over your data: 1-click JSON backup export and 1-click irreversible local reset directly in Settings.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button onclick="togglePrivacyModal(false)" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">
+          Close Privacy Policy
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMERCIAL TERMS OF SERVICE MODAL -->
+  <div id="termsModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="relative w-full max-w-3xl max-h-[90vh] bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 overflow-y-auto shadow-2xl flex flex-col text-left">
+      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xl">📜</span>
+          <div>
+            <h3 class="font-extrabold text-white text-base" data-i18n="modalTermsTitle">Commercial Terms of Service (CGV / CGU)</h3>
+            <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">One-Time Lifetime License • Satisfaction Commitment</span>
+          </div>
+        </div>
+        <button onclick="toggleTermsModal(false)" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-4 text-xs text-slate-300 leading-relaxed">
+        <!-- License & Multi-Device -->
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-1.5">
+          <span class="font-bold text-white text-xs block" data-i18n="t1Title">1. Perpetual Personal License</span>
+          <p data-i18n="t1Desc">
+            PuffinLess is licensed on a perpetual, non-exclusive basis for personal habit self-monitoring across all personal devices you own. Commercial resale, redistribution, or unauthorized reverse-engineering is strictly prohibited.
+          </p>
+        </div>
+
+        <!-- Pricing & Satisfaction Commitment -->
+        <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+          <span class="font-bold text-amber-300 text-xs block" data-i18n="t2Title">2. Pricing & 14-Day Technical Satisfaction Commitment</span>
+          <p data-i18n="t2Desc">
+            Sold for a single one-time payment of €19.99 (no recurring subscriptions). If a technical defect prevents the software from operating on a supported modern browser and our support cannot resolve it within 7 business days, a full refund is provided within 14 calendar days of purchase (support@puffinless.app).
+          </p>
+        </div>
+
+        <!-- Non-Medical Disclaimer -->
+        <div class="p-4 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-1.5">
+          <span class="font-bold text-rose-300 text-xs block" data-i18n="t3Title">3. Non-Medical Companion Disclaimer</span>
+          <p data-i18n="t3Desc">
+            PuffinLess is NOT a medical device, clinic, or medical treatment service. It does not provide medical advice or clinical diagnosis. If experiencing severe withdrawal symptoms, consult a doctor or emergency services (15 / 112 / 911).
+          </p>
+        </div>
+
+        <!-- Limitation of Liability -->
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-1.5">
+          <span class="font-bold text-white text-xs block" data-i18n="t4Title">4. Limitation of Liability & Governing Law</span>
+          <p data-i18n="t4Desc">
+            Publisher liability is limited to the amount paid for the license (€19.99). You are responsible for maintaining periodic exported backups. Governed by French and European Union consumer protection laws.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button onclick="toggleTermsModal(false)" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs">
+          Close Terms of Service
+        </button>
+      </div>
+    </div>
+  </div>
   <div id="pdfModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
     <div class="relative w-full max-w-3xl max-h-[90vh] bg-slate-900 border border-amber-500/40 rounded-3xl p-6 overflow-y-auto shadow-2xl flex flex-col">
       <div class="flex items-center justify-between pb-4 border-b border-white/10">
@@ -958,8 +1068,9 @@
       <div class="flex flex-wrap justify-center gap-6 text-slate-400">
         <a href="#preview" class="hover:text-white transition-colors" data-i18n="navPreview">App Preview</a>
         <a href="#calculator" class="hover:text-white transition-colors" data-i18n="navCalc">Savings Calculator</a>
-        <a href="#features" class="hover:text-white transition-colors" data-i18n="navFeatures">Features</a>
         <a href="#pricing" class="hover:text-white transition-colors" data-i18n="navPricing">Pricing</a>
+        <button onclick="togglePrivacyModal(true)" class="hover:text-white transition-colors" data-i18n="footerPrivacy">Privacy Policy</button>
+        <button onclick="toggleTermsModal(true)" class="hover:text-white transition-colors" data-i18n="footerTerms">Terms of Service</button>
         <a href="#faq" class="hover:text-white transition-colors" data-i18n="navFaq">FAQ</a>
       </div>
 
@@ -1109,7 +1220,27 @@
         a4: "No. PuffinLess is a personal habit tracker and self-monitoring companion. It does not provide medical diagnoses, treatment, or clinical prescriptions. If you experience severe withdrawal symptoms or health complications, please consult a qualified healthcare professional.",
         q5: "Why is there no monthly subscription?",
         a5: "Because we do not run expensive cloud server farms or track your personal data, we do not have large monthly hosting overhead to bill you for. You pay once for the software, and it is yours to use.",
-        modalPdfTitle: "A4 Printable Sobriety Audit Report Preview"
+        modalPdfTitle: "A4 Printable Sobriety Audit Report Preview",
+        footerPrivacy: "Privacy Policy",
+        footerTerms: "Terms of Service",
+        modalPrivacyTitle: "Privacy Policy & Data Handling",
+        p1Title: "1. Publisher Identity (Éditeur du Service)",
+        p1Desc: "PuffinLess Software — Independent habit tracking and sobriety companion software. Contact & Data Protection Lead: privacy@puffinless.app • contact@puffinless.app (Paris, France).",
+        p2Title: "2. Local Storage of Personal Records",
+        p2Desc: "All your habit logs, clean streak timers, resisted cravings, sleep ratings, and expense notes are stored directly and exclusively within your device's private local storage. PuffinLess operates zero central cloud database for your habit history.",
+        p3Title: "3. Web Hosting Providers & Technical Network Metadata",
+        p3Desc: "Static web assets (HTML, CSS, JS, fonts) are delivered via professional cloud infrastructure: Vercel Inc. (Covina, CA, USA) and GitHub Pages / Microsoft Corp. (San Francisco, CA, USA). Downloading assets naturally involves standard network connection metadata (IP address, user-agent, HTTP request headers) necessary for routing and DDoS protection. No personal habit records are ever uploaded to these servers.",
+        p4Title: "4. Zero Advertising Trackers & User Data Rights (GDPR)",
+        p4Desc: "Zero advertising pixels, zero third-party analytics cookies, zero data sales. You have direct physical control over your data: 1-click JSON backup export and 1-click irreversible local reset directly in Settings.",
+        modalTermsTitle: "Commercial Terms of Service (CGV / CGU)",
+        t1Title: "1. Perpetual Personal License",
+        t1Desc: "PuffinLess is licensed on a perpetual, non-exclusive basis for personal habit self-monitoring across all personal devices you own. Commercial resale, redistribution, or unauthorized reverse-engineering is strictly prohibited.",
+        t2Title: "2. Pricing & 14-Day Technical Satisfaction Commitment",
+        t2Desc: "Sold for a single one-time payment of €19.99 (no recurring subscriptions). If a technical defect prevents the software from operating on a supported modern browser and our support cannot resolve it within 7 business days, a full refund is provided within 14 calendar days of purchase (support@puffinless.app).",
+        t3Title: "3. Non-Medical Companion Disclaimer",
+        t3Desc: "PuffinLess is NOT a medical device, clinic, or medical treatment service. It does not provide medical advice or clinical diagnosis. If experiencing severe withdrawal symptoms, consult a doctor or emergency services (15 / 112 / 911).",
+        t4Title: "4. Limitation of Liability & Governing Law",
+        t4Desc: "Publisher liability is limited to the amount paid for the license (€19.99). You are responsible for maintaining periodic exported backups. Governed by French and European Union consumer protection laws."
       },
       fr: {
         navPreview: "Aperçu de l'App",
@@ -1241,7 +1372,27 @@
         a4: "Non. PuffinLess est un outil d'accompagnement personnel et d'auto-mesure comportementale. Il ne fournit aucun diagnostic médical ni prescription. Si vous ressentez des symptômes de sevrage sévères, consultez un médecin qualifié.",
         q5: "Pourquoi n'y a-t-il aucun abonnement mensuel ?",
         a5: "Comme nous n'hébergeons pas de serveurs cloud coûteux pour stocker vos données personnelles, nous n'avons aucun frais mensuel récurrent à vous refacturer. Vous achetez le logiciel une fois, et il vous appartient.",
-        modalPdfTitle: "Aperçu du Rapport de Sobriété Imprimable A4"
+        modalPdfTitle: "Aperçu du Rapport de Sobriété Imprimable A4",
+        footerPrivacy: "Politique de Confidentialité",
+        footerTerms: "Conditions Générales de Vente",
+        modalPrivacyTitle: "Politique de Confidentialité & Gestion des Données",
+        p1Title: "1. Identité de l'Éditeur du Service",
+        p1Desc: "PuffinLess Software — Service d'auto-mesure et d'accompagnement d'habitudes. Contact éditeur & délégué aux données : privacy@puffinless.app • contact@puffinless.app (Paris, France).",
+        p2Title: "2. Stockage Local des Données Personnelles",
+        p2Desc: "L'ensemble de vos historiques de consommation, chronomètres d'abstinence, envies surmontées, notes de sommeil et dépenses sont stockés directement et exclusivement dans la mémoire privée de votre appareil. PuffinLess n'exploite aucune base de données cloud centrale.",
+        p3Title: "3. Prestataires d'Hébergement & Métadonnées Réseau",
+        p3Desc: "Les fichiers statiques de l'application (HTML, CSS, JS, polices) sont distribués via les infrastructures professionnelles de Vercel Inc. (Covina, CA, États-Unis) et GitHub Pages / Microsoft Corp. (San Francisco, CA, États-Unis). Le chargement implique l'échange standard de métadonnées réseau (adresse IP, agent utilisateur, en-têtes HTTP) nécessaires à la sécurité et à la protection anti-DDoS. Aucun journal d'habitudes n'est transmis à ces serveurs.",
+        p4Title: "4. Zéro Traceur Publicitaire & Droits des Utilisateurs (RGPD)",
+        p4Desc: "Zéro pixel publicitaire, zéro cookie d'analyse tiers, aucune revente de données. Vous conservez le contrôle physique complet : export JSON en 1 clic et réinitialisation irréversible en 1 clic dans les Paramètres.",
+        modalTermsTitle: "Conditions Générales de Vente et d'Utilisation (CGV / CGU)",
+        t1Title: "1. Licence Personnelle Perpétuelle",
+        t1Desc: "PuffinLess est concédé sous licence perpétuelle non exclusive pour votre usage strictement personnel sur l'ensemble de vos appareils compatibles. Toute revente commerciale ou redistribution est interdite.",
+        t2Title: "2. Tarification & Engagement de Satisfaction Technique 14 Jours",
+        t2Desc: "Achat unique au prix forfaitaire de 19,99 € TTC (aucun abonnement récurrent). En cas de dysfonctionnement technique sur un navigateur supporté non résolu sous 7 jours ouvrés par notre support, un remboursement intégral est assuré sous 14 jours (support@puffinless.app).",
+        t3Title: "3. Avertissement Outil d'Accompagnement Non Médical",
+        t3Desc: "PuffinLess n'est PAS un dispositif médical ni un service de santé. Il ne fournit aucun avis ni diagnostic médical. En cas de symptômes de sevrage sévères, consultez un médecin ou contactez les services d'urgence (15 / 112).",
+        t4Title: "4. Limitation de Responsabilité & Droit Applicable",
+        t4Desc: "La responsabilité de l'Éditeur est strictement plafonnée au montant versé pour la licence (19,99 €). L'Utilisateur est responsable de ses sauvegardes exportées. Soumis au droit français et européen de la consommation."
       }
     };
 
@@ -1402,9 +1553,35 @@
       selectCalDay(13);
     }
 
-    // PDF MODAL TOGGLE
+    // MODAL TOGGLES
     function togglePdfModal(show) {
       const modal = document.getElementById('pdfModal');
+      if (modal) {
+        if (show) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        } else {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      }
+    }
+
+    function togglePrivacyModal(show) {
+      const modal = document.getElementById('privacyModal');
+      if (modal) {
+        if (show) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        } else {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      }
+    }
+
+    function toggleTermsModal(show) {
+      const modal = document.getElementById('termsModal');
       if (modal) {
         if (show) {
           modal.classList.remove('hidden');

@@ -12,7 +12,7 @@ Most addiction and habit-tracking apps suffer from three fundamental problems:
 3. **Cigarette-Only Focus**, completely ignoring the modern reality of nicotine disposable vapes/puffs and cannabis dependency.
 
 **PuffinLess solves all three:**
-- **Zero Cloud Database**: 100% of your personal habit logs, streak records, cravings, and financial metrics stay on your physical device.
+- **Zero Cloud Database**: Personal habit logs, streak records, cravings, and financial metrics stay locally on your physical device. *(Note: website hosting involves standard technical network connection metadata such as IP address solely for asset delivery and DDoS security; no personal logs are ever transmitted to remote servers).*
 - **Tri-Substance Precision**: Simultaneously tracks **Cigarettes**, **E-Cigarettes / Vapes / Puffs**, and **Cannabis / Weed / CBD**.
 - **One-Time Lifetime Ownership**: Pay once (€19.99 lifetime access), with zero recurring fees, zero ads, and zero account signups.
 - **Zero-Dependency Offline Portability**: Works as an installable PWA or as an all-in-one standalone single-file `.html` document that runs anywhere in airplane mode without internet.
@@ -62,7 +62,7 @@ PuffinLess is built on an enterprise-grade **Local-First, Event-Sourced Architec
 │  4. Self-Healing Disaster Recovery:                                    │
 │     - Corrupted record isolation (`decryptWithStatus`)                 │
 │     - Encrypted multi-store rescue snapshot in persistent storage      │
-│     - Zero-data-loss fallback during browser cache wipes or power loss │
+│     - Multi-tier recovery safeguards during browser cache wipes        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -198,9 +198,9 @@ npm run build
 2. **Pillar 2**: PIN Hashing with PBKDF2 (100k iter) & Irreversible Data Shredding.
 3. **Pillar 3**: Period-Scoped Statistics & Strict Time-Window Precision.
 4. **Pillar 4**: Session Security, Standby vs. Cold-Restart Differentiation.
-5. **Pillar 5**: Real IndexedDB Persistence, Migration & Zero-Loss Recovery.
+5. **Pillar 5**: Real IndexedDB Persistence, Migration & Resilient Local Recovery.
 6. **Pillar 6**: Genuine Browser Cold-Restart & Storage Lifecycle Verification.
-7. **Pillar 7**: Zero Data Loss Safeguards, Multi-Tab Atomic Writes & Web Locks.
+7. **Pillar 7**: Crash Resilience Safeguards, Multi-Tab Atomic Writes & Web Locks.
 8. **Pillar 8**: Discrete Event-Journal Replay & Rescue Snapshot Fallback.
 
 ---

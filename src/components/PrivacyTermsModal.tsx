@@ -118,6 +118,19 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
           {/* TAB 1: PRIVACY & HOSTING */}
           {activeSection === 'privacy' && (
             <div className="space-y-4">
+              {/* Publisher Identity */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-white/10 space-y-1.5">
+                <div className="flex items-center gap-2 text-white font-bold text-xs">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <span>{isFr ? 'Identité de l\'Éditeur du Service' : 'Publisher Identity & Data Governance'}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  {isFr
+                    ? 'PuffinLess Software — Service d\'auto-mesure et d\'accompagnement d\'habitudes. Contact éditeur & délégué aux données : privacy@puffinless.app • contact@puffinless.app (Paris, France).'
+                    : 'PuffinLess Software — Personal habit tracking and self-monitoring companion. Publisher & Data Lead contact: privacy@puffinless.app • contact@puffinless.app (Paris, France).'}
+                </p>
+              </div>
+
               <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-start gap-3">
                 <Database className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div>
@@ -135,17 +148,17 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-white/10 space-y-2">
                 <div className="flex items-center gap-2 text-white font-bold text-xs">
                   <Server className="w-4 h-4 text-teal-400" />
-                  <span>{isFr ? 'Hébergement Web & Métadonnées Réseau' : 'Web Hosting & Network Metadata'}</span>
+                  <span>{isFr ? 'Prestataires d\'Hébergement & Métadonnées Réseau' : 'Hosting Providers & Network Metadata'}</span>
                 </div>
                 <p>
                   {isFr
-                    ? 'Lorsque vous accédez à PuffinLess via un navigateur web, le chargement initial de l\'application et des fichiers statiques (scripts, feuilles de style, polices) implique l\'échange standard de métadonnées de connexion réseau (telles que votre adresse IP, l\'agent utilisateur de votre navigateur et les en-têtes HTTP de requête) nécessaires à l\'acheminement technique des pages par l\'infrastructure d\'hébergement.'
-                    : 'When accessing PuffinLess through a web browser, initially downloading application assets (scripts, stylesheets, fonts) naturally involves standard network connection metadata (such as your IP address, browser user-agent, and HTTP request headers) necessary for the hosting infrastructure to deliver web pages.'}
+                    ? 'Les fichiers statiques de l\'application (scripts, feuilles de style, polices) sont distribués via les infrastructures d\'hébergement professionnelles de Vercel Inc. (Covina, CA, États-Unis) et GitHub Pages / Microsoft Corp. (San Francisco, CA, États-Unis).'
+                    : 'Static application assets (scripts, stylesheets, fonts) are delivered through the professional hosting infrastructures of Vercel Inc. (Covina, CA, USA) and GitHub Pages / Microsoft Corp. (San Francisco, CA, USA).'}
                 </p>
                 <p>
                   {isFr
-                    ? 'Toutefois, PuffinLess ne possède aucune base de données centrale hébergeant vos habitudes. Vos journaux personnels ne sont pas envoyés ni collectés sur des serveurs distants.'
-                    : 'However, PuffinLess maintains no centralized cloud database for your habit history. Your personal logs and entries are neither collected nor stored on remote servers.'}
+                    ? 'Le chargement initial de ces fichiers implique l\'échange standard de métadonnées de connexion réseau (adresse IP publique, agent utilisateur du navigateur, en-têtes HTTP) indispensables au routage sécurisé des pages et à la protection anti-DDoS par l\'infrastructure d\'hébergement. Toutefois, aucun journal d\'habitude n\'est envoyé sur ces serveurs.'
+                    : 'Initially downloading these web assets naturally involves standard network connection metadata (public IP address, browser user-agent, HTTP request headers) necessary for the hosting infrastructure to route web pages and mitigate DDoS attacks. However, no personal habit records are ever stored on these servers.'}
                 </p>
               </div>
 
@@ -168,12 +181,17 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-white/10 space-y-2">
                 <h3 className="font-bold text-white text-sm">
-                  {isFr ? 'Licence d\'Utilisation Personnelle' : 'Personal Usage License'}
+                  {isFr ? 'Licence Perpétuelle & Modèle à Achat Unique' : 'Perpetual Personal License & One-Time Payment'}
                 </h3>
                 <p>
                   {isFr
-                    ? 'PuffinLess vous accorde une licence personnelle, non exclusive et non transférable pour utiliser l\'application comme outil d\'accompagnement d\'habitudes sur vos appareils personnels compatibles.'
-                    : 'PuffinLess grants you a personal, non-exclusive, and non-transferable license to use the application as a habit self-monitoring companion on your compatible personal devices.'}
+                    ? 'PuffinLess est commercialisé sous la forme d\'un achat unique définitif (19,99 € TTC). Aucun abonnement récurrent ni frais mensuel caché n\'est prélevé. Vous bénéficiez d\'une licence personnelle perpétuelle d\'utilisation sur tous vos appareils personnels compatibles.'
+                    : 'PuffinLess is sold under a transparent one-time purchase model (€19.99 / $19.99). There are no recurring monthly subscriptions or hidden paywalls. You receive a perpetual personal license for use across all your compatible personal devices.'}
+                </p>
+                <p className="text-[11px] text-emerald-300">
+                  {isFr
+                    ? '✓ Garantie de satisfaction technique : si l\'application présente un dysfonctionnement sur votre navigateur et que notre support (support@puffinless.app) ne peut le résoudre sous 7 jours ouvrés, un remboursement intégral est assuré sous 14 jours.'
+                    : '✓ Technical satisfaction commitment: if the app experiences defects on your supported browser and support (support@puffinless.app) cannot resolve it within 7 business days, a full refund is provided within 14 calendar days.'}
                 </p>
               </div>
 
