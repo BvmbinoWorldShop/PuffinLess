@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, Heart, CheckCircle2, Trophy } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { X, Sparkles, Heart, CheckCircle2 } from 'lucide-react';
 import type { Badge, Language, UserProfile } from '../types';
 import { Medallion3D } from './Medallion3D';
 import { getMilestoneExplanation } from '../utils/milestoneContent';
@@ -17,56 +16,6 @@ interface MilestoneHalfModalProps {
   isUnlocked?: boolean;
 }
 
-// Multi-stage fireworks simulation
-export function triggerMilestoneFireworks(tier: Badge['tier'] = 'gold') {
-  try {
-    const tierColors: Record<string, string[]> = {
-      bronze: ['#d97706', '#b45309', '#f59e0b', '#78350f', '#fde68a'],
-      silver: ['#94a3b8', '#cbd5e1', '#e2e8f0', '#ffffff', '#64748b'],
-      gold: ['#fbbf24', '#f59e0b', '#d97706', '#fef08a', '#ffffff'],
-      platinum: ['#2dd4bf', '#06b6d4', '#38bdf8', '#818cf8', '#ffffff'],
-      diamond: ['#a855f7', '#ec4899', '#6366f1', '#38bdf8', '#ffffff'],
-    };
-
-    const colors = tierColors[tier] || tierColors.gold;
-
-    // Center celebratory explosion
-    confetti({
-      particleCount: 75,
-      spread: 90,
-      startVelocity: 42,
-      origin: { y: 0.65 },
-      colors,
-    });
-
-    // Left flare
-    setTimeout(() => {
-      confetti({
-        particleCount: 45,
-        angle: 60,
-        spread: 60,
-        startVelocity: 35,
-        origin: { x: 0.2, y: 0.7 },
-        colors,
-      });
-    }, 180);
-
-    // Right flare
-    setTimeout(() => {
-      confetti({
-        particleCount: 45,
-        angle: 120,
-        spread: 60,
-        startVelocity: 35,
-        origin: { x: 0.8, y: 0.7 },
-        colors,
-      });
-    }, 360);
-  } catch {
-    // Confetti fallback
-  }
-}
-
 export const MilestoneHalfModal: React.FC<MilestoneHalfModalProps> = ({
   badge,
   isOpen,
@@ -77,13 +26,6 @@ export const MilestoneHalfModal: React.FC<MilestoneHalfModalProps> = ({
   isUnlocked = false,
 }) => {
   const isFr = language === 'fr';
-
-  useEffect(() => {
-    if (isOpen && badge) {
-      sound.playCelebration();
-      triggerMilestoneFireworks(badge.tier);
-    }
-  }, [isOpen, badge]);
 
   if (!isOpen || !badge || typeof document === 'undefined') return null;
 
@@ -195,27 +137,15 @@ export const MilestoneHalfModal: React.FC<MilestoneHalfModalProps> = ({
             </p>
           </div>
 
-          {/* 4. Interactive Fireworks Replay & Close CTAs */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                sound.playCelebration();
-                triggerMilestoneFireworks(badge.tier);
-              }}
-              className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Trophy className="w-4 h-4 text-slate-950 shrink-0" />
-              <span>{isFr ? 'Relancer le Feu d\'Artifice 🎉' : 'Replay Fireworks 🎉'}</span>
-            </button>
-
+          {/* Close CTA */}
+          <div className="pt-2">
             <button
               type="button"
               onClick={() => {
                 sound.playClick();
                 onClose();
               }}
-              className="w-full sm:w-auto py-3 px-6 rounded-2xl glass-button text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
             >
               {isFr ? 'Continuer ma Progression' : 'Keep Moving Forward'}
             </button>

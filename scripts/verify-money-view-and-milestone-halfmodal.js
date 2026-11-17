@@ -326,8 +326,8 @@ try {
       const title = modal.querySelector('#milestone-half-title')?.textContent?.trim();
       const meaningCard = modal.querySelector('.glass-panel')?.textContent?.trim();
       const coachMessageCard = modal.querySelector('.glass-panel-gold')?.textContent?.trim();
-      const replayFireworksBtn = Array.from(modal.querySelectorAll('button')).find(b => b.textContent.includes("Artifice") || b.textContent.includes("Fireworks"));
       const closeBtn = Array.from(modal.querySelectorAll('button')).find(b => b.textContent.includes('Continuer') || b.textContent.includes('Keep Moving'));
+      const replayFireworksBtn = Array.from(modal.querySelectorAll('button')).find(b => b.textContent.includes("Artifice") || b.textContent.includes("Fireworks"));
 
       // Check text contrast inside the modal in light mode
       const allModalTexts = Array.from(modal.querySelectorAll('h3, h4, p, span, button'));
@@ -362,21 +362,6 @@ try {
 
   console.log('[Milestone Half-Window Modal Audit Result]:', JSON.stringify(modalAudit, null, 2));
   await captureScreenshot('12-milestone-halfmodal-light-theme.png');
-
-  // Click the Fireworks Replay Button
-  console.log('\n[Action] Clicking Relancer le Feu d Artifice replay button...');
-  await evalInPage(`
-    (() => {
-      const modal = document.querySelector('.milestone-half-window');
-      if (modal) {
-        const replayBtn = Array.from(modal.querySelectorAll('button')).find(b => b.textContent.includes("Artifice") || b.textContent.includes("Fireworks"));
-        if (replayBtn) replayBtn.click();
-      }
-    })()
-  `);
-
-  await new Promise((r) => setTimeout(r, 400));
-  await captureScreenshot('13-milestone-halfmodal-fireworks-active.png');
 
   // Test in Dark Theme as well for comparison
   console.log('\n[Action] Testing Milestone Half-Window Modal in Dark Theme...');

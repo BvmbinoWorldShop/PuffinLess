@@ -8,7 +8,7 @@ import { MorphicCard } from './MorphicCard';
 import { LevelLadder } from './LevelLadder';
 import { ClinicalCertificateModal } from './ClinicalCertificateModal';
 import { Medallion3D } from './Medallion3D';
-import { MilestoneHalfModal, triggerMilestoneFireworks } from './MilestoneHalfModal';
+import { MilestoneHalfModal } from './MilestoneHalfModal';
 import { sound } from '../utils/audio';
 
 interface RewardsViewProps {
@@ -198,10 +198,6 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
                 key={badge.id}
                 onClick={() => {
                   sound.playClick();
-                  if (isUnlocked) {
-                    sound.playCelebration();
-                    triggerMilestoneFireworks(badge.tier);
-                  }
                   setSelectedBadge(badge);
                 }}
                 className={`trophy-card group p-4 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden flex flex-col items-center text-center ${
