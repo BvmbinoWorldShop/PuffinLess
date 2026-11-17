@@ -28,7 +28,7 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
       aria-labelledby="privacy-terms-title"
       className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-6 flex items-center justify-center min-h-screen animate-fade-in"
     >
-      <div className="relative w-full max-w-2xl rounded-3xl glass-panel-elevated border border-white/15 shadow-2xl shadow-emerald-950/40 text-left my-auto max-h-[92vh] flex flex-col overflow-hidden bg-slate-950/95">
+      <div className="privacy-modal relative w-full max-w-2xl rounded-3xl glass-panel-elevated border border-white/15 shadow-2xl shadow-emerald-950/40 text-left my-auto max-h-[92vh] flex flex-col overflow-hidden bg-slate-950/95">
         {/* Glow decoration */}
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />

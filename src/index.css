@@ -54,16 +54,30 @@
 }
 .theme-light .text-slate-100,
 .theme-light .text-slate-200 {
-  color: #1e293b !important;
+  color: #0f172a !important;
 }
 .theme-light .text-slate-300 {
-  color: #334155 !important;
+  color: #1e293b !important;
 }
 .theme-light .text-slate-400 {
-  color: #475569 !important;
+  color: #334155 !important;
 }
 .theme-light .text-slate-500 {
-  color: #64748b !important;
+  color: #475569 !important;
+}
+.theme-light .text-gray-100,
+.theme-light .text-gray-200,
+.theme-light .text-zinc-100,
+.theme-light .text-zinc-200 {
+  color: #0f172a !important;
+}
+.theme-light .text-gray-300,
+.theme-light .text-zinc-300 {
+  color: #1e293b !important;
+}
+.theme-light .text-gray-400,
+.theme-light .text-zinc-400 {
+  color: #334155 !important;
 }
 
 /* Preserve pure white text ONLY on explicitly styled buttons, dark gradients, or badges */
@@ -83,15 +97,24 @@
   font-weight: 500;
 }
 
-/* LIGHT MODE SETTINGS & GUIDE / ONBOARDING MODALS - 100% BLACK/DARK CRISP READABLE TEXT */
+/* LIGHT MODE SETTINGS, SOS CRAVE, PRIVACY & ONBOARDING/GUIDE MODALS - 100% BLACK/DARK CRISP READABLE TEXT */
 .theme-light .settings-modal,
 .theme-light .settings-modal form,
 .theme-light .settings-modal [class*="glass-panel"],
 .theme-light .guide-modal,
 .theme-light .guide-modal form,
-.theme-light .guide-modal [class*="glass-panel"] {
+.theme-light .guide-modal [class*="glass-panel"],
+.theme-light .sos-modal,
+.theme-light .sos-modal [class*="glass-panel"],
+.theme-light .privacy-modal,
+.theme-light .privacy-modal [class*="glass-panel"] {
   background: #ffffff !important;
   color: #0f172a !important;
+}
+
+.theme-light .sos-modal {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(244, 63, 94, 0.15) !important;
 }
 
 .theme-light .settings-modal h2,
@@ -99,18 +122,33 @@
 .theme-light .settings-modal h4,
 .theme-light .settings-modal label,
 .theme-light .settings-modal p,
-.theme-light .settings-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]),
+.theme-light .settings-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]):not(.keep-white),
 .theme-light .settings-modal .text-white,
 .theme-light .guide-modal h2,
 .theme-light .guide-modal h3,
 .theme-light .guide-modal h4,
 .theme-light .guide-modal label,
 .theme-light .guide-modal p,
-.theme-light .guide-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]),
+.theme-light .guide-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]):not(.keep-white),
 .theme-light .guide-modal .text-white,
 .theme-light .guide-modal .text-teal-200,
 .theme-light .guide-modal .text-rose-200,
-.theme-light .guide-modal .guide-main-heading {
+.theme-light .guide-modal .guide-main-heading,
+.theme-light .sos-modal h2,
+.theme-light .sos-modal h3,
+.theme-light .sos-modal h4,
+.theme-light .sos-modal label,
+.theme-light .sos-modal p,
+.theme-light .sos-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]):not(.keep-white),
+.theme-light .sos-modal .text-white,
+.theme-light .sos-modal .sos-title,
+.theme-light .privacy-modal h2,
+.theme-light .privacy-modal h3,
+.theme-light .privacy-modal h4,
+.theme-light .privacy-modal label,
+.theme-light .privacy-modal p,
+.theme-light .privacy-modal span:not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-gradient-"]):not(.keep-white),
+.theme-light .privacy-modal .text-white {
   color: #0f172a !important;
   background: none !important;
   -webkit-text-fill-color: #0f172a !important;
@@ -121,7 +159,13 @@
 .theme-light .settings-modal .text-slate-500,
 .theme-light .guide-modal .text-slate-400,
 .theme-light .guide-modal .text-slate-300,
-.theme-light .guide-modal .text-slate-500 {
+.theme-light .guide-modal .text-slate-500,
+.theme-light .sos-modal .text-slate-400,
+.theme-light .sos-modal .text-slate-300,
+.theme-light .sos-modal .text-slate-500,
+.theme-light .privacy-modal .text-slate-400,
+.theme-light .privacy-modal .text-slate-300,
+.theme-light .privacy-modal .text-slate-500 {
   color: #334155 !important;
 }
 
@@ -130,7 +174,9 @@
 .theme-light .settings-modal textarea,
 .theme-light .guide-modal input,
 .theme-light .guide-modal select,
-.theme-light .guide-modal textarea {
+.theme-light .guide-modal textarea,
+.theme-light .sos-modal input,
+.theme-light .sos-modal select {
   background-color: #f8fafc !important;
   border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
@@ -141,7 +187,9 @@
 .theme-light .settings-modal textarea:focus,
 .theme-light .guide-modal input:focus,
 .theme-light .guide-modal select:focus,
-.theme-light .guide-modal textarea:focus {
+.theme-light .guide-modal textarea:focus,
+.theme-light .sos-modal input:focus,
+.theme-light .sos-modal select:focus {
   border-color: #10b981 !important;
   background-color: #ffffff !important;
   color: #000000 !important;
@@ -152,9 +200,18 @@
 .theme-light .settings-modal [class*="bg-black/"],
 .theme-light .guide-modal [class*="bg-slate-900"],
 .theme-light .guide-modal [class*="bg-slate-950"],
-.theme-light .guide-modal [class*="bg-black/"] {
+.theme-light .guide-modal [class*="bg-black/"],
+.theme-light .sos-modal [class*="bg-slate-900"],
+.theme-light .sos-modal [class*="bg-slate-950"],
+.theme-light .privacy-modal [class*="bg-slate-900"],
+.theme-light .privacy-modal [class*="bg-slate-950"] {
   background-color: #f1f5f9 !important;
   border-color: #cbd5e1 !important;
+}
+
+.theme-light .sos-modal .breathing-circle {
+  background: #ffffff !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
 }
 
 .theme-light .guide-modal [class*="bg-emerald-950/"],
@@ -212,53 +269,82 @@
   color: #334155 !important;
 }
 
-/* Vibrant readable jewel tones in Light Mode */
+/* Vibrant ultra-readable deep jewel tones in Light Mode */
 .theme-light .text-emerald-200,
 .theme-light .text-emerald-300 {
-  color: #047857 !important;
+  color: #065f46 !important; /* Deep emerald ink */
 }
 .theme-light .text-emerald-400 {
-  color: #059669 !important;
+  color: #047857 !important;
 }
 .theme-light .text-amber-100,
 .theme-light .text-amber-200,
 .theme-light .text-amber-300 {
-  color: #b45309 !important;
+  color: #92400e !important; /* Deep bronze amber ink */
 }
 .theme-light .text-amber-400 {
-  color: #d97706 !important;
+  color: #b45309 !important;
 }
 .theme-light .text-rose-200,
 .theme-light .text-rose-300 {
-  color: #be123c !important;
+  color: #9f1239 !important; /* Deep crimson ink */
 }
 .theme-light .text-rose-400 {
-  color: #e11d48 !important;
+  color: #be123c !important;
 }
 .theme-light .text-cyan-200,
-.theme-light .text-cyan-300,
+.theme-light .text-cyan-300 {
+  color: #0e7490 !important; /* Deep teal-cyan ink */
+}
 .theme-light .text-cyan-400 {
-  color: #0e7490 !important;
+  color: #0891b2 !important;
+}
+.theme-light .text-sky-200,
+.theme-light .text-sky-300 {
+  color: #0369a1 !important; /* Deep navy-sky ink */
+}
+.theme-light .text-sky-400 {
+  color: #0284c7 !important;
+}
+.theme-light .text-blue-200,
+.theme-light .text-blue-300 {
+  color: #1e40af !important; /* Deep royal blue ink */
+}
+.theme-light .text-blue-400 {
+  color: #1d4ed8 !important;
 }
 .theme-light .text-lime-200,
-.theme-light .text-lime-300,
+.theme-light .text-lime-300 {
+  color: #365314 !important; /* Deep moss-lime ink */
+}
 .theme-light .text-lime-400 {
-  color: #3f6212 !important;
+  color: #4d7c0f !important;
 }
 .theme-light .text-purple-200,
-.theme-light .text-purple-300,
+.theme-light .text-purple-300 {
+  color: #6b21a8 !important; /* Deep royal purple ink */
+}
 .theme-light .text-purple-400 {
-  color: #6d28d9 !important;
+  color: #7e22ce !important;
 }
 .theme-light .text-indigo-200,
-.theme-light .text-indigo-300,
+.theme-light .text-indigo-300 {
+  color: #3730a3 !important; /* Deep indigo ink */
+}
 .theme-light .text-indigo-400 {
   color: #4338ca !important;
 }
 .theme-light .text-teal-200,
-.theme-light .text-teal-300,
+.theme-light .text-teal-300 {
+  color: #0f766e !important; /* Deep teal ink */
+}
 .theme-light .text-teal-400 {
-  color: #0f766e !important;
+  color: #0d9488 !important;
+}
+.theme-light .text-yellow-200,
+.theme-light .text-yellow-300,
+.theme-light .text-yellow-400 {
+  color: #854d0e !important; /* Deep gold ink */
 }
 
 /* Light Mode Sub-surfaces & Inputs (Deep contrast fix) */
@@ -458,12 +544,15 @@
   box-shadow: 0 12px 30px -4px rgba(244, 63, 94, 0.14), inset 0 1px 0 0 rgba(255, 255, 255, 1);
 }
 
-/* Keep white text on solid-gradient buttons and badges in light mode */
-.theme-light [class*="bg-gradient-to-"].text-white,
-.theme-light [class*="bg-gradient-to-"] .text-white,
-.theme-light [class*="bg-gradient-to-"] svg.text-white {
-  color: #ffffff !important;
-}
+/* Keep white text ONLY on action buttons, badges and keep-white elements in light mode */
+.theme-light button[class*="bg-gradient-to-"],
+.theme-light button[class*="bg-gradient-to-"] *,
+.theme-light a[class*="bg-gradient-to-"],
+.theme-light a[class*="bg-gradient-to-"] *,
+.theme-light .keep-white,
+.theme-light .keep-white *,
+.theme-light button[class*="bg-gradient-to-"] svg,
+.theme-light .keep-white svg,
 .theme-light .bg-rose-600.text-white,
 .theme-light .bg-emerald-500.text-white {
   color: #ffffff !important;
