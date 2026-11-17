@@ -176,3 +176,5 @@ export function getHealthMilestones(lang: Language = 'en'): HealthMilestone[] {
 export function getBadges(lang: Language = 'en'): Badge[] {
   return lang === 'fr' ? BADGES_FR : ALL_BADGES;
 }
+
+export { BADGES_FR };

@@ -1,5 +1,5 @@
 import type { UserProfile, SubstanceLog, CravingEntry, Badge, StreakRecord } from '../types/index.ts';
-import { HEALTH_MILESTONES, ALL_BADGES } from './healthMilestones.ts';
+import { HEALTH_MILESTONES, ALL_BADGES, BADGES_FR } from './healthMilestones.ts';
 import { computeLevelProgress } from '../core/levels.ts';
 import type { LevelProgress } from '../core/levels.ts';
 
@@ -134,7 +134,8 @@ export function calculateStats(
 
   const elapsedHours = elapsedSeconds / 3600;
   const unlockedBadgeIds: string[] = [];
-  ALL_BADGES.forEach((badge: Badge) => {
+  const allBadgesPool: Badge[] = [...ALL_BADGES, ...BADGES_FR];
+  allBadgesPool.forEach((badge: Badge) => {
     let unlocked = false;
     switch (badge.conditionType) {
       case 'hours': unlocked = elapsedHours >= badge.conditionValue; break;
@@ -143,7 +144,7 @@ export function calculateStats(
       case 'cigsAvoided': unlocked = cigarettesAvoided >= badge.conditionValue; break;
       case 'cravingsResisted': unlocked = cravingsResistedCount >= badge.conditionValue; break;
     }
-    if (unlocked) unlockedBadgeIds.push(badge.id);
+    if (unlocked && !unlockedBadgeIds.includes(badge.id)) unlockedBadgeIds.push(badge.id);
   });
 
   return {

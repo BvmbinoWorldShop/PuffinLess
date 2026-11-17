@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
 @layer base {
   :root {
@@ -267,6 +268,147 @@
 .theme-light [class*="bg-yellow-"] .text-slate-400,
 .theme-light .glass-panel-gold .text-slate-400 {
   color: #334155 !important;
+}
+
+/* =========================================================
+   LIGHT THEME MONEY SECTION (MONEYVIEW) - 100% INK READABILITY
+   ========================================================= */
+.theme-light .money-view {
+  color: #0f172a !important;
+}
+
+.theme-light .money-view h3,
+.theme-light .money-view h4,
+.theme-light .money-view h5,
+.theme-light .money-view p,
+.theme-light .money-view span:not(.keep-white):not([class*="bg-emerald-500"]):not([class*="bg-rose-600"]):not([class*="bg-amber-500"]):not([class*="bg-gradient-"]),
+.theme-light .money-view label,
+.theme-light .money-view div:not([class*="bg-gradient-"]):not(.keep-white) {
+  color: #0f172a;
+}
+
+.theme-light .money-view .glass-panel,
+.theme-light .money-view .glass-panel-elevated {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+}
+
+.theme-light .money-view .glass-panel-gold {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+.theme-light .money-view .text-white {
+  color: #0f172a !important;
+}
+
+.theme-light .money-view [class*="text-white/"] {
+  color: #1e293b !important;
+}
+
+.theme-light .money-view .text-slate-400,
+.theme-light .money-view .text-slate-300,
+.theme-light .money-view .text-slate-500 {
+  color: #334155 !important;
+}
+
+.theme-light .money-view .text-slate-600,
+.theme-light .money-view .text-slate-700 {
+  color: #1e293b !important;
+}
+
+.theme-light .money-view .text-emerald-700,
+.theme-light .money-view .text-emerald-200,
+.theme-light .money-view .text-emerald-300,
+.theme-light .money-view .text-emerald-400 {
+  color: #047857 !important;
+}
+
+.theme-light .money-view .text-rose-700,
+.theme-light .money-view .text-rose-200,
+.theme-light .money-view .text-rose-300,
+.theme-light .money-view .text-rose-400 {
+  color: #be123c !important;
+}
+
+.theme-light .money-view .text-amber-800,
+.theme-light .money-view .text-amber-700,
+.theme-light .money-view .text-amber-200,
+.theme-light .money-view .text-amber-300,
+.theme-light .money-view .text-amber-400 {
+  color: #92400e !important;
+}
+
+.theme-light .money-view .text-purple-700,
+.theme-light .money-view .text-purple-200,
+.theme-light .money-view .text-purple-300,
+.theme-light .money-view .text-purple-400 {
+  color: #6b21a8 !important;
+}
+
+.theme-light .money-view .text-cyan-800,
+.theme-light .money-view .text-cyan-700,
+.theme-light .money-view .text-cyan-200,
+.theme-light .money-view .text-cyan-300,
+.theme-light .money-view .text-cyan-400 {
+  color: #0e7490 !important;
+}
+
+/* =========================================================
+   LIGHT THEME MILESTONE HALF WINDOW POPUP
+   ========================================================= */
+.theme-light .milestone-half-window {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+}
+
+.theme-light .milestone-half-window h3,
+.theme-light .milestone-half-window h4,
+.theme-light .milestone-half-window p,
+.theme-light .milestone-half-window span:not(.keep-white):not([class*="bg-emerald-"]):not([class*="bg-amber-"]):not([class*="bg-rose-"]):not([class*="bg-teal-"]):not([class*="bg-purple-"]):not([class*="bg-gradient-"]) {
+  color: #0f172a !important;
+}
+
+.theme-light .milestone-half-window [class*="glass-panel"] {
+  background: #f8fafc !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.theme-light .milestone-half-window .glass-panel-gold {
+  background: #fffbeb !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* =========================================================
+   LIGHT THEME TROPHY CARDS (REWARDSVIEW)
+   ========================================================= */
+.theme-light .trophy-card {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.theme-light .trophy-card .badge-title {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.theme-light .trophy-card .badge-tier {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+}
+
+/* UNIVERSAL LIGHT MODE SAFETY NET FOR TEXT-WHITE OPACITY UTILITIES */
+.theme-light [class*="text-white\/"] {
+  color: #1e293b !important;
+}
+
+.theme-light button[class*="bg-gradient-to-"] [class*="text-white\/"],
+.theme-light [class*="bg-gradient-to-"] .text-white,
+.theme-light .keep-white [class*="text-white\/"] {
+  color: #ffffff !important;
 }
 
 /* Vibrant ultra-readable deep jewel tones in Light Mode */

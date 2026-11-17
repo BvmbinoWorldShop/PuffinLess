@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Award, Trophy, Tag, Lock, FileText, Download, Sparkles } from 'lucide-react';
+import { Award, Trophy, Tag, FileText, Download, Sparkles } from 'lucide-react';
 import type { Badge, Language, UserProfile, SubstanceLog, CravingEntry, SleepEnergyEntry, PurchaseExpense } from '../types';
 import type { CoreReport } from '../core/obsidianCore';
 import { getBadges } from '../utils/healthMilestones';
@@ -8,6 +7,8 @@ import type { CalculatedStats } from '../utils/calculations';
 import { MorphicCard } from './MorphicCard';
 import { LevelLadder } from './LevelLadder';
 import { ClinicalCertificateModal } from './ClinicalCertificateModal';
+import { Medallion3D } from './Medallion3D';
+import { MilestoneHalfModal, triggerMilestoneFireworks } from './MilestoneHalfModal';
 import { sound } from '../utils/audio';
 
 interface RewardsViewProps {
@@ -90,16 +91,6 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
   const unlockedCount = stats.unlockedBadgeIds.length;
   const totalBadges = badgesList.length;
   const progressPercent = ((unlockedCount / totalBadges) * 100).toFixed(0);
-
-  const getTierBadgeColor = (tier: Badge['tier']) => {
-    switch (tier) {
-      case 'diamond': return 'from-cyan-400 to-blue-500 text-cyan-200 border-cyan-400/40';
-      case 'platinum': return 'from-indigo-400 to-purple-500 text-indigo-200 border-indigo-400/40';
-      case 'gold': return 'from-amber-400 to-yellow-600 text-amber-200 border-amber-400/40';
-      case 'silver': return 'from-slate-300 to-slate-400 text-slate-100 border-slate-300/40';
-      default: return 'from-amber-700 to-amber-900 text-amber-300 border-amber-700/40';
-    }
-  };
 
   return (
     <div className="space-y-6 pb-24 animate-fade-in">
@@ -190,63 +181,58 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white tracking-tight">
+            <Award className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
               {isFr ? 'Trophées & Jalons Débloqués' : 'Milestone Trophies'}
             </h3>
           </div>
-          <span className="text-xs text-slate-400">{isFr ? 'Touchez pour inspecter' : 'Tap to inspect'}</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{isFr ? 'Touchez pour inspecter' : 'Tap to inspect'}</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {badgesList.map((badge) => {
             const isUnlocked = stats.unlockedBadgeIds.includes(badge.id);
-            const tierStyle = getTierBadgeColor(badge.tier);
 
             return (
               <div
                 key={badge.id}
                 onClick={() => {
                   sound.playClick();
+                  if (isUnlocked) {
+                    sound.playCelebration();
+                    triggerMilestoneFireworks(badge.tier);
+                  }
                   setSelectedBadge(badge);
                 }}
-                className={`p-4 rounded-3xl border transition-all cursor-pointer relative overflow-hidden flex flex-col items-center text-center ${
+                className={`trophy-card group p-4 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden flex flex-col items-center text-center ${
                   isUnlocked
-                    ? 'glass-panel-elevated hover:scale-105 border-white/20'
-                    : 'glass-panel opacity-60 border-white/5 hover:opacity-80'
+                    ? 'glass-panel-elevated hover:scale-105 border-slate-200 dark:border-white/20 bg-white dark:bg-slate-900/70 shadow-md hover:shadow-xl'
+                    : 'glass-panel hover:scale-[1.02] border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/40 shadow-sm hover:shadow-md'
                 }`}
               >
-                {/* Glow for unlocked */}
-                {isUnlocked && (
-                  <div className="absolute -top-10 inset-x-0 h-20 bg-gradient-to-b from-amber-400/15 to-transparent blur-md pointer-events-none" />
-                )}
-
-                <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border my-2 ${
-                    isUnlocked
-                      ? `bg-gradient-to-br ${tierStyle}`
-                      : 'bg-slate-900 text-slate-600 border-white/5'
-                  }`}
-                >
-                  {isUnlocked ? (
-                    <Award className="w-7 h-7 text-white" />
-                  ) : (
-                    <Lock className="w-6 h-6 text-slate-600" />
-                  )}
+                {/* Illumination Hover Halo & 2D/3D Medallion Centerpiece */}
+                <div className="my-1.5 transition-transform duration-300 group-hover:scale-110">
+                  <Medallion3D
+                    tier={badge.tier}
+                    iconName={badge.icon}
+                    isUnlocked={isUnlocked}
+                    size="md"
+                    showGlow={isUnlocked}
+                  />
                 </div>
 
-                <span className="text-xs font-bold text-white mt-1 line-clamp-1">
+                <span className="badge-title text-xs font-bold text-slate-900 dark:text-white mt-2 line-clamp-1 group-hover:text-amber-800 dark:group-hover:text-amber-300 transition-colors">
                   {badge.title}
                 </span>
 
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 capitalize mt-0.5">
+                <span className="badge-tier text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 capitalize mt-0.5">
                   {isFr ? `Rang ${badge.tier}` : `${badge.tier} Tier`}
                 </span>
 
-                <span className={`text-[10px] mt-2 px-2 py-0.5 rounded-full font-semibold ${
+                <span className={`text-[10px] mt-2 px-2.5 py-0.5 rounded-full font-bold transition-all ${
                   isUnlocked
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-slate-800 text-slate-500'
+                    ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-white/10'
                 }`}>
                   {isUnlocked ? (isFr ? 'Gagné ✓' : 'Earned ✓') : (isFr ? 'Verrouillé' : 'Locked')}
                 </span>
@@ -260,12 +246,12 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-bold text-white tracking-tight">
+            <Tag className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
               {isFr ? 'Offres & Privilèges Partenaires' : 'VIP Quitter Perks & Offers'}
             </h3>
           </div>
-          <span className="text-xs text-slate-400">{isFr ? 'Avantages Exclusifs' : 'Exclusive Deals'}</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{isFr ? 'Avantages Exclusifs' : 'Exclusive Deals'}</span>
         </div>
 
         <div className="space-y-3">
@@ -305,47 +291,16 @@ export const RewardsView: React.FC<RewardsViewProps> = ({
         </div>
       </div>
 
-      {/* Badge Modal Inspection - Portaled directly to body to ensure viewport centering regardless of scroll position */}
-      {selectedBadge && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={() => setSelectedBadge(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-3xl glass-panel-elevated p-6 text-center border border-white/20 shadow-2xl bg-slate-950/95"
-          >
-            <div
-              className={`w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-xl border my-2 ${
-                stats.unlockedBadgeIds.includes(selectedBadge.id)
-                  ? `bg-gradient-to-br ${getTierBadgeColor(selectedBadge.tier)}`
-                  : 'bg-slate-900 text-slate-600 border-white/5'
-              }`}
-            >
-              <Award className="w-10 h-10 text-white" />
-            </div>
-
-            <h3 className="text-xl font-bold text-white mt-3">{selectedBadge.title}</h3>
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block mt-1">
-              {isFr ? `Badge de Prestige Rang ${selectedBadge.tier}` : `${selectedBadge.tier} Prestige Badge`}
-            </span>
-
-            <p className="text-xs text-slate-300 mt-3 leading-relaxed">
-              {selectedBadge.description}
-            </p>
-
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <button
-                onClick={() => setSelectedBadge(null)}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors cursor-pointer"
-              >
-                {isFr ? 'Fermer' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Interactive Milestone 3D Half-Window Modal with Fireworks and Personalized Message */}
+      <MilestoneHalfModal
+        badge={selectedBadge}
+        isOpen={!!selectedBadge}
+        onClose={() => setSelectedBadge(null)}
+        profile={profile || ({ name: isFr ? 'Champion' : 'Champion', language, currency } as UserProfile)}
+        language={language}
+        moneySaved={stats.moneySaved}
+        isUnlocked={selectedBadge ? stats.unlockedBadgeIds.includes(selectedBadge.id) : false}
+      />
 
       {/* Official Certificate Modal */}
       <ClinicalCertificateModal

@@ -151,21 +151,21 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24 animate-fade-in">
+    <div className="money-view space-y-6 pb-24 animate-fade-in">
       {/* 1. Header Vault with Money Preserved vs Money Spent */}
       <MorphicCard variant="gold" className="relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-amber-400/15 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
               <Coins className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 dark:text-amber-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
                 {isFr ? 'Centre Financier PuffinLess' : 'PuffinLess Money Center'}
               </span>
-              <p className="text-[11px] text-white/95 font-medium leading-tight">
+              <p className="text-[11px] text-slate-800 dark:text-amber-100/90 font-medium leading-tight">
                 {isFr ? 'Suivi précis des dépenses, du capital préservé et des intérêts composés' : 'Track spending, compounded loss & preserved capital'}
               </p>
             </div>
@@ -177,36 +177,36 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             }}
             title={isFr ? 'Noter un Achat' : 'Add Purchase'}
             aria-label={isFr ? 'Noter un Achat' : 'Add Purchase'}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-200 hover:bg-amber-500/40 hover:scale-105 active:scale-95 flex items-center justify-center font-bold transition-all shadow-md shrink-0"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/40 hover:scale-105 active:scale-95 flex items-center justify-center font-bold transition-all shadow-md shrink-0 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-amber-300" />
+            <Plus className="w-4 h-4 text-amber-800 dark:text-amber-300" />
           </button>
         </div>
 
         {/* 2 Big Totals Comparison */}
         <div className="grid grid-cols-2 gap-3 py-2 text-center">
-          <div className="p-3.5 rounded-2xl glass-panel border border-emerald-500/30">
-            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold flex items-center justify-center gap-1">
+          <div className="p-3.5 rounded-2xl glass-panel border border-emerald-500/30 bg-white/95 dark:bg-slate-900/60">
+            <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-bold flex items-center justify-center gap-1">
               <TrendingUp className="w-3 h-3" />
               {isFr ? 'Économisé & Préservé' : 'Preserved / Saved'}
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-200 mt-1">
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-200 mt-1 tabular-nums">
               {profile.currency}{stats.moneySaved.toLocaleString()}
             </div>
-            <p className="text-[11px] text-white/90 font-medium mt-1">
+            <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-1">
               {isFr ? 'Resté dans votre poche' : 'Kept in your pocket'}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/30">
-            <span className="text-[10px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-center gap-1">
+          <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/30 bg-white/95 dark:bg-slate-900/60">
+            <span className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400 font-bold flex items-center justify-center gap-1">
               <TrendingDown className="w-3 h-3" />
               {isFr ? 'Achats Enregistrés' : 'Logged Purchases'}
             </span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-rose-200 mt-1">
+            <div className="text-2xl sm:text-3xl font-extrabold text-rose-700 dark:text-rose-200 mt-1 tabular-nums">
               {profile.currency}{totalMoneySpent.toLocaleString()}
             </div>
-            <p className="text-[11px] text-white/90 font-medium mt-1">
+            <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-1">
               {isFr ? `${expenses.length} achats enregistrés` : `${expenses.length} purchases recorded`}
             </p>
           </div>
@@ -214,7 +214,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       </MorphicCard>
 
       {/* 2. Sub-Tabs: Overview & Harm Report | Purchases History | Wishlist Goals */}
-      <div className="flex rounded-2xl p-1 bg-slate-900/60 border border-white/10">
+      <div className="flex rounded-2xl p-1 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10">
         <button
           onClick={() => {
             sound.playClick();
@@ -222,8 +222,8 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           }}
           className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
             activeTab === 'overview'
-              ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm font-bold'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           {isFr ? 'Impact Santé & Fortune' : 'Health & Wealth Impact'}
@@ -235,8 +235,8 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           }}
           className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
             activeTab === 'expenses'
-              ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm font-bold'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           {isFr ? `Achats (${expenses.length})` : `Purchases (${expenses.length})`}
@@ -248,8 +248,8 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           }}
           className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all ${
             activeTab === 'goals'
-              ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm font-bold'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           {isFr ? 'Projets d\'Épargne' : 'Wishlist Goals'}
@@ -259,18 +259,18 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       {/* TAB 1: Scientific Damage & Compounded Wealth Report */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          <MorphicCard variant="elevated" className="space-y-4">
+          <MorphicCard variant="elevated" className="space-y-4 bg-white/95 dark:bg-slate-950/90">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-bold text-white tracking-tight">
+                <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   {isFr ? 'Calculateur d\'Impact Clinique & Financier' : 'Clinical Habit Cost Calculator'}
                 </h3>
               </div>
-              <span className="text-[11px] text-white/80 font-medium">BMJ & CDC Medical Benchmarks</span>
+              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">BMJ & CDC Medical Benchmarks</span>
             </div>
 
-            <p className="text-xs text-white/95 leading-relaxed font-normal">
+            <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-normal">
               {isFr
                 ? 'Chaque achat de tabac, de vape, d\'herbe ou d\'accessoires prélève un double tribut : l\'érosion de votre capital et l\'usure biologique accélérée de vos organes.'
                 : 'Every purchase of cigarettes, vape pods, weed, or rolling gear extracts a dual toll: instant wealth erosion plus biological depreciation.'}
@@ -278,15 +278,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
             <div className="grid grid-cols-2 gap-2.5">
               {/* 10-Year Opportunity Cost */}
-              <div className="p-3 rounded-2xl glass-panel border border-amber-500/30 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+              <div className="p-3 rounded-2xl glass-panel border border-amber-500/30 space-y-1 bg-white/90 dark:bg-slate-900/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
                   {isFr ? 'Perte Investie sur 10 Ans' : '10-Yr Invested Loss'}
                 </span>
-                <div className="text-xl font-extrabold text-amber-200">
+                <div className="text-xl font-extrabold text-amber-800 dark:text-amber-200 tabular-nums">
                   {profile.currency}{harmReport.opportunityCost10Years.toLocaleString()}
                 </div>
-                <p className="text-[11px] text-white/85 leading-tight font-medium">
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight font-medium">
                   {isFr
                     ? 'Valeur si cette somme était investie en ETF monde à 7% d\'intérêts composés annuels.'
                     : 'Value if invested in S&P 500 at 7% compound annual return instead of smoke.'}
@@ -294,15 +294,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               {/* Life Lost Hours */}
-              <div className="p-3 rounded-2xl glass-panel border border-rose-500/30 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
+              <div className="p-3 rounded-2xl glass-panel border border-rose-500/30 space-y-1 bg-white/90 dark:bg-slate-900/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {isFr ? 'Espérance de Vie Perdue' : 'Life Lost to Toxins'}
                 </span>
-                <div className="text-xl font-extrabold text-rose-200">
+                <div className="text-xl font-extrabold text-rose-700 dark:text-rose-200 tabular-nums">
                   {harmReport.estimatedLifeLostHours} <span className="text-xs font-normal">{isFr ? 'heures' : 'hrs'}</span>
                 </div>
-                <p className="text-[11px] text-white/85 leading-tight font-medium">
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight font-medium">
                   {isFr
                     ? 'Selon le British Medical Journal : 11 min par cigarette / joint consumé.'
                     : 'Based on British Medical Journal: 11 mins per cigarette / joint combustion.'}
@@ -310,15 +310,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               {/* Sleep Architecture Disruption */}
-              <div className="p-3 rounded-2xl glass-panel border border-purple-500/30 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+              <div className="p-3 rounded-2xl glass-panel border border-purple-500/30 space-y-1 bg-white/90 dark:bg-slate-900/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 flex items-center gap-1">
                   <Moon className="w-3 h-3" />
                   {isFr ? 'Chute du Sommeil Paradoxal' : 'REM Sleep Penalty'}
                 </span>
-                <div className="text-xl font-extrabold text-purple-200">
+                <div className="text-xl font-extrabold text-purple-700 dark:text-purple-200 tabular-nums">
                   -{harmReport.sleepEfficiencyLossPercent}%
                 </div>
-                <p className="text-[11px] text-white/85 leading-tight font-medium">
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight font-medium">
                   {isFr
                     ? 'La nicotine et le THC suppriment les phases profondes de régénération cérébrale.'
                     : 'Nicotine & THC suppress Stage 4 restorative dreaming sleep.'}
@@ -326,15 +326,15 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               {/* Toxic Particulate Index */}
-              <div className="p-3 rounded-2xl glass-panel border border-cyan-500/30 space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+              <div className="p-3 rounded-2xl glass-panel border border-cyan-500/30 space-y-1 bg-white/90 dark:bg-slate-900/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-400 flex items-center gap-1">
                   <Wind className="w-3 h-3" />
                   {isFr ? 'Charge Toxique Pulmonaire' : 'Lung Particle Load'}
                 </span>
-                <div className="text-xl font-extrabold text-cyan-200">
+                <div className="text-xl font-extrabold text-cyan-800 dark:text-cyan-200 tabular-nums">
                   {harmReport.toxicLoadIndex} <span className="text-xs font-normal">/ 100</span>
                 </div>
-                <p className="text-[11px] text-white/85 leading-tight font-medium">
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight font-medium">
                   {isFr
                     ? 'Dépôts alvéolaires estimés de goudrons, d\'acroléine et de métaux lourds chauffés.'
                     : 'Estimated alveolar sediment from tar, acrolein, and heated aerosols.'}
@@ -346,10 +346,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           {/* Compound Wealth Forecasts */}
           <MorphicCard variant="default">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                 {isFr ? 'Horizons d\'Épargne & Projections' : 'Projected Freedom Horizons'}
               </h4>
-              <span className="text-[11px] text-emerald-400 font-semibold">
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
                 {isFr ? 'Capitalisation d\'une Vie Propre' : 'Clean Living Compounding'}
               </span>
             </div>
@@ -360,12 +360,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 { period: isFr ? '1 An' : '1 Year', amount: (dailyCost * 365).toFixed(0), label: isFr ? 'Voyage international' : 'International trip' },
                 { period: isFr ? '5 Ans' : '5 Years', amount: (dailyCost * 365 * 5).toFixed(0), label: isFr ? 'Apport pour un bien / Voiture' : 'Car down-payment' },
               ].map((h) => (
-                <div key={h.period} className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5 space-y-0.5">
-                  <span className="text-[11px] font-bold text-white">{h.period}</span>
-                  <div className="text-sm font-extrabold text-emerald-300">
+                <div key={h.period} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 space-y-0.5">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-white">{h.period}</span>
+                  <div className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
                     {profile.currency}{Number(h.amount).toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-white/80 block truncate font-medium">{h.label}</span>
+                  <span className="text-[10px] text-slate-600 dark:text-slate-400 block truncate font-medium">{h.label}</span>
                 </div>
               ))}
             </div>
@@ -377,7 +377,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       {activeTab === 'expenses' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               {isFr ? 'Historique des Dépenses (Tabac, Vape, Herbe, Feuilles)' : 'Expense Log (Cigs, Weed, Vapes, Papers)'}
             </span>
             <button
@@ -385,7 +385,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 sound.playClick();
                 setIsExpenseModalOpen(true);
               }}
-              className="flex items-center gap-1 text-xs text-amber-400 hover:underline font-semibold"
+              className="flex items-center gap-1 text-xs text-amber-800 dark:text-amber-400 hover:underline font-bold cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isFr ? 'Ajouter' : 'Add Item'}</span>
@@ -393,7 +393,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
           </div>
 
           {expenses.length === 0 ? (
-            <p className="text-xs text-white/85 py-6 text-center font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 py-6 text-center font-medium">
               {isFr ? 'Aucun achat enregistré. Bravo pour avoir gardé votre argent intact !' : 'No purchases recorded. Click "Add Purchase" above to track your spending.'}
             </p>
           ) : (
@@ -404,7 +404,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 const totalItemCost = exp.price * exp.quantity;
 
                 return (
-                  <MorphicCard key={exp.id} variant="default" className="border-white/10 p-3.5">
+                  <MorphicCard key={exp.id} variant="default" className="border-slate-200 dark:border-white/10 p-3.5 bg-white/95 dark:bg-slate-950/80">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5">
                         <div className={`p-2 rounded-xl border ${badge.color}`}>
@@ -412,22 +412,22 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-bold text-white">{exp.title}</h4>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">{exp.title}</h4>
                             <span className={`text-[9px] px-1.5 py-0.2 rounded-full border font-bold ${badge.color}`}>
                               {badge.label}
                             </span>
                           </div>
-                          <p className="text-[11px] text-white/90 mt-0.5 font-medium">
+                          <p className="text-[11px] text-slate-700 dark:text-slate-300 mt-0.5 font-medium tabular-nums">
                             {exp.quantity}x @ {profile.currency}{exp.price.toFixed(2)} • {new Date(exp.timestamp).toLocaleDateString()}
                           </p>
                           {exp.note && (
-                            <p className="text-[10px] text-white/75 italic mt-0.5">{exp.note}</p>
+                            <p className="text-[10px] text-slate-600 dark:text-slate-400 italic mt-0.5">{exp.note}</p>
                           )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-extrabold text-rose-300">
+                        <span className="text-sm font-extrabold text-rose-700 dark:text-rose-300 tabular-nums">
                           -{profile.currency}{totalItemCost.toFixed(2)}
                         </span>
                         <button
@@ -435,7 +435,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                             sound.playClick();
                             onDeleteExpense(exp.id);
                           }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
+                          className="p-1 rounded-lg text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
                           title="Delete expense"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -455,8 +455,8 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-amber-400" />
-              <h3 className="text-sm font-bold text-white tracking-tight">
+              <Target className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 {isFr ? 'Objectifs d\'Épargne & Projets' : 'Dream Wishlist Goals'}
               </h3>
             </div>
@@ -465,7 +465,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 sound.playClick();
                 setIsGoalModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/30 text-xs font-bold transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isFr ? 'Nouveau Projet' : 'New Goal'}</span>
@@ -483,43 +483,43 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                 <MorphicCard
                   key={g.id}
                   variant={g.completed ? 'default' : isFunded ? 'gold' : 'elevated'}
-                  className="space-y-3"
+                  className="space-y-3 bg-white/95 dark:bg-slate-950/80"
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">{g.title}</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{g.title}</span>
                         {g.completed && (
-                          <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                          <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-bold">
                             {isFr ? 'RÉALISÉ' : 'COMPLETED'}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-white/90 mt-0.5 font-medium">
-                        {isFr ? 'Objectif :' : 'Goal:'} <b className="text-white">{profile.currency}{g.targetAmount}</b>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 font-medium">
+                        {isFr ? 'Objectif :' : 'Goal:'} <b className="text-slate-900 dark:text-white font-bold">{profile.currency}{g.targetAmount}</b>
                       </p>
                     </div>
 
-                    <span className="text-sm font-extrabold text-amber-300">
+                    <span className="text-sm font-extrabold text-amber-800 dark:text-amber-300 tabular-nums">
                       {progress}%
                     </span>
                   </div>
 
-                  <div className="w-full h-2 rounded-full bg-slate-900/80 overflow-hidden border border-white/5">
+                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-900/80 overflow-hidden border border-slate-300 dark:border-white/5">
                     <div
                       className={`h-full rounded-full transition-all duration-1000 ${
                         isFunded
-                          ? 'bg-gradient-to-r from-emerald-400 to-teal-400'
-                          : 'bg-gradient-to-r from-amber-400 to-amber-500'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                          : 'bg-gradient-to-r from-amber-500 to-amber-600'
                       }`}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-white/90 font-medium">
+                  <div className="flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300 font-medium">
                     <span>
                       {isFunded ? (
-                        <span className="text-amber-300 font-semibold flex items-center gap-1">
+                        <span className="text-amber-800 dark:text-amber-300 font-bold flex items-center gap-1">
                           <Sparkles className="w-3.5 h-3.5" />
                           {isFr ? 'Financé avec vos économies !' : 'Ready to buy with saved cash!'}
                         </span>
@@ -536,13 +536,13 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                           sound.playClick();
                           onToggleGoalComplete(g.id);
                         }}
-                        className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all ${
+                        className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-xl border transition-all cursor-pointer font-bold ${
                           g.completed
-                            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
-                            : 'glass-button text-slate-400 hover:text-white'
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                            : 'glass-button text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
-                        <CheckCircle className="w-3 h-3" />
+                        <CheckCircle className="w-3.5 h-3.5" />
                         <span>{g.completed ? (isFr ? 'Acheté ✓' : 'Claimed') : (isFr ? 'Valider l\'achat' : 'Mark Claimed')}</span>
                       </button>
                       {onDeleteGoal && (
@@ -551,7 +551,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                             sound.playClick();
                             onDeleteGoal(g.id);
                           }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
                           title={isFr ? 'Supprimer cet objectif' : 'Delete goal'}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -569,18 +569,18 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       {/* Add Expense Purchase Modal */}
       {isExpenseModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-md rounded-3xl glass-panel-elevated p-6 border border-white/15 shadow-2xl">
+          <div className="settings-modal relative w-full max-w-md rounded-3xl glass-panel-elevated p-6 border border-slate-300 dark:border-white/15 shadow-2xl bg-white dark:bg-slate-950/98 text-slate-900 dark:text-white">
             <button
               onClick={() => setIsExpenseModalOpen(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-lg font-bold text-white mb-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
               {isFr ? 'Enregistrer une dépense' : 'Log an Expense'}
             </h3>
-            <p className="text-xs text-white/90 mb-4 font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 mb-4 font-medium">
               {isFr
                 ? 'Mesurez précisément le cash englouti dans les paquets, puffs, herbe et accessoires.'
                 : 'Track how much cash is going into cigarettes, weed, vapes, papers, and lighters.'}
@@ -588,7 +588,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
             <form onSubmit={handleCreateExpense} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Catégorie d\'article' : 'Item Category'}
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -606,10 +606,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                       key={cat.id}
                       type="button"
                       onClick={() => setItemType(cat.id)}
-                      className={`p-2 rounded-xl text-xs font-medium border text-center transition-all ${
+                      className={`p-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
                         itemType === cat.id
-                          ? 'bg-amber-500/25 border-amber-400/50 text-amber-200'
-                          : 'bg-slate-900/40 border-white/10 text-slate-300 hover:text-white'
+                          ? 'bg-amber-500/25 border-amber-500 text-amber-800 dark:text-amber-200 font-bold'
+                          : 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {cat.label}
@@ -619,7 +619,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Description de l\'article' : 'Item Description'}
                 </label>
                 <input
@@ -628,13 +628,13 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   value={expenseTitle}
                   onChange={(e) => setExpenseTitle(e.target.value)}
                   placeholder={isFr ? 'ex: Paquet Marlboro, Elfbar 600, Feuilles RAW' : 'e.g. Camel Blue Pack, RAW Papers, Vape Pod'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-white mb-1">
+                  <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                     {isFr ? 'Prix unitaire' : 'Price'} ({profile.currency})
                   </label>
                   <input
@@ -644,12 +644,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                     value={expensePrice}
                     onChange={(e) => setExpensePrice(e.target.value)}
                     placeholder={isFr ? 'ex: 12.50' : 'e.g. 12.50'}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-white mb-1">
+                  <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                     {isFr ? 'Quantité' : 'Quantity'}
                   </label>
                   <input
@@ -659,13 +659,13 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                     value={expenseQuantity}
                     onChange={(e) => setExpenseQuantity(e.target.value)}
                     placeholder="1"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Note (optionnelle)' : 'Note (Optional)'}
                 </label>
                 <input
@@ -673,14 +673,14 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   value={expenseNote}
                   onChange={(e) => setExpenseNote(e.target.value)}
                   placeholder={isFr ? 'Acheté en soirée, coup de stress...' : 'Bought at station, feeling stressed...'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/25 hover:from-amber-400 hover:to-amber-500 transition-all"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/25 hover:from-amber-400 hover:to-amber-500 transition-all cursor-pointer keep-white"
                 >
                   {isFr ? 'Enregistrer cet Achat' : 'Record Expense'}
                 </button>
@@ -693,18 +693,18 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       {/* Add Goal Modal */}
       {isGoalModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-md rounded-3xl glass-panel-elevated p-6 border border-white/15 shadow-2xl">
+          <div className="settings-modal relative w-full max-w-md rounded-3xl glass-panel-elevated p-6 border border-slate-300 dark:border-white/15 shadow-2xl bg-white dark:bg-slate-950/98 text-slate-900 dark:text-white">
             <button
               onClick={() => setIsGoalModalOpen(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 w-8 h-8 rounded-full glass-button flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-lg font-bold text-white mb-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
               {isFr ? 'Créer un Projet d\'Épargne' : 'Create Wishlist Goal'}
             </h3>
-            <p className="text-xs text-white/90 mb-4 font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 mb-4 font-medium">
               {isFr
                 ? 'Récompensez-vous avec un cadeau qui vous passionne grâce à l\'argent sauvé.'
                 : 'Reward yourself with something you love using your unburned money.'}
@@ -712,7 +712,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
 
             <form onSubmit={handleCreateGoal} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Nom du projet' : 'Goal Name'}
                 </label>
                 <input
@@ -721,12 +721,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={isFr ? 'ex: Casque Sony WH-1000XM5, Week-end à Rome' : 'e.g. Sony WH-1000XM5 Headphones'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Montant cible' : 'Target Cost'} ({profile.currency})
                 </label>
                 <input
@@ -736,12 +736,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                   value={newAmount}
                   onChange={(e) => setNewAmount(e.target.value)}
                   placeholder={isFr ? 'ex: 399' : 'e.g. 399'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white mb-1">
+                <label className="block text-xs font-semibold text-slate-900 dark:text-white mb-1">
                   {isFr ? 'Catégorie' : 'Category'}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -750,10 +750,10 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                       key={cat}
                       type="button"
                       onClick={() => setNewCategory(cat)}
-                      className={`p-2 rounded-xl text-xs font-medium capitalize border text-center transition-all ${
+                      className={`p-2 rounded-xl text-xs font-medium capitalize border text-center transition-all cursor-pointer ${
                         newCategory === cat
-                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-200'
-                          : 'bg-slate-900/40 border-white/10 text-slate-400 hover:text-white'
+                          ? 'bg-amber-500/25 border-amber-500 text-amber-800 dark:text-amber-200 font-bold'
+                          : 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {cat === 'tech' ? (isFr ? 'Tech' : 'Tech') :
@@ -769,7 +769,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition-all"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition-all cursor-pointer keep-white"
                 >
                   {isFr ? 'Enregistrer le Projet' : 'Save Goal'}
                 </button>
